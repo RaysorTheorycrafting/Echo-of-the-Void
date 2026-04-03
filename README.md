@@ -4,7 +4,7 @@ Echo of the Void is a NeoForge horror-atmosphere mod for Minecraft 1.21.1.
 It focuses on tension building, uncanny ambient behavior, and high-pressure special events.
 
 ## Downloads
-Use official builds from GitHub Releases:
+Use official builds:
 - Repository: https://github.com/RaysorTheorycrafting/Echo-of-the-Void
 - Releases: https://github.com/RaysorTheorycrafting/Echo-of-the-Void/releases
 - CurseForge: https://www.curseforge.com/minecraft/mc-mods/echo-of-the-void/files

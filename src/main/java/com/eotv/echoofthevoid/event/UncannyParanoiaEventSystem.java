@@ -131,8 +131,10 @@ import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 import net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent;
 import net.neoforged.neoforge.event.entity.living.LivingEntityUseItemEvent;
 import net.neoforged.neoforge.event.entity.EntityLeaveLevelEvent;
+import net.neoforged.neoforge.event.entity.EntityMountEvent;
 import net.neoforged.neoforge.event.level.BlockEvent;
 import net.neoforged.neoforge.event.entity.player.CanPlayerSleepEvent;
+import net.neoforged.neoforge.event.tick.EntityTickEvent;
 import net.neoforged.neoforge.event.tick.PlayerTickEvent;
 import net.neoforged.fml.ModList;
 import net.neoforged.neoforge.network.PacketDistributor;
@@ -1359,6 +1361,48 @@ public final class UncannyParanoiaEventSystem {
                 warden.isRemoved(),
                 String.valueOf(warden.getRemovalReason()),
                 warden.isAlive());
+    }
+
+    public static void onEntityMount(EntityMountEvent event) {
+        if (!event.isMounting()) {
+            return;
+        }
+        Entity mounting = event.getEntityMounting();
+        Entity vehicle = event.getEntityBeingMounted();
+        if (!(vehicle instanceof Boat)) {
+            return;
+        }
+        if (!isRestrictedBoatPassenger(mounting)) {
+            return;
+        }
+        event.setCanceled(true);
+        if (mounting instanceof Mob mob) {
+            mob.getNavigation().stop();
+        }
+    }
+
+    public static void onEntityTick(EntityTickEvent.Post event) {
+        Entity entity = event.getEntity();
+        if (entity.level().isClientSide()) {
+            return;
+        }
+        if (!isRestrictedBoatPassenger(entity)) {
+            return;
+        }
+        if (!(entity.getVehicle() instanceof Boat)) {
+            return;
+        }
+        entity.stopRiding();
+        if (entity instanceof Mob mob) {
+            mob.getNavigation().stop();
+        }
+    }
+
+    private static boolean isRestrictedBoatPassenger(Entity entity) {
+        if (entity instanceof Warden warden && warden.getTags().contains(GRAND_WARDEN_TAG)) {
+            return true;
+        }
+        return entity instanceof Mob mob && UncannyEntityRegistry.isSpecialEntity(mob.getType());
     }
 
     private static boolean tryTriggerWorkbenchRejectOnInteract(ServerPlayer player, long now) {
