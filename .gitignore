@@ -1,0 +1,21 @@
+# Ignore tout par défaut
+/*
+
+# Garde le fichier .gitignore lui-même
+!/.gitignore
+
+# Dossiers à conserver
+!/Changelog/
+!/Changelog/**
+!/src/
+!/src/**
+!/gradle/
+!/gradle/**
+
+# Fichiers à conserver
+!/build.gradle
+!/gradle.properties
+!/gradlew
+!/gradlew.bat
+!/README.md
+!/settings.gradle

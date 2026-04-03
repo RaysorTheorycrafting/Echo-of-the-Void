@@ -1,0 +1,18 @@
+{
+    "structures":  [
+                       {
+                           "structure":  "echoofthevoid:watching_tower",
+                           "weight":  1
+                       }
+                   ],
+    "placement":  {
+                      "type":  "minecraft:random_spread",
+                      "spacing": 80,
+                      "separation": 28,
+                      "salt":  17202
+                  }
+}
+
+
+
+

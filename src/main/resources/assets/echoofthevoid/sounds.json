@@ -1,0 +1,276 @@
+{
+  "uncanny_hurler_scream": {
+    "subtitle": "entity.echoofthevoid.uncanny_hurler",
+    "sounds": [
+      "echoofthevoid:uncanny/hurler/hurler_scream_1",
+      "echoofthevoid:uncanny/hurler/hurler_scream_2",
+      "echoofthevoid:uncanny/hurler/hurler_scream_3"
+    ]
+  },
+  "uncanny_knocker_knock": {
+    "subtitle": "entity.echoofthevoid.uncanny_knocker",
+    "sounds": [
+      "echoofthevoid:uncanny/knocker/knocker_knock_1"
+    ]
+  },
+  "uncanny_fox_scream": {
+    "subtitle": "entity.echoofthevoid.uncanny_fox",
+    "sounds": [
+      "echoofthevoid:uncanny/fox/fox_scream_1"
+    ]
+  },
+  "uncanny_heartbeat": {
+    "subtitle": "entity.echoofthevoid.uncanny_heartbeat",
+    "sounds": [
+      "echoofthevoid:uncanny/fish/heartbeat_1"
+    ]
+  },
+  "uncanny_monster_breath": {
+    "subtitle": "entity.echoofthevoid.uncanny_breath",
+    "sounds": [
+      "echoofthevoid:uncanny/breath/monster_breath_1"
+    ]
+  },
+  "uncanny_scary_laugh": {
+    "subtitle": "entity.echoofthevoid.uncanny_laugh",
+    "sounds": [
+      "echoofthevoid:uncanny/events/scary_laugh_1"
+    ]
+  },
+  "uncanny_whisper": {
+    "subtitle": "entity.echoofthevoid.uncanny_whisper",
+    "sounds": [
+      "echoofthevoid:uncanny/events/whisper_1",
+      "echoofthevoid:uncanny/events/whisper_2"
+    ]
+  },
+  "uncanny_tinnitus": {
+    "subtitle": "entity.echoofthevoid.uncanny_tinnitus",
+    "sounds": [
+      "echoofthevoid:uncanny/events/tinnitus_1"
+    ]
+  },
+  "uncanny_psss": {
+    "subtitle": "entity.echoofthevoid.uncanny_psss",
+    "sounds": [
+      "echoofthevoid:uncanny/events/psss_1"
+    ]
+  },
+  "uncanny_follow_me_creature_glitch": {
+    "subtitle": "entity.echoofthevoid.uncanny_follow_me",
+    "sounds": [
+      "echoofthevoid:uncanny/events/follow_me_creature_glitch_v1"
+    ]
+  },
+  "uncanny_grandevent_dont_move": {
+    "subtitle": "event.echoofthevoid.grandevent_dont_move",
+    "sounds": [
+      "echoofthevoid:uncanny/events/dont_move_creature_softglitch"
+    ]
+  },
+  "uncanny_grandevent_dont_make_a_sound": {
+    "subtitle": "event.echoofthevoid.grandevent_dont_make_a_sound",
+    "sounds": [
+      "echoofthevoid:uncanny/events/dont_make_a_sound_creature_softglitch"
+    ]
+  },
+  "uncanny_grandevent_it_is_here": {
+    "subtitle": "event.echoofthevoid.grandevent_it_is_here",
+    "sounds": [
+      "echoofthevoid:uncanny/events/it_is_here_creature_softglitch"
+    ]
+  },
+  "ore_inside_knock": {
+    "subtitle": "event.echoofthevoid.ore_inside_knock",
+    "sounds": [
+      "echoofthevoid:uncanny/events/ore_inside_knock"
+    ]
+  },
+  "campfire_cough_creepy": {
+    "subtitle": "event.echoofthevoid.campfire_cough_creepy",
+    "sounds": [
+      "echoofthevoid:uncanny/events/campfire_cough_creepy"
+    ]
+  },
+  "uncanny_zombie_tall_ambient": {
+    "subtitle": "entity.echoofthevoid.uncanny_zombie",
+    "sounds": [
+      "echoofthevoid:uncanny/zombie_tall/zombie_tall_ambient_1",
+      "echoofthevoid:uncanny/zombie_tall/zombie_tall_ambient_2",
+      "echoofthevoid:uncanny/zombie_tall/zombie_tall_ambient_3"
+    ]
+  },
+  "uncanny_zombie_tall_hurt": {
+    "subtitle": "entity.echoofthevoid.uncanny_zombie",
+    "sounds": [
+      "echoofthevoid:uncanny/zombie_tall/zombie_tall_hurt_1",
+      "echoofthevoid:uncanny/zombie_tall/zombie_tall_hurt_2"
+    ]
+  },
+  "uncanny_zombie_tall_death": {
+    "subtitle": "entity.echoofthevoid.uncanny_zombie",
+    "sounds": [
+      "echoofthevoid:uncanny/zombie_tall/zombie_tall_death_1"
+    ]
+  },
+  "uncanny_zombie_tall_step": {
+    "subtitle": "entity.echoofthevoid.uncanny_zombie",
+    "sounds": [
+      "echoofthevoid:uncanny/zombie_tall/zombie_tall_step_1",
+      "echoofthevoid:uncanny/zombie_tall/zombie_tall_step_2",
+      "echoofthevoid:uncanny/zombie_tall/zombie_tall_step_3",
+      "echoofthevoid:uncanny/zombie_tall/zombie_tall_step_4",
+      "echoofthevoid:uncanny/zombie_tall/zombie_tall_step_5"
+    ]
+  },
+  "uncanny_villager_flat_ambient": {
+    "subtitle": "entity.echoofthevoid.uncanny_structure_villager",
+    "sounds": [
+      "echoofthevoid:uncanny/villager_flat/ambient_1",
+      "echoofthevoid:uncanny/villager_flat/ambient_2",
+      "echoofthevoid:uncanny/villager_flat/ambient_3"
+    ]
+  },
+  "uncanny_villager_flat_hurt": {
+    "subtitle": "entity.echoofthevoid.uncanny_structure_villager",
+    "sounds": [
+      "echoofthevoid:uncanny/villager_flat/hurt_1",
+      "echoofthevoid:uncanny/villager_flat/hurt_2",
+      "echoofthevoid:uncanny/villager_flat/hurt_3"
+    ]
+  },
+  "uncanny_villager_flat_death": {
+    "subtitle": "entity.echoofthevoid.uncanny_structure_villager",
+    "sounds": [
+      "echoofthevoid:uncanny/villager_flat/death_1"
+    ]
+  },
+  "uncanny_villager_flat_trade": {
+    "subtitle": "entity.echoofthevoid.uncanny_structure_villager",
+    "sounds": [
+      "echoofthevoid:uncanny/villager_flat/trade_1",
+      "echoofthevoid:uncanny/villager_flat/trade_2",
+      "echoofthevoid:uncanny/villager_flat/trade_3"
+    ]
+  },
+  "uncanny_villager_huge_long_wide_ambient": {
+    "subtitle": "entity.echoofthevoid.uncanny_structure_villager",
+    "sounds": [
+      "echoofthevoid:uncanny/villager_huge_long_wide/ambient_1",
+      "echoofthevoid:uncanny/villager_huge_long_wide/ambient_2",
+      "echoofthevoid:uncanny/villager_huge_long_wide/ambient_3"
+    ]
+  },
+  "uncanny_villager_huge_long_wide_hurt": {
+    "subtitle": "entity.echoofthevoid.uncanny_structure_villager",
+    "sounds": [
+      "echoofthevoid:uncanny/villager_huge_long_wide/hurt_1",
+      "echoofthevoid:uncanny/villager_huge_long_wide/hurt_2",
+      "echoofthevoid:uncanny/villager_huge_long_wide/hurt_3"
+    ]
+  },
+  "uncanny_villager_huge_long_wide_death": {
+    "subtitle": "entity.echoofthevoid.uncanny_structure_villager",
+    "sounds": [
+      "echoofthevoid:uncanny/villager_huge_long_wide/death_1"
+    ]
+  },
+  "uncanny_villager_huge_long_wide_trade": {
+    "subtitle": "entity.echoofthevoid.uncanny_structure_villager",
+    "sounds": [
+      "echoofthevoid:uncanny/villager_huge_long_wide/trade_1",
+      "echoofthevoid:uncanny/villager_huge_long_wide/trade_2",
+      "echoofthevoid:uncanny/villager_huge_long_wide/trade_3"
+    ]
+  },
+  "uncanny_villager_huge_thin_ambient": {
+    "subtitle": "entity.echoofthevoid.uncanny_structure_villager",
+    "sounds": [
+      "echoofthevoid:uncanny/villager_huge_thin/ambient_1",
+      "echoofthevoid:uncanny/villager_huge_thin/ambient_2",
+      "echoofthevoid:uncanny/villager_huge_thin/ambient_3"
+    ]
+  },
+  "uncanny_villager_huge_thin_hurt": {
+    "subtitle": "entity.echoofthevoid.uncanny_structure_villager",
+    "sounds": [
+      "echoofthevoid:uncanny/villager_huge_thin/hurt_1",
+      "echoofthevoid:uncanny/villager_huge_thin/hurt_2",
+      "echoofthevoid:uncanny/villager_huge_thin/hurt_3"
+    ]
+  },
+  "uncanny_villager_huge_thin_death": {
+    "subtitle": "entity.echoofthevoid.uncanny_structure_villager",
+    "sounds": [
+      "echoofthevoid:uncanny/villager_huge_thin/death_1"
+    ]
+  },
+  "uncanny_villager_huge_thin_trade": {
+    "subtitle": "entity.echoofthevoid.uncanny_structure_villager",
+    "sounds": [
+      "echoofthevoid:uncanny/villager_huge_thin/trade_1",
+      "echoofthevoid:uncanny/villager_huge_thin/trade_2",
+      "echoofthevoid:uncanny/villager_huge_thin/trade_3"
+    ]
+  },
+  "uncanny_villager_very_wide_ambient": {
+    "subtitle": "entity.echoofthevoid.uncanny_structure_villager",
+    "sounds": [
+      "echoofthevoid:uncanny/villager_very_wide/ambient_1",
+      "echoofthevoid:uncanny/villager_very_wide/ambient_2",
+      "echoofthevoid:uncanny/villager_very_wide/ambient_3"
+    ]
+  },
+  "uncanny_villager_very_wide_hurt": {
+    "subtitle": "entity.echoofthevoid.uncanny_structure_villager",
+    "sounds": [
+      "echoofthevoid:uncanny/villager_very_wide/hurt_1",
+      "echoofthevoid:uncanny/villager_very_wide/hurt_2",
+      "echoofthevoid:uncanny/villager_very_wide/hurt_3"
+    ]
+  },
+  "uncanny_villager_very_wide_death": {
+    "subtitle": "entity.echoofthevoid.uncanny_structure_villager",
+    "sounds": [
+      "echoofthevoid:uncanny/villager_very_wide/death_1"
+    ]
+  },
+  "uncanny_villager_very_wide_trade": {
+    "subtitle": "entity.echoofthevoid.uncanny_structure_villager",
+    "sounds": [
+      "echoofthevoid:uncanny/villager_very_wide/trade_1",
+      "echoofthevoid:uncanny/villager_very_wide/trade_2",
+      "echoofthevoid:uncanny/villager_very_wide/trade_3"
+    ]
+  },
+  "uncanny_villager_very_long_ambient": {
+    "subtitle": "entity.echoofthevoid.uncanny_structure_villager",
+    "sounds": [
+      "echoofthevoid:uncanny/villager_very_long/ambient_1",
+      "echoofthevoid:uncanny/villager_very_long/ambient_2",
+      "echoofthevoid:uncanny/villager_very_long/ambient_3"
+    ]
+  },
+  "uncanny_villager_very_long_hurt": {
+    "subtitle": "entity.echoofthevoid.uncanny_structure_villager",
+    "sounds": [
+      "echoofthevoid:uncanny/villager_very_long/hurt_1",
+      "echoofthevoid:uncanny/villager_very_long/hurt_2",
+      "echoofthevoid:uncanny/villager_very_long/hurt_3"
+    ]
+  },
+  "uncanny_villager_very_long_death": {
+    "subtitle": "entity.echoofthevoid.uncanny_structure_villager",
+    "sounds": [
+      "echoofthevoid:uncanny/villager_very_long/death_1"
+    ]
+  },
+  "uncanny_villager_very_long_trade": {
+    "subtitle": "entity.echoofthevoid.uncanny_structure_villager",
+    "sounds": [
+      "echoofthevoid:uncanny/villager_very_long/trade_1",
+      "echoofthevoid:uncanny/villager_very_long/trade_2",
+      "echoofthevoid:uncanny/villager_very_long/trade_3"
+    ]
+  }
+}

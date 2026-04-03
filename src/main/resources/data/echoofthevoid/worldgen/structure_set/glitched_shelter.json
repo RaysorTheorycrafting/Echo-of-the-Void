@@ -1,0 +1,19 @@
+{
+  "structures": [
+    {
+      "structure": "echoofthevoid:glitched_shelter",
+      "weight": 1
+    }
+  ],
+  "placement": {
+    "type": "minecraft:random_spread",
+    "spacing": 44,
+    "separation": 15,
+    "salt": 17103
+  }
+}
+
+
+
+
+

@@ -1,0 +1,25 @@
+{
+  "parent": "minecraft:adventure/root",
+  "display": {
+    "icon": {
+      "id": "minecraft:ender_eye",
+      "count": 1
+    },
+    "title": {
+      "translate": "advancement.echoofthevoid.uncanny.observed.title"
+    },
+    "description": {
+      "translate": "advancement.echoofthevoid.uncanny.observed.description"
+    },
+    "frame": "goal",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "sends_telemetry_event": false,
+  "criteria": {
+    "observed": {
+      "trigger": "minecraft:impossible"
+    }
+  }
+}

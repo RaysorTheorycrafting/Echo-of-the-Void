@@ -1,0 +1,19 @@
+{
+  "structures": [
+    {
+      "structure": "echoofthevoid:false_descent",
+      "weight": 1
+    }
+  ],
+  "placement": {
+    "type": "minecraft:random_spread",
+    "spacing": 48,
+    "separation": 15,
+    "salt": 17106
+  }
+}
+
+
+
+
+

@@ -1,0 +1,19 @@
+{
+  "structures": [
+    {
+      "structure": "echoofthevoid:patterned_grove",
+      "weight": 1
+    }
+  ],
+  "placement": {
+    "type": "minecraft:random_spread",
+    "spacing": 73,
+    "separation": 27,
+    "salt": 17104
+  }
+}
+
+
+
+
+

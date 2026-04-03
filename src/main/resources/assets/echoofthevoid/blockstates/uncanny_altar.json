@@ -1,0 +1,10 @@
+{
+  "variants": {
+    "has_cube=false": {
+      "model": "echoofthevoid:block/uncanny_altar"
+    },
+    "has_cube=true": {
+      "model": "echoofthevoid:block/uncanny_altar_with_cube"
+    }
+  }
+}

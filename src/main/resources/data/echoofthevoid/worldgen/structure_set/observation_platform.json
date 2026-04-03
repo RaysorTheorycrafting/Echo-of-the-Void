@@ -1,0 +1,18 @@
+{
+    "structures":  [
+                       {
+                           "structure":  "echoofthevoid:observation_platform",
+                           "weight":  1
+                       }
+                   ],
+    "placement":  {
+                      "type":  "minecraft:random_spread",
+                      "spacing": 76,
+                      "separation": 27,
+                      "salt":  17207
+                  }
+}
+
+
+
+

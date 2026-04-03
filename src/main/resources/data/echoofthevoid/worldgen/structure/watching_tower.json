@@ -1,0 +1,10 @@
+{
+    "type":  "echoofthevoid:uncanny_feature",
+    "feature":  "watching_tower",
+    "biomes":  "#minecraft:is_overworld",
+    "step":  "surface_structures",
+    "terrain_adaptation":  "none",
+    "spawn_overrides":  {
+
+                        }
+}

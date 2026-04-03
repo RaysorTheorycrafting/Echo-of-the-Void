@@ -1,0 +1,24 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "misc",
+  "pattern": [
+    "S S",
+    "SDS",
+    "SES"
+  ],
+  "key": {
+    "S": {
+      "item": "echoofthevoid:uncanny_reality_shard"
+    },
+    "D": {
+      "item": "minecraft:diamond"
+    },
+    "E": {
+      "item": "minecraft:enchanting_table"
+    }
+  },
+  "result": {
+    "id": "echoofthevoid:uncanny_altar",
+    "count": 1
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "type": "echoofthevoid:uncanny_feature",
+  "feature": "barren_grid",
+  "biomes": "#minecraft:is_overworld",
+  "step": "surface_structures",
+  "terrain_adaptation": "none",
+  "spawn_overrides": {}
+}
+

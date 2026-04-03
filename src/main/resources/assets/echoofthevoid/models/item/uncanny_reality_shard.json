@@ -1,0 +1,6 @@
+{
+  "parent": "minecraft:item/generated",
+  "textures": {
+    "layer0": "echoofthevoid:item/uncanny_reality_shard"
+  }
+}

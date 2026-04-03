@@ -1,0 +1,19 @@
+{
+  "structures": [
+    {
+      "structure": "echoofthevoid:barren_grid",
+      "weight": 1
+    }
+  ],
+  "placement": {
+    "type": "minecraft:random_spread",
+    "spacing": 77,
+    "separation": 29,
+    "salt": 17105
+  }
+}
+
+
+
+
+
