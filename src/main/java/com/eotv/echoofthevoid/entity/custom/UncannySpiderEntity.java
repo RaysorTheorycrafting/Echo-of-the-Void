@@ -1,6 +1,8 @@
 package com.eotv.echoofthevoid.entity.custom;
 
+import com.eotv.echoofthevoid.EchoOfTheVoid;
 import com.eotv.echoofthevoid.block.UncannyBlockRegistry;
+import com.eotv.echoofthevoid.config.UncannyConfig;
 import com.eotv.echoofthevoid.entity.UncannyEntityMarker;
 import com.eotv.echoofthevoid.entity.UncannyEntityUtil;
 import com.eotv.echoofthevoid.phase.UncannyPhase;
@@ -45,8 +47,10 @@ public class UncannySpiderEntity extends Spider implements UncannyEntityMarker {
 
     private static final List<TemporaryWebTask> TEMPORARY_WEBS = new ArrayList<>();
     private static final List<EggHeartbeatTask> EGG_HEARTBEATS = new ArrayList<>();
+    private static final String GHOST_WEAVER_FIRST_WEB_TAG = "UncannyGhostWeaverFirstWebPlaced";
 
     private int webPlaceCooldown;
+    private boolean ghostWeaverFirstWebPlaced;
     private boolean fakeDeathActive;
     private boolean fakeDeathTriggered;
     private long fakeDeathStartTick;
@@ -58,6 +62,12 @@ public class UncannySpiderEntity extends Spider implements UncannyEntityMarker {
     public UncannySpiderEntity(EntityType<? extends Spider> entityType, Level level) {
         super(entityType, level);
         UncannyEntityUtil.applyDisplayName(this, "Spider?");
+    }
+
+    private static void debugLog(String message, Object... args) {
+        if (UncannyConfig.DEBUG_LOGS.get()) {
+            EchoOfTheVoid.LOGGER.info("[UncannyDebug/Spider] " + message, args);
+        }
     }
 
     @Override
@@ -180,6 +190,7 @@ public class UncannySpiderEntity extends Spider implements UncannyEntityMarker {
         tag.putInt("UncannySpiderVariant", getSpiderVariant().id());
         this.entityData.get(SENSORIAL_HOST).ifPresent(uuid -> tag.putUUID("UncannySensorialHost", uuid));
         tag.putInt("UncannyWebPlaceCooldown", this.webPlaceCooldown);
+        tag.putBoolean(GHOST_WEAVER_FIRST_WEB_TAG, this.ghostWeaverFirstWebPlaced);
         tag.putBoolean("UncannyFakeDeathActive", this.fakeDeathActive);
         tag.putBoolean("UncannyFakeDeathTriggered", this.fakeDeathTriggered);
         tag.putLong("UncannyFakeDeathStartTick", this.fakeDeathStartTick);
@@ -199,6 +210,7 @@ public class UncannySpiderEntity extends Spider implements UncannyEntityMarker {
             this.entityData.set(SENSORIAL_HOST, Optional.empty());
         }
         this.webPlaceCooldown = Math.max(0, tag.getInt("UncannyWebPlaceCooldown"));
+        this.ghostWeaverFirstWebPlaced = tag.getBoolean(GHOST_WEAVER_FIRST_WEB_TAG);
         this.fakeDeathActive = tag.getBoolean("UncannyFakeDeathActive");
         this.fakeDeathTriggered = tag.getBoolean("UncannyFakeDeathTriggered");
         this.fakeDeathStartTick = tag.getLong("UncannyFakeDeathStartTick");
@@ -276,9 +288,30 @@ public class UncannySpiderEntity extends Spider implements UncannyEntityMarker {
             this.webPlaceCooldown--;
             return;
         }
-        this.webPlaceCooldown = 20;
+        this.webPlaceCooldown = 100 + level.random.nextInt(61);
 
-        BlockPos candidate = findWebPlacementPos(target.blockPosition());
+        BlockPos targetPos = target.blockPosition();
+        BlockPos candidate;
+        if (!this.ghostWeaverFirstWebPlaced) {
+            candidate = findGhostWeaverFirstWebPlacementPos(targetPos);
+            if (candidate != null) {
+                this.ghostWeaverFirstWebPlaced = true;
+                debugLog(
+                        "GHOST_WEAVER first_web attempt target={} result={} pos={} spider={}",
+                        targetPos,
+                        candidate.equals(targetPos) ? "placed" : "fallback",
+                        candidate,
+                        this.blockPosition());
+            } else {
+                debugLog(
+                        "GHOST_WEAVER first_web attempt target={} result=failed pos=none spider={}",
+                        targetPos,
+                        this.blockPosition());
+                return;
+            }
+        } else {
+            candidate = findWebPlacementPos(targetPos);
+        }
         if (candidate == null) {
             return;
         }
@@ -407,15 +440,48 @@ public class UncannySpiderEntity extends Spider implements UncannyEntityMarker {
     private BlockPos findWebPlacementPos(BlockPos targetPos) {
         for (int attempt = 0; attempt < 8; attempt++) {
             BlockPos candidate = targetPos.offset(this.random.nextInt(3) - 1, 0, this.random.nextInt(3) - 1);
-            if (!this.level().getBlockState(candidate).canBeReplaced()) {
-                continue;
+            if (isWebPlacementCandidate(candidate)) {
+                return candidate;
             }
-            if (!this.level().getBlockState(candidate.below()).isSolidRender(this.level(), candidate.below())) {
-                continue;
-            }
-            return candidate;
         }
         return null;
+    }
+
+    @Nullable
+    private BlockPos findGhostWeaverFirstWebPlacementPos(BlockPos targetPos) {
+        if (isWebPlacementCandidate(targetPos)) {
+            return targetPos;
+        }
+
+        BlockPos[] prioritizedOffsets = new BlockPos[] {
+                new BlockPos(1, 0, 0),
+                new BlockPos(-1, 0, 0),
+                new BlockPos(0, 0, 1),
+                new BlockPos(0, 0, -1),
+                new BlockPos(1, 0, 1),
+                new BlockPos(1, 0, -1),
+                new BlockPos(-1, 0, 1),
+                new BlockPos(-1, 0, -1),
+                new BlockPos(2, 0, 0),
+                new BlockPos(-2, 0, 0),
+                new BlockPos(0, 0, 2),
+                new BlockPos(0, 0, -2)
+        };
+        for (BlockPos offset : prioritizedOffsets) {
+            BlockPos candidate = targetPos.offset(offset);
+            if (isWebPlacementCandidate(candidate)) {
+                return candidate;
+            }
+        }
+        return null;
+    }
+
+    private boolean isWebPlacementCandidate(BlockPos candidate) {
+        Level level = this.level();
+        if (!level.getBlockState(candidate).canBeReplaced()) {
+            return false;
+        }
+        return level.getBlockState(candidate.below()).isSolidRender(level, candidate.below());
     }
 
     @Nullable

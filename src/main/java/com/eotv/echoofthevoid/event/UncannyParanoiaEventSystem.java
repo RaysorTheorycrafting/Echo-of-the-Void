@@ -14,6 +14,7 @@ import com.eotv.echoofthevoid.entity.custom.UncannyShadowEntity;
 import com.eotv.echoofthevoid.entity.custom.UncannyStalkerEntity;
 import com.eotv.echoofthevoid.entity.custom.UncannyTenantEntity;
 import com.eotv.echoofthevoid.entity.custom.UncannyUsherEntity;
+import com.eotv.echoofthevoid.entity.custom.UncannyWatcherEntity;
 import com.eotv.echoofthevoid.item.UncannyItemRegistry;
 import com.eotv.echoofthevoid.network.UncannyFalseRecipeToastPayload;
 import com.eotv.echoofthevoid.network.UncannyHotbarWrongCountPayload;
@@ -91,6 +92,7 @@ import net.minecraft.world.entity.monster.warden.Warden;
 import net.minecraft.world.entity.monster.warden.WardenAi;
 import net.minecraft.world.entity.npc.AbstractVillager;
 import net.minecraft.world.entity.npc.WanderingTrader;
+import net.minecraft.world.entity.projectile.Projectile;
 import net.minecraft.world.entity.player.Player.BedSleepingProblem;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.vehicle.Boat;
@@ -128,6 +130,7 @@ import net.minecraft.world.phys.Vec3;
 import net.minecraft.world.scores.PlayerTeam;
 import net.minecraft.world.scores.Scoreboard;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
+import net.neoforged.neoforge.event.entity.ProjectileImpactEvent;
 import net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent;
 import net.neoforged.neoforge.event.entity.living.LivingEntityUseItemEvent;
 import net.neoforged.neoforge.event.entity.EntityLeaveLevelEvent;
@@ -162,9 +165,9 @@ public final class UncannyParanoiaEventSystem {
     private static final double[] DANGER_FLASH_MONSTER_CHANCE = {0.00D, 0.15D, 0.30D, 0.50D, 0.70D, 0.90D};
     private static final int[] DANGER_HURLER_ATTACK_PERCENT = {0, 3, 6, 10, 18, 28};
     private static final int[] DANGER_KNOCKER_OPEN_ATTACK_PERCENT = {0, 8, 14, 20, 30, 40};
-    private static final int[] PROFILE_SPECIAL_ENTITY_BASE_COOLDOWN_SECONDS = {720, 520, 360, 250, 175};
-    private static final int[] PROFILE_SPECIAL_ENTITY_CHECK_INTERVAL_SECONDS = {12, 10, 8, 6, 5};
-    private static final double[] PROFILE_SPECIAL_ENTITY_TRIGGER_CHANCE = {0.05D, 0.09D, 0.15D, 0.24D, 0.34D};
+    private static final int[] PROFILE_SPECIAL_ENTITY_BASE_COOLDOWN_SECONDS = {960, 700, 500, 340, 240};
+    private static final int[] PROFILE_SPECIAL_ENTITY_CHECK_INTERVAL_SECONDS = {16, 13, 11, 8, 7};
+    private static final double[] PROFILE_SPECIAL_ENTITY_TRIGGER_CHANCE = {0.03D, 0.06D, 0.10D, 0.16D, 0.22D};
     private static final double[] DANGER_SPECIAL_ENTITY_COOLDOWN_MULTIPLIER = {1.35D, 1.22D, 1.10D, 1.00D, 0.92D, 0.84D};
     private static final double[] DANGER_SPECIAL_ENTITY_TRIGGER_MULTIPLIER = {0.70D, 0.82D, 0.92D, 1.00D, 1.08D, 1.16D};
     private static final String FLASH_RED_OVERLAY_TAG = "eotv_event_flash_red";
@@ -179,6 +182,9 @@ public final class UncannyParanoiaEventSystem {
     private static final int SLEEP_DISTURB_COOLDOWN_MIN_SECONDS = 16 * 60;
     private static final int SLEEP_DISTURB_COOLDOWN_MAX_SECONDS = 28 * 60;
     private static final int SLEEP_DISTURB_REQUIRED_CLICKS = 3;
+    private static final long SLEEP_DISTURB_CLICK_DEBOUNCE_TICKS = 12L;
+    private static final long FIRST_NIGHT_WATCHER_WINDOW_START_TICK = 12000L;
+    private static final long FIRST_NIGHT_WATCHER_WINDOW_END_TICK = 13200L;
     private static final int INITIAL_EVENT_JOIN_GRACE_TICKS = 20 * 18;
     private static final int INITIAL_SPECIAL_JOIN_GRACE_TICKS = 20 * 24;
     private static final int TENSION_BUILDER_MIN_SECONDS = 5 * 60;
@@ -189,6 +195,8 @@ public final class UncannyParanoiaEventSystem {
     private static final int GRAND_EVENT_BOOST_MAX_SECONDS = 110;
     private static final int GRAND_EVENT_ROLL_MIN_SECONDS = 10;
     private static final int GRAND_EVENT_ROLL_MAX_SECONDS = 24;
+    private static final int GRAND_EVENT_PRESPAWN_DELAY_MIN_SECONDS = 4;
+    private static final int GRAND_EVENT_PRESPAWN_DELAY_MAX_SECONDS = 4;
     private static final int GRAND_EVENT_BASE_COOLDOWN_SECONDS = 35 * 60;
     private static final double GRAND_EVENT_BASE_CHANCE = 0.0D;
     private static final double GRAND_EVENT_POST_TENSION_CHANCE = 0.22D;
@@ -260,7 +268,7 @@ public final class UncannyParanoiaEventSystem {
     private static final int GRAND_EVENT_UNSEEN_REQUIRED_TICKS = 22;
     private static final int GRAND_EVENT_SINK_DURATION_TICKS = 82;
     private static final int GRAND_EVENT_EMPTY_SCOPE_SINK_TICKS = 40;
-    private static final int GRAND_EVENT_MAX_DURATION_TICKS = 5 * 60 * 20;
+    private static final int GRAND_EVENT_MAX_DURATION_TICKS = (5 * 60 - 7) * 20;
     private static final int GRAND_EVENT_MIN_RUNTIME_TICKS = 60 * 20;
     private static final int GRAND_EVENT_NON_AGGRO_MIN_RUNTIME_TICKS = 72 * 20;
     private static final int GRAND_EVENT_NON_AGGRO_ACTIVITY_MIN_CONSUMED_NODES = 8;
@@ -315,6 +323,15 @@ public final class UncannyParanoiaEventSystem {
     private static final int GRAND_EVENT_SNIFF_RETREAT_MIN_RADIUS = 8;
     private static final int GRAND_EVENT_SNIFF_RETREAT_MAX_RADIUS = 14;
     private static final long GRAND_EVENT_SNIFF_SOUND_COOLDOWN_TICKS = 40L;
+    private static final long GRAND_EVENT_SOUND_INVESTIGATION_TIMEOUT_TICKS = 9L * 20L;
+    private static final long GRAND_EVENT_SOUND_INVESTIGATION_REISSUE_TICKS = 14L;
+    private static final long GRAND_EVENT_SOUND_INVESTIGATION_SNIFF_ATTACK_DELAY_TICKS = 8L;
+    private static final double GRAND_EVENT_SOUND_INVESTIGATION_REACH_DISTANCE_SQR = 3.25D * 3.25D;
+    private static final double GRAND_EVENT_SOUND_INVESTIGATION_REACH_FALLBACK_DISTANCE_SQR = 5.0D * 5.0D;
+    private static final int GRAND_EVENT_SOUND_INVESTIGATION_LOCAL_SWEEP_RADIUS_MIN = 3;
+    private static final int GRAND_EVENT_SOUND_INVESTIGATION_LOCAL_SWEEP_RADIUS_MAX = 9;
+    private static final int GRAND_EVENT_SOUND_INVESTIGATION_MAX_SWEEP_ATTEMPTS = 4;
+    private static final double GRAND_EVENT_SOUND_INVESTIGATION_ATTACK_RADIUS_SQR = 10.0D * 10.0D;
     private static final int GRAND_EVENT_EMERGE_DURATION_TICKS = 44;
     private static final int GRAND_EVENT_RECENT_SEARCH_HISTORY_LIMIT = 10;
     private static final double GRAND_EVENT_RECENT_SEARCH_MIN_DISTANCE_SQR = 16.0D * 16.0D;
@@ -335,7 +352,7 @@ public final class UncannyParanoiaEventSystem {
     private static final double GRAND_EVENT_SEARCH_DIRECTION_WINDOW_DEGREES = 48.0D;
     private static final double GRAND_EVENT_SEARCH_DIRECTION_REPEAT_PENALTY = 8.0D;
     private static final double GRAND_EVENT_SEARCH_DIRECTION_COVERAGE_BONUS_SCALE = 0.22D;
-    private static final double GRAND_EVENT_SPECIAL_PAUSE_RADIUS = 96.0D;
+    private static final double GRAND_EVENT_LIVING_PAUSE_RADIUS = 96.0D;
     private static final String GRAND_EVENT_PAUSED_SPECIAL_TAG = "eotv_grand_pause_special";
     private static final float GRAND_WARDEN_STEP_UP = 3.0F;
     private static final double GRAND_EVENT_CAVE_EXIT_RETREAT_MIN_PLAYER_DISTANCE_SQR = 8.0D * 8.0D;
@@ -372,7 +389,7 @@ public final class UncannyParanoiaEventSystem {
 
     private static final int COOLDOWN_ANIMAL_STARE_LOCK_SECONDS = 900;
     private static final int COOLDOWN_COMPASS_LIAR_SECONDS = 1200;
-    private static final int COOLDOWN_FURNACE_BREATH_SECONDS = 480;
+    private static final int COOLDOWN_FURNACE_BREATH_SECONDS = 720;
     private static final int COOLDOWN_MISPLACED_LIGHT_SECONDS = 900;
     private static final int COOLDOWN_PET_REFUSAL_SECONDS = 1500;
     private static final int COOLDOWN_WORKBENCH_REJECT_SECONDS = 1800;
@@ -383,7 +400,7 @@ public final class UncannyParanoiaEventSystem {
     private static final int COOLDOWN_BUCKET_DRIP_SECONDS = 360;
     private static final int COOLDOWN_HOTBAR_WRONG_COUNT_SECONDS = 480;
     private static final int COOLDOWN_FALSE_RECIPE_TOAST_SECONDS = 1200;
-    private static final int COOLDOWN_TOOL_ANSWER_SECONDS = 600;
+    private static final int COOLDOWN_TOOL_ANSWER_SECONDS = 1200;
     private static final int COOLDOWN_BEDSIDE_OPEN_SECONDS = 600;
     private static final List<String> CORRUPT_MESSAGE_PHASE1_POOL = parseMessageLines("""
             Something feels wrong.
@@ -750,6 +767,7 @@ public final class UncannyParanoiaEventSystem {
     private static final Map<UUID, AquaticBiteState> ACTIVE_AQUATIC_BITE = new HashMap<>();
     private static final Map<UUID, Long> FLASH_RED_OVERLAY_END_TICKS = new HashMap<>();
     private static final Map<UUID, SleepDisturbanceState> ACTIVE_SLEEP_DISTURBANCES = new HashMap<>();
+    private static final Map<UUID, Long> LAST_SLEEP_DISTURB_ATTEMPT_TICKS = new HashMap<>();
     private static final Map<UUID, Long> PENDING_SLEEP_MESSAGE_TICKS = new HashMap<>();
     private static final Set<UUID> SKIP_NEXT_SLEEP_DISTURB = new HashSet<>();
     private static final Set<UUID> REQUIRE_NORMAL_SLEEP_BEFORE_NEXT_DISTURB = new HashSet<>();
@@ -765,8 +783,9 @@ public final class UncannyParanoiaEventSystem {
     private static final Map<UUID, Long> LIVING_ORE_COOLDOWN_UNTIL = new HashMap<>();
     private static final Map<UUID, Long> TENANT_AWAY_SINCE = new HashMap<>();
     private static final Map<UUID, Long> GRAND_EVENT_RECENT_AUDIBLE_ACTION_TICKS = new HashMap<>();
+    private static final Map<UUID, BlockPos> GRAND_EVENT_RECENT_AUDIBLE_ACTION_POSITIONS = new HashMap<>();
     private static final Map<ResourceKey<Level>, GrandEventState> ACTIVE_GRAND_EVENTS = new HashMap<>();
-    private static final Map<ResourceKey<Level>, Map<UUID, PausedSpecialSnapshot>> ACTIVE_GRAND_PAUSED_SPECIALS = new HashMap<>();
+    private static final Map<ResourceKey<Level>, Map<UUID, PausedLivingSnapshot>> ACTIVE_GRAND_PAUSED_LIVINGS = new HashMap<>();
     private static final List<ChestCloseTask> CHEST_CLOSE_TASKS = new ArrayList<>();
     private static final List<ChestPanicTask> CHEST_PANIC_TASKS = new ArrayList<>();
     private static final List<FurnaceResetTask> FURNACE_RESET_TASKS = new ArrayList<>();
@@ -874,6 +893,54 @@ public final class UncannyParanoiaEventSystem {
         return state != null && !state.ended();
     }
 
+    public static boolean isTensionBuilderAutoPauseActive(ServerLevel level) {
+        if (level == null || level.getServer() == null) {
+            return false;
+        }
+        UncannyWorldState state = UncannyWorldState.get(level.getServer());
+        return isTensionBuilderEventPauseActive(level, state, level.getServer().getTickCount());
+    }
+
+    private static void maybeTriggerFirstNightWatcher(ServerPlayer player, UncannyWorldState worldState, long now) {
+        if (player == null
+                || worldState == null
+                || player.getServer() == null
+                || player.serverLevel().dimension() != Level.OVERWORLD
+                || !player.isAlive()
+                || player.isSpectator()
+                || worldState.isFirstNightWatcherTriggered(player.getUUID())) {
+            return;
+        }
+        if (player.isInWaterOrBubble() || player.getVehicle() instanceof Boat) {
+            return;
+        }
+        if ((now % 20L) != 0L || !player.serverLevel().canSeeSky(player.blockPosition())) {
+            return;
+        }
+
+        long dayTime = player.serverLevel().getDayTime();
+        long dayTimeOfDay = dayTime % 24000L;
+        if (dayTime >= 24000L
+                || dayTimeOfDay < FIRST_NIGHT_WATCHER_WINDOW_START_TICK
+                || dayTimeOfDay > FIRST_NIGHT_WATCHER_WINDOW_END_TICK) {
+            return;
+        }
+
+        boolean hasActiveWatcher = !player.serverLevel().getEntitiesOfClass(
+                UncannyWatcherEntity.class,
+                player.getBoundingBox().inflate(256.0D),
+                watcher -> watcher.isAlive() && watcher.getWatchedPlayerUuid().map(player.getUUID()::equals).orElse(false)).isEmpty();
+        if (hasActiveWatcher || UncannyWatcherSystem.forceSpawnWatcher(player)) {
+            worldState.markFirstNightWatcherTriggered(player.getUUID());
+            worldState.setLastGlobalEventTick(now);
+            debugLog(
+                    "WATCHER first-night guarantee success player={} spawned={} dayTime={}",
+                    playerLabel(player),
+                    !hasActiveWatcher,
+                    dayTime);
+        }
+    }
+
     public static void onPlayerTick(PlayerTickEvent.Post event) {
         if (!(event.getEntity() instanceof ServerPlayer player)) {
             return;
@@ -891,6 +958,7 @@ public final class UncannyParanoiaEventSystem {
             return;
         }
         UncannyPhase phase = worldState.getPhase();
+        maybeTriggerFirstNightWatcher(player, worldState, now);
         if (phase.index() >= UncannyPhase.PHASE_2.index() && (now % 20L) == 0L) {
             player.connection.send(new ClientboundStopSoundPacket(null, SoundSource.MUSIC));
         }
@@ -963,6 +1031,7 @@ public final class UncannyParanoiaEventSystem {
 
         if (player.isSleeping()) {
             ACTIVE_SLEEP_DISTURBANCES.remove(playerId);
+            LAST_SLEEP_DISTURB_ATTEMPT_TICKS.remove(playerId);
             PENDING_SLEEP_MESSAGE_TICKS.remove(playerId);
             REQUIRE_NORMAL_SLEEP_BEFORE_NEXT_DISTURB.remove(playerId);
         }
@@ -1028,24 +1097,38 @@ public final class UncannyParanoiaEventSystem {
 
             state = new SleepDisturbanceState(event.getPos(), 1);
             ACTIVE_SLEEP_DISTURBANCES.put(playerId, state);
+            LAST_SLEEP_DISTURB_ATTEMPT_TICKS.put(playerId, now);
             NEXT_SLEEP_DISTURB_ALLOWED_TICKS.put(playerId, now + rollSleepDisturbCooldownTicks(player.serverLevel(), phase, getIntensityProfile()));
             queueSleepDisturbMessage(player, now);
             event.setProblem(BedSleepingProblem.OTHER_PROBLEM);
             return;
         }
 
+        long now = server.getTickCount();
+        long lastAttemptTick = LAST_SLEEP_DISTURB_ATTEMPT_TICKS.getOrDefault(playerId, Long.MIN_VALUE);
+        if (lastAttemptTick != Long.MIN_VALUE && now - lastAttemptTick < SLEEP_DISTURB_CLICK_DEBOUNCE_TICKS) {
+            event.setProblem(BedSleepingProblem.OTHER_PROBLEM);
+            debugLog(
+                    "BED_DISTURB click-debounce player={} delta={}t min={}t",
+                    playerLabel(player),
+                    now - lastAttemptTick,
+                    SLEEP_DISTURB_CLICK_DEBOUNCE_TICKS);
+            return;
+        }
+
+        LAST_SLEEP_DISTURB_ATTEMPT_TICKS.put(playerId, now);
         state.setBedPos(event.getPos());
         state.incrementAttempts();
-        queueSleepDisturbMessage(player, server.getTickCount());
+        queueSleepDisturbMessage(player, now);
         event.setProblem(BedSleepingProblem.OTHER_PROBLEM);
 
         if (state.attempts() >= SLEEP_DISTURB_REQUIRED_CLICKS) {
             spawnPulseInBed(player, state.bedPos());
             ACTIVE_SLEEP_DISTURBANCES.remove(playerId);
+            LAST_SLEEP_DISTURB_ATTEMPT_TICKS.remove(playerId);
             PENDING_SLEEP_MESSAGE_TICKS.remove(playerId);
             SKIP_NEXT_SLEEP_DISTURB.add(playerId);
             REQUIRE_NORMAL_SLEEP_BEFORE_NEXT_DISTURB.add(playerId);
-            long now = server.getTickCount();
             UncannyPhase phase = UncannyWorldState.get(server).getPhase();
             long extendedCooldown = now + rollSleepDisturbCooldownTicks(player.serverLevel(), phase, getIntensityProfile());
             NEXT_SLEEP_DISTURB_ALLOWED_TICKS.merge(playerId, extendedCooldown, Math::max);
@@ -1193,6 +1276,15 @@ public final class UncannyParanoiaEventSystem {
             return;
         }
         ItemStack used = player.getItemInHand(event.getHand());
+        if (isGrandEventProjectileRightClickItem(used)) {
+            if (shouldSampleGrandEventRuntime(player.getServer().getTickCount())) {
+                debugLog(
+                        "GRAND_EVENT sound_source deferred type=projectile_launch player={} item={}",
+                        playerLabel(player),
+                        used.getItem().toString());
+            }
+            return;
+        }
         if (isGrandEventAudibleRightClickItem(used)) {
             markGrandEventAudibleAction(player, "right_click_item");
         }
@@ -1210,7 +1302,41 @@ public final class UncannyParanoiaEventSystem {
         }
     }
 
+    public static void onProjectileImpact(ProjectileImpactEvent event) {
+        if (event == null || !(event.getEntity().level() instanceof ServerLevel)) {
+            return;
+        }
+        Projectile projectile = event.getProjectile();
+        if (projectile == null || !isGrandEventAudibleProjectile(projectile)) {
+            return;
+        }
+        Entity owner = projectile.getOwner();
+        if (!(owner instanceof ServerPlayer player)) {
+            return;
+        }
+        if (player.getServer() == null || !UncannyWorldState.get(player.getServer()).isSystemEnabled()) {
+            return;
+        }
+        HitResult hit = event.getRayTraceResult();
+        if (hit == null || hit.getType() == HitResult.Type.MISS) {
+            return;
+        }
+        BlockPos impactPos = BlockPos.containing(hit.getLocation());
+        markGrandEventAudibleAction(
+                player,
+                "projectile_impact",
+                impactPos,
+                "projectile_impact");
+    }
+
     private static boolean isGrandEventAudibleRightClickItem(ItemStack stack) {
+        if (stack == null || stack.isEmpty()) {
+            return false;
+        }
+        return stack.is(Items.GOAT_HORN);
+    }
+
+    private static boolean isGrandEventProjectileRightClickItem(ItemStack stack) {
         if (stack == null || stack.isEmpty()) {
             return false;
         }
@@ -1224,8 +1350,7 @@ public final class UncannyParanoiaEventSystem {
                 || stack.is(Items.SPLASH_POTION)
                 || stack.is(Items.LINGERING_POTION)
                 || stack.is(Items.FIREWORK_ROCKET)
-                || stack.is(Items.FISHING_ROD)
-                || stack.is(Items.GOAT_HORN);
+                || stack.is(Items.FISHING_ROD);
     }
 
     private static boolean isGrandEventAudibleUseFinish(ItemStack stack) {
@@ -1238,7 +1363,19 @@ public final class UncannyParanoiaEventSystem {
                 || stack.is(Items.MILK_BUCKET);
     }
 
+    private static boolean isGrandEventAudibleProjectile(Projectile projectile) {
+        return projectile != null;
+    }
+
     private static void markGrandEventAudibleAction(ServerPlayer player, String reason) {
+        markGrandEventAudibleAction(player, reason, player.blockPosition(), "immediate");
+    }
+
+    private static void markGrandEventAudibleAction(
+            ServerPlayer player,
+            String reason,
+            BlockPos sourcePos,
+            String captureType) {
         if (player == null || player.getServer() == null) {
             return;
         }
@@ -1251,12 +1388,16 @@ public final class UncannyParanoiaEventSystem {
             return;
         }
         long now = player.getServer().getTickCount();
+        BlockPos resolvedPos = sourcePos == null ? player.blockPosition() : sourcePos.immutable();
         GRAND_EVENT_RECENT_AUDIBLE_ACTION_TICKS.put(player.getUUID(), now);
+        GRAND_EVENT_RECENT_AUDIBLE_ACTION_POSITIONS.put(player.getUUID(), resolvedPos);
         if (shouldSampleGrandEventRuntime(now)) {
             debugLog(
-                    "GRAND_EVENT audible_action player={} reason={} tick={} runtime={}",
+                    "GRAND_EVENT sound_source captured type={} player={} reason={} pos={} tick={} runtime={}",
+                    captureType == null ? "unknown" : captureType,
                     playerLabel(player),
                     reason,
+                    resolvedPos,
                     now,
                     state.runtimeId());
         }
@@ -1304,11 +1445,18 @@ public final class UncannyParanoiaEventSystem {
         if (event.getEntity() instanceof ServerPlayer player && event.getSource().getEntity() instanceof Warden attackerWarden) {
             if (attackerWarden.getTags().contains(GRAND_WARDEN_TAG)) {
                 GrandEventState state = ACTIVE_GRAND_EVENTS.get(player.serverLevel().dimension());
-                boolean authorizedAttack = state != null
+                boolean authorizedClassicAttack = state != null
                         && !state.ended()
                         && attackerWarden.getUUID().equals(state.wardenUuid())
                         && state.attackTarget() != null
                         && state.attackTarget().equals(player.getUUID());
+                boolean authorizedSoundCombat = state != null
+                        && !state.ended()
+                        && attackerWarden.getUUID().equals(state.wardenUuid())
+                        && state.soundCombatTarget() != null
+                        && state.soundCombatTarget().equals(player.getUUID());
+                boolean authorizedAttack = state != null
+                        && (authorizedClassicAttack || authorizedSoundCombat);
                 if (!authorizedAttack) {
                     event.setCanceled(true);
                     debugLog(
@@ -1338,12 +1486,12 @@ public final class UncannyParanoiaEventSystem {
             return;
         }
         Entity entity = event.getEntity();
-        if (entity instanceof Mob mob && UncannyEntityRegistry.isSpecialEntity(mob.getType())) {
-            Map<UUID, PausedSpecialSnapshot> paused = ACTIVE_GRAND_PAUSED_SPECIALS.get(event.getLevel().dimension());
+        if (entity instanceof Mob) {
+            Map<UUID, PausedLivingSnapshot> paused = ACTIVE_GRAND_PAUSED_LIVINGS.get(event.getLevel().dimension());
             if (paused != null) {
                 paused.remove(entity.getUUID());
                 if (paused.isEmpty()) {
-                    ACTIVE_GRAND_PAUSED_SPECIALS.remove(event.getLevel().dimension());
+                    ACTIVE_GRAND_PAUSED_LIVINGS.remove(event.getLevel().dimension());
                 }
             }
         }
@@ -2341,7 +2489,12 @@ public final class UncannyParanoiaEventSystem {
         if (player.getServer() == null) {
             return false;
         }
-        if (!UncannyWorldState.get(player.getServer()).isSystemEnabled()) {
+        UncannyWorldState worldState = UncannyWorldState.get(player.getServer());
+        if (!worldState.isSystemEnabled()) {
+            return false;
+        }
+        UncannyPhase phase = worldState.getPhase();
+        if (phase.index() < UncannyPhase.PHASE_2.index()) {
             return false;
         }
 
@@ -2361,22 +2514,39 @@ public final class UncannyParanoiaEventSystem {
         } else if (danger == 5) {
             waveChance *= 1.40D;
         }
+        if (phase == UncannyPhase.PHASE_2) {
+            waveChance *= 0.10D;
+        } else if (phase == UncannyPhase.PHASE_3) {
+            waveChance *= 0.18D;
+        }
         waveChance = Mth.clamp(waveChance, 0.0D, 0.98D);
 
         boolean spawnWave = level.random.nextDouble() < waveChance;
         if (spawnWave) {
-            int count = switch (profile) {
-                case 1, 2 -> 1 + level.random.nextInt(2);
-                case 3 -> 2 + level.random.nextInt(2);
-                case 4 -> 2 + level.random.nextInt(3);
-                default -> 3 + level.random.nextInt(2);
-            };
+            int count;
+            if (phase == UncannyPhase.PHASE_2) {
+                count = 1;
+            } else if (phase == UncannyPhase.PHASE_3) {
+                count = 1 + level.random.nextInt(2);
+            } else {
+                count = switch (profile) {
+                    case 1, 2 -> 1 + level.random.nextInt(2);
+                    case 3 -> 2 + level.random.nextInt(2);
+                    case 4 -> 2 + level.random.nextInt(3);
+                    default -> 3 + level.random.nextInt(2);
+                };
+            }
             if (danger <= 1) {
                 count = Math.max(1, count - (danger == 0 ? 1 : 0));
             } else if (danger == 4) {
                 count += 1;
             } else if (danger == 5) {
                 count += 2;
+            }
+            if (phase == UncannyPhase.PHASE_2) {
+                count = 1;
+            } else if (phase == UncannyPhase.PHASE_3) {
+                count = Math.min(2, count);
             }
             for (int i = 0; i < count; i++) {
                 spawnBellUncannyAttacker(player);
@@ -3084,7 +3254,31 @@ public final class UncannyParanoiaEventSystem {
         if (UncannyWorldState.get(player.getServer()).getPhase().index() < UncannyPhase.PHASE_3.index()) {
             return false;
         }
-        return startGrandEventWarden(player.serverLevel(), player.getServer().getTickCount(), true);
+        ServerLevel level = player.serverLevel();
+        ResourceKey<Level> dimension = level.dimension();
+        GrandEventState existing = ACTIVE_GRAND_EVENTS.get(dimension);
+        if (existing != null && !existing.ended()) {
+            return false;
+        }
+        long now = player.getServer().getTickCount();
+        long spawnDelayTicks = rollRangeInclusive(level, GRAND_EVENT_PRESPAWN_DELAY_MIN_SECONDS, GRAND_EVENT_PRESPAWN_DELAY_MAX_SECONDS) * 20L;
+        if (!sendGrandEventPreSpawnWarning(level, now, spawnDelayTicks)) {
+            return false;
+        }
+        UncannyWorldState state = UncannyWorldState.get(player.getServer());
+        state.setTensionBuilderPendingGrandEventStartTick(now + spawnDelayTicks);
+        state.setTensionBuilderPendingGrandEventDimension(dimension.location().toString());
+        state.setTensionBuilderPendingGrandEventForced(true);
+        state.setTensionBuilderPendingGrandEventWarningSent(true);
+        state.setTensionBuilderPendingGrandEventWarningTick(now);
+        state.setTensionBuilderPendingGrandEventDelayTicks(spawnDelayTicks);
+        state.setTensionBuilderNextGrandEventRollTick(now + spawnDelayTicks);
+        debugLog(
+                "GRAND_EVENT manual delayed-start scheduled now={} spawnIn={}s dim={} forced=true",
+                now,
+                ticksToSeconds(spawnDelayTicks),
+                dimension.location());
+        return true;
     }
 
     public static boolean triggerGrandEventStop(ServerPlayer player) {
@@ -3118,6 +3312,12 @@ public final class UncannyParanoiaEventSystem {
         state.setTensionBuilderNextStartTick(Long.MIN_VALUE);
         state.setTensionBuilderGrandEventBoostUntilTick(Long.MIN_VALUE);
         state.setTensionBuilderNextGrandEventRollTick(now + rollGrandEventRollDelayTicks(player.serverLevel()));
+        state.setTensionBuilderPendingGrandEventStartTick(Long.MIN_VALUE);
+        state.setTensionBuilderPendingGrandEventDimension("");
+        state.setTensionBuilderPendingGrandEventForced(false);
+        state.setTensionBuilderPendingGrandEventWarningSent(false);
+        state.setTensionBuilderPendingGrandEventWarningTick(Long.MIN_VALUE);
+        state.setTensionBuilderPendingGrandEventDelayTicks(Long.MIN_VALUE);
         debugLog("TENSION command-start by={} duration={}s", playerLabel(player), durationSeconds);
         return true;
     }
@@ -3138,6 +3338,12 @@ public final class UncannyParanoiaEventSystem {
         state.setTensionBuilderNextStartTick(now + breakSeconds * 20L);
         state.setTensionBuilderGrandEventBoostUntilTick(now + boostSeconds * 20L);
         state.setTensionBuilderNextGrandEventRollTick(now + rollGrandEventRollDelayTicks(player.serverLevel()));
+        state.setTensionBuilderPendingGrandEventStartTick(Long.MIN_VALUE);
+        state.setTensionBuilderPendingGrandEventDimension("");
+        state.setTensionBuilderPendingGrandEventForced(false);
+        state.setTensionBuilderPendingGrandEventWarningSent(false);
+        state.setTensionBuilderPendingGrandEventWarningTick(Long.MIN_VALUE);
+        state.setTensionBuilderPendingGrandEventDelayTicks(Long.MIN_VALUE);
         debugLog(
                 "TENSION command-stop by={} nextStartIn={}s grandBoost={}s",
                 playerLabel(player),
@@ -3157,11 +3363,13 @@ public final class UncannyParanoiaEventSystem {
         long nextStart = safeFutureRemainingTicks(state.getTensionBuilderNextStartTick(), now, 20L * 60L * 60L);
         long boost = safeFutureRemainingTicks(state.getTensionBuilderGrandEventBoostUntilTick(), now, 20L * 60L * 60L);
         long nextRoll = safeFutureRemainingTicks(state.getTensionBuilderNextGrandEventRollTick(), now, 20L * 60L * 60L);
+        long pendingGrandStart = safeFutureRemainingTicks(state.getTensionBuilderPendingGrandEventStartTick(), now, 20L * 60L * 60L);
         return "TensionBuilder | active=" + active
                 + " | remaining=" + ticksToSeconds(remaining) + "s"
                 + " | nextStart=" + ticksToSeconds(nextStart) + "s"
                 + " | grandBoost=" + ticksToSeconds(boost) + "s"
                 + " | nextGrandRoll=" + ticksToSeconds(nextRoll) + "s"
+                + " | pendingGrandStart=" + ticksToSeconds(pendingGrandStart) + "s"
                 + " | grandBaseChance=" + String.format(Locale.ROOT, "%.3f%%", GRAND_EVENT_BASE_CHANCE * 100.0D)
                 + " | grandBoostChance=" + String.format(Locale.ROOT, "%.1f%%", GRAND_EVENT_POST_TENSION_CHANCE * 100.0D);
     }
@@ -3248,7 +3456,6 @@ public final class UncannyParanoiaEventSystem {
         }
         if (!holdsCompass(player)) {
             debugLog("EVENT compass_liar skip player={} reason=no-compass", playerLabel(player));
-            player.sendSystemMessage(Component.literal("Debug: compass_liar requires a compass in main/off hand."));
             return false;
         }
         long now = player.getServer().getTickCount();
@@ -3277,7 +3484,7 @@ public final class UncannyParanoiaEventSystem {
             return false;
         }
         long now = player.getServer().getTickCount();
-        int repetitions = 1 + level.random.nextInt(3);
+        int repetitions = 1 + level.random.nextInt(2);
         ACTIVE_FURNACE_BREATHS.put(player.getUUID(), new FurnaceBreathState(source, repetitions, now + 6L + level.random.nextInt(12)));
         markGlobalCooldown(player, now, EventSeverity.LIGHT);
         return true;
@@ -4433,11 +4640,18 @@ public final class UncannyParanoiaEventSystem {
             if (state.getTensionBuilderEndTick() != Long.MIN_VALUE
                     || state.getTensionBuilderNextStartTick() != Long.MIN_VALUE
                     || state.getTensionBuilderGrandEventBoostUntilTick() != Long.MIN_VALUE
-                    || state.getTensionBuilderNextGrandEventRollTick() != Long.MIN_VALUE) {
+                    || state.getTensionBuilderNextGrandEventRollTick() != Long.MIN_VALUE
+                    || state.getTensionBuilderPendingGrandEventStartTick() != Long.MIN_VALUE) {
                 state.setTensionBuilderEndTick(Long.MIN_VALUE);
                 state.setTensionBuilderNextStartTick(Long.MIN_VALUE);
                 state.setTensionBuilderGrandEventBoostUntilTick(Long.MIN_VALUE);
                 state.setTensionBuilderNextGrandEventRollTick(Long.MIN_VALUE);
+                state.setTensionBuilderPendingGrandEventStartTick(Long.MIN_VALUE);
+                state.setTensionBuilderPendingGrandEventDimension("");
+                state.setTensionBuilderPendingGrandEventForced(false);
+                state.setTensionBuilderPendingGrandEventWarningSent(false);
+                state.setTensionBuilderPendingGrandEventWarningTick(Long.MIN_VALUE);
+                state.setTensionBuilderPendingGrandEventDelayTicks(Long.MIN_VALUE);
             }
             return;
         }
@@ -4450,6 +4664,12 @@ public final class UncannyParanoiaEventSystem {
             state.setTensionBuilderNextStartTick(now + breakSeconds * 20L);
             state.setTensionBuilderGrandEventBoostUntilTick(now + boostSeconds * 20L);
             state.setTensionBuilderNextGrandEventRollTick(now + rollGrandEventRollDelayTicks(level));
+            state.setTensionBuilderPendingGrandEventStartTick(Long.MIN_VALUE);
+            state.setTensionBuilderPendingGrandEventDimension("");
+            state.setTensionBuilderPendingGrandEventForced(false);
+            state.setTensionBuilderPendingGrandEventWarningSent(false);
+            state.setTensionBuilderPendingGrandEventWarningTick(Long.MIN_VALUE);
+            state.setTensionBuilderPendingGrandEventDelayTicks(Long.MIN_VALUE);
             debugLog(
                     "TENSION end now={} nextStartIn={}s grandBoostIn={}s",
                     now,
@@ -4475,7 +4695,75 @@ public final class UncannyParanoiaEventSystem {
     }
 
     private static void maybeRollGrandEvent(ServerLevel level, UncannyWorldState state, long now, UncannyPhase phase) {
-        if (phase.index() < UncannyPhase.PHASE_3.index() || isTensionBuilderActive(state, now)) {
+        if (phase.index() < UncannyPhase.PHASE_4.index() || isTensionBuilderActive(state, now) || isGrandEventAutoPauseActive(level)) {
+            return;
+        }
+
+        long pendingStartTick = state.getTensionBuilderPendingGrandEventStartTick();
+        if (pendingStartTick != Long.MIN_VALUE) {
+            if (now < pendingStartTick) {
+                return;
+            }
+            if (!state.isTensionBuilderPendingGrandEventWarningSent()) {
+                long spawnDelayTicks = rollRangeInclusive(level, GRAND_EVENT_PRESPAWN_DELAY_MIN_SECONDS, GRAND_EVENT_PRESPAWN_DELAY_MAX_SECONDS) * 20L;
+                if (!sendGrandEventPreSpawnWarning(level, now, spawnDelayTicks)) {
+                    state.setTensionBuilderPendingGrandEventStartTick(now + 20L);
+                    debugLog("GRAND_EVENT pre_spawn_warning pending-no-recipients retryIn=1s dim={}", level.dimension().location());
+                    return;
+                }
+                state.setTensionBuilderPendingGrandEventWarningSent(true);
+                state.setTensionBuilderPendingGrandEventWarningTick(now);
+                state.setTensionBuilderPendingGrandEventDelayTicks(spawnDelayTicks);
+                state.setTensionBuilderPendingGrandEventStartTick(now + spawnDelayTicks);
+                debugLog(
+                        "GRAND_EVENT pre_spawn_delay range={}-{} roll=deferred spawnIn={}s warningTick={} spawnTick={}",
+                        GRAND_EVENT_PRESPAWN_DELAY_MIN_SECONDS,
+                        GRAND_EVENT_PRESPAWN_DELAY_MAX_SECONDS,
+                        ticksToSeconds(spawnDelayTicks),
+                        now,
+                        now + spawnDelayTicks);
+                return;
+            }
+            long warningTick = state.getTensionBuilderPendingGrandEventWarningTick();
+            long warningDelayTicks = state.getTensionBuilderPendingGrandEventDelayTicks();
+            long minSpawnTickFromWarning = warningTick != Long.MIN_VALUE && warningDelayTicks > 0L
+                    ? warningTick + warningDelayTicks
+                    : Long.MIN_VALUE;
+            if (minSpawnTickFromWarning != Long.MIN_VALUE && now < minSpawnTickFromWarning) {
+                return;
+            }
+            ServerLevel pendingLevel = resolvePendingGrandEventLevel(level.getServer(), state.getTensionBuilderPendingGrandEventDimension());
+            if (pendingLevel == null) {
+                pendingLevel = level;
+            }
+            if (startGrandEventWarden(pendingLevel, now, state.isTensionBuilderPendingGrandEventForced(), true)) {
+                long cooldownTicks = GRAND_EVENT_BASE_COOLDOWN_SECONDS * 20L;
+                state.setTensionBuilderLastGrandEventTick(now);
+                state.setTensionBuilderGrandEventBoostUntilTick(Long.MIN_VALUE);
+                state.setTensionBuilderNextGrandEventRollTick(now + cooldownTicks);
+                state.setTensionBuilderPendingGrandEventStartTick(Long.MIN_VALUE);
+                state.setTensionBuilderPendingGrandEventDimension("");
+                state.setTensionBuilderPendingGrandEventForced(false);
+                state.setTensionBuilderPendingGrandEventWarningSent(false);
+                state.setTensionBuilderPendingGrandEventWarningTick(Long.MIN_VALUE);
+                state.setTensionBuilderPendingGrandEventDelayTicks(Long.MIN_VALUE);
+                debugLog(
+                        "GRAND_EVENT delayed-start success now={} dim={} nextRollIn={}s",
+                        now,
+                        pendingLevel.dimension().location(),
+                        ticksToSeconds(cooldownTicks));
+            } else {
+                long retryDelay = 30L * 20L;
+                state.setTensionBuilderPendingGrandEventStartTick(now + retryDelay);
+                state.setTensionBuilderPendingGrandEventWarningSent(false);
+                state.setTensionBuilderPendingGrandEventWarningTick(Long.MIN_VALUE);
+                state.setTensionBuilderPendingGrandEventDelayTicks(Long.MIN_VALUE);
+                debugLog(
+                        "GRAND_EVENT delayed-start retry now={} dim={} nextAttemptIn={}s",
+                        now,
+                        pendingLevel.dimension().location(),
+                        ticksToSeconds(retryDelay));
+            }
             return;
         }
 
@@ -4505,28 +4793,22 @@ public final class UncannyParanoiaEventSystem {
         double chance = boosted ? GRAND_EVENT_POST_TENSION_CHANCE : GRAND_EVENT_BASE_CHANCE;
         double roll = level.random.nextDouble();
         if (roll <= chance) {
-            if (startGrandEventWarden(level, now, false)) {
-                state.setTensionBuilderLastGrandEventTick(now);
-                state.setTensionBuilderGrandEventBoostUntilTick(Long.MIN_VALUE);
-                state.setTensionBuilderNextGrandEventRollTick(now + cooldownTicks);
-                debugLog(
-                        "GRAND_EVENT started now={} boosted={} roll={} chance={} nextRollIn={}s",
-                        now,
-                        boosted,
-                        String.format(Locale.ROOT, "%.5f", roll),
-                        String.format(Locale.ROOT, "%.5f", chance),
-                        ticksToSeconds(cooldownTicks));
-            } else {
-                long nextDelay = 60L * 20L;
-                state.setTensionBuilderNextGrandEventRollTick(now + nextDelay);
-                debugLog(
-                        "GRAND_EVENT rolled-but-failed now={} boosted={} roll={} chance={} nextRollIn={}s",
-                        now,
-                        boosted,
-                        String.format(Locale.ROOT, "%.5f", roll),
-                        String.format(Locale.ROOT, "%.5f", chance),
-                        ticksToSeconds(nextDelay));
-            }
+            long spawnDelayTicks = rollRangeInclusive(level, GRAND_EVENT_PRESPAWN_DELAY_MIN_SECONDS, GRAND_EVENT_PRESPAWN_DELAY_MAX_SECONDS) * 20L;
+            state.setTensionBuilderPendingGrandEventStartTick(now + spawnDelayTicks);
+            state.setTensionBuilderPendingGrandEventDimension(level.dimension().location().toString());
+            state.setTensionBuilderPendingGrandEventForced(false);
+            state.setTensionBuilderPendingGrandEventWarningSent(false);
+            state.setTensionBuilderPendingGrandEventWarningTick(Long.MIN_VALUE);
+            state.setTensionBuilderPendingGrandEventDelayTicks(Long.MIN_VALUE);
+            state.setTensionBuilderNextGrandEventRollTick(now + spawnDelayTicks);
+            debugLog(
+                    "GRAND_EVENT delayed-start scheduled now={} boosted={} roll={} chance={} spawnIn={}s dim={}",
+                    now,
+                    boosted,
+                    String.format(Locale.ROOT, "%.5f", roll),
+                    String.format(Locale.ROOT, "%.5f", chance),
+                    ticksToSeconds(spawnDelayTicks),
+                    level.dimension().location());
             return;
         }
 
@@ -4540,7 +4822,7 @@ public final class UncannyParanoiaEventSystem {
                 ticksToSeconds(nextDelay));
     }
 
-    private static boolean startGrandEventWarden(ServerLevel level, long now, boolean forcedByCommand) {
+    private static boolean startGrandEventWarden(ServerLevel level, long now, boolean forcedByCommand, boolean firstWarningAlreadySent) {
         ResourceKey<Level> dimension = level.dimension();
         GrandEventState existing = ACTIVE_GRAND_EVENTS.get(dimension);
         if (existing != null && !existing.ended()) {
@@ -4610,6 +4892,10 @@ public final class UncannyParanoiaEventSystem {
         }
 
         GrandEventState state = new GrandEventState(now, warden.getUUID(), anchorPos, trackedPlayers, coveredAtStart);
+        if (firstWarningAlreadySent) {
+            state.setMessageIndex(GRAND_EVENT_WARNING_LINES.isEmpty() ? 0 : 1);
+            state.setNextMessageTick(now + GRAND_EVENT_MESSAGE_INTERVAL_TICKS);
+        }
         for (UUID playerId : trackedPlayers) {
             ServerPlayer tracked = level.getServer().getPlayerList().getPlayer(playerId);
             if (tracked != null && tracked.serverLevel() == level) {
@@ -4638,6 +4924,17 @@ public final class UncannyParanoiaEventSystem {
                 spawnPos,
                 trackedPlayers.size(),
                 coveredAtStart);
+        if (level.getServer() != null) {
+            UncannyWorldState worldState = UncannyWorldState.get(level.getServer());
+            if (worldState.getTensionBuilderPendingGrandEventStartTick() != Long.MIN_VALUE) {
+                worldState.setTensionBuilderPendingGrandEventStartTick(Long.MIN_VALUE);
+                worldState.setTensionBuilderPendingGrandEventDimension("");
+                worldState.setTensionBuilderPendingGrandEventForced(false);
+                worldState.setTensionBuilderPendingGrandEventWarningSent(false);
+                worldState.setTensionBuilderPendingGrandEventWarningTick(Long.MIN_VALUE);
+                worldState.setTensionBuilderPendingGrandEventDelayTicks(Long.MIN_VALUE);
+            }
+        }
         return true;
     }
 
@@ -4872,10 +5169,36 @@ public final class UncannyParanoiaEventSystem {
         stabilizeGrandWardenState(warden, resolveGrandEventFallbackTarget(level, state), now);
         if (state.attackTarget() == null) {
             clearGrandEventAggroTuning(state, warden, now);
-            ServerPlayer vanillaSoundTrigger = pickGrandEventVanillaSoundTrigger(level, state, warden, now);
-            if (vanillaSoundTrigger != null) {
-                beginGrandEventAttack(level, state, zonePlayers, warden, vanillaSoundTrigger, now, "sound");
+            if (tickGrandEventSoundInvestigation(level, state, zonePlayers, warden, now)) {
                 return;
+            }
+            if (state.soundCombatTarget() != null) {
+                tickGrandEventSoundCombat(level, state, zonePlayers, warden, now);
+                return;
+            }
+            GrandEventAudibleTrigger recentAudibleTrigger = pickGrandEventRecentAudibleTrigger(level, state, now);
+            if (recentAudibleTrigger != null) {
+                state.markHandledAudibleTick(recentAudibleTrigger.source().getUUID(), recentAudibleTrigger.tick());
+                debugLog(
+                        "GRAND_EVENT sound_trigger source=recent_audible player={} tick={} age={}t pos={} runtime={}",
+                        playerLabel(recentAudibleTrigger.source()),
+                        recentAudibleTrigger.tick(),
+                        Math.max(0L, now - recentAudibleTrigger.tick()),
+                        recentAudibleTrigger.sourcePos(),
+                        state.runtimeId());
+                if (startGrandEventSoundInvestigation(
+                        level,
+                        state,
+                        warden,
+                        recentAudibleTrigger.source(),
+                        recentAudibleTrigger.sourcePos(),
+                        now)) {
+                    return;
+                }
+                debugLog(
+                        "GRAND_EVENT sound_probe clear runtime={} reason=start_failed_no_fallback source={}",
+                        state.runtimeId(),
+                        playerLabel(recentAudibleTrigger.source()));
             }
 
             Entity unsolicited = warden.getTarget();
@@ -4898,6 +5221,10 @@ public final class UncannyParanoiaEventSystem {
 
         if (state.attackTarget() != null) {
             tickGrandEventAttack(level, state, zonePlayers, warden, now);
+            return;
+        }
+        if (state.soundCombatTarget() != null) {
+            tickGrandEventSoundCombat(level, state, zonePlayers, warden, now);
             return;
         }
 
@@ -4983,6 +5310,8 @@ public final class UncannyParanoiaEventSystem {
         state.setExiting(true);
         state.clearIssuedIntent();
         state.clearSearchFocus();
+        state.clearSoundInvestigation();
+        state.clearSoundCombat();
 
         warden.setTarget(null);
         warden.getBrain().eraseMemory(MemoryModuleType.ATTACK_TARGET);
@@ -5299,6 +5628,45 @@ public final class UncannyParanoiaEventSystem {
         state.setNextHeavySoundTick(now + rollRangeInclusive(level, GRAND_EVENT_HEAVY_SOUND_MIN_TICKS, GRAND_EVENT_HEAVY_SOUND_MAX_TICKS));
     }
 
+    private static boolean sendGrandEventPreSpawnWarning(ServerLevel level, long now, long spawnDelayTicks) {
+        if (GRAND_EVENT_WARNING_LINES.isEmpty()) {
+            return false;
+        }
+        List<ServerPlayer> recipients = new ArrayList<>();
+        for (ServerPlayer player : level.players()) {
+            if (!player.isAlive() || player.isSpectator()) {
+                continue;
+            }
+            recipients.add(player);
+        }
+        if (recipients.isEmpty()) {
+            debugLog(
+                    "GRAND_EVENT pre_spawn_warning sent=false players=0 spawnIn={}s dim={}",
+                    ticksToSeconds(spawnDelayTicks),
+                    level.dimension().location());
+            return false;
+        }
+        String firstLine = GRAND_EVENT_WARNING_LINES.get(0);
+        broadcastGrandEventTitle(recipients, firstLine);
+        SoundEvent voice = resolveGrandEventVoiceSound(firstLine);
+        for (ServerPlayer player : recipients) {
+            playLocalSoundAt(
+                    player,
+                    player.blockPosition(),
+                    voice,
+                    SoundSource.AMBIENT,
+                    2.8F,
+                    1.0F);
+        }
+        debugLog(
+                "GRAND_EVENT pre_spawn_warning sent=true players={} spawnIn={}s dim={} now={}",
+                recipients.size(),
+                ticksToSeconds(spawnDelayTicks),
+                level.dimension().location(),
+                now);
+        return true;
+    }
+
     private static SoundEvent resolveGrandEventVoiceSound(String line) {
         if (line == null) {
             return UncannySoundRegistry.UNCANNY_GRANDEVENT_IT_IS_HERE.get();
@@ -5439,6 +5807,38 @@ public final class UncannyParanoiaEventSystem {
         return true;
     }
 
+    private static GrandEventAudibleTrigger pickGrandEventRecentAudibleTrigger(ServerLevel level, GrandEventState state, long now) {
+        if (level == null || state == null) {
+            return null;
+        }
+        GrandEventAudibleTrigger best = null;
+        long bestTick = Long.MIN_VALUE;
+        for (UUID playerId : state.trackedPlayers()) {
+            ServerPlayer player = level.getServer().getPlayerList().getPlayer(playerId);
+            if (!isGrandEventTrackedPlayer(level, state, player)) {
+                continue;
+            }
+            Long tick = GRAND_EVENT_RECENT_AUDIBLE_ACTION_TICKS.get(playerId);
+            BlockPos pos = GRAND_EVENT_RECENT_AUDIBLE_ACTION_POSITIONS.get(playerId);
+            if (tick == null || pos == null) {
+                continue;
+            }
+            long age = now - tick;
+            if (age < 0L || age > GRAND_EVENT_AUDIBLE_ACTION_WINDOW_TICKS) {
+                continue;
+            }
+            long lastHandled = state.lastHandledAudibleTick(playerId);
+            if (tick <= lastHandled) {
+                continue;
+            }
+            if (tick >= bestTick) {
+                bestTick = tick;
+                best = new GrandEventAudibleTrigger(player, pos.immutable(), tick);
+            }
+        }
+        return best;
+    }
+
     private static ServerPlayer pickGrandEventVanillaSoundTrigger(ServerLevel level, GrandEventState state, Warden warden, long now) {
         if (warden == null) {
             return null;
@@ -5493,6 +5893,721 @@ public final class UncannyParanoiaEventSystem {
                 lastAudibleTick == null ? -1L : delta,
                 String.format(Locale.ROOT, "%.2f", distToAnchor));
         return false;
+    }
+
+    private static boolean startGrandEventSoundInvestigation(
+            ServerLevel level,
+            GrandEventState state,
+            Warden warden,
+            ServerPlayer source,
+            BlockPos sourcePos,
+            long now) {
+        if (level == null || state == null || warden == null || source == null || sourcePos == null) {
+            return false;
+        }
+        if (state.exiting()
+                || state.sinking()
+                || state.attackTarget() != null
+                || state.soundCombatTarget() != null
+                || !isGrandEventTrackedPlayer(level, state, source)) {
+            return false;
+        }
+
+        state.startSoundInvestigation(source.getUUID(), sourcePos.immutable(), now, now + GRAND_EVENT_SOUND_INVESTIGATION_TIMEOUT_TICKS);
+
+        Optional<LivingEntity> angryAt = warden.getEntityAngryAt();
+        if (angryAt.isPresent()) {
+            warden.clearAnger(angryAt.get());
+        }
+        warden.setTarget(null);
+        warden.getBrain().eraseMemory(MemoryModuleType.ATTACK_TARGET);
+
+        BlockPos probeNode = resolveGrandEventSoundInvestigationNode(level, state, warden, sourcePos);
+        if (probeNode == null
+                || !issueGrandEventSearchNode(
+                        level,
+                        state,
+                        warden,
+                        source,
+                        probeNode,
+                        "sound_probe",
+                        sourcePos.distSqr(state.anchorPos()),
+                        true)) {
+            state.clearSoundInvestigation();
+            debugLog(
+                    "GRAND_EVENT sound_probe start-fail runtime={} source={} soundPos={} reason=no_probe_node_or_issue_failed",
+                    state.runtimeId(),
+                    playerLabel(source),
+                    sourcePos);
+            return false;
+        }
+
+        state.markIssuedIntent(probeNode, now, "sound_probe", warden.position());
+        state.markSoundInvestigationIssued(now, probeNode);
+        warden.getNavigation().moveTo(
+                probeNode.getX() + 0.5D,
+                probeNode.getY(),
+                probeNode.getZ() + 0.5D,
+                GRAND_EVENT_APPROACH_SPEED);
+        debugLog(
+                "GRAND_EVENT sound_probe start runtime={} source={} soundPos={} probeNode={} timeout={}s",
+                state.runtimeId(),
+                playerLabel(source),
+                sourcePos,
+                probeNode,
+                ticksToSeconds(GRAND_EVENT_SOUND_INVESTIGATION_TIMEOUT_TICKS));
+        return true;
+    }
+
+    private static boolean tickGrandEventSoundInvestigation(
+            ServerLevel level,
+            GrandEventState state,
+            List<ServerPlayer> zonePlayers,
+            Warden warden,
+            long now) {
+        if (level == null || state == null || warden == null || !state.hasSoundInvestigation()) {
+            return false;
+        }
+        if (state.attackTarget() != null || state.soundCombatTarget() != null || state.exiting() || state.sinking()) {
+            state.clearSoundInvestigation();
+            return false;
+        }
+
+        UUID sourceId = state.soundInvestigationTargetId();
+        if (sourceId == null) {
+            state.clearSoundInvestigation();
+            return false;
+        }
+
+        ServerPlayer source = level.getServer().getPlayerList().getPlayer(sourceId);
+        if (source == null || getGrandEventScopeRejectReason(level, state, source) != null) {
+            debugLog(
+                    "GRAND_EVENT sound_probe clear runtime={} reason=source_invalid source={}",
+                    state.runtimeId(),
+                    sourceId);
+            state.clearSoundInvestigation();
+            return false;
+        }
+
+        BlockPos latestSoundPos = GRAND_EVENT_RECENT_AUDIBLE_ACTION_POSITIONS.get(sourceId);
+        if (latestSoundPos != null && !latestSoundPos.equals(state.soundInvestigationSourcePos())) {
+            state.setSoundInvestigationSourcePos(latestSoundPos);
+        }
+        BlockPos sourcePos = state.soundInvestigationSourcePos();
+        if (sourcePos == null) {
+            state.clearSoundInvestigation();
+            return false;
+        }
+
+        if (state.isSoundInvestigationExpired(now)) {
+            debugLog(
+                    "GRAND_EVENT sound_probe clear runtime={} reason=timeout source={} sourcePos={} age={}t",
+                    state.runtimeId(),
+                    playerLabel(source),
+                    sourcePos,
+                    now - state.soundInvestigationStartTick());
+            state.clearSoundInvestigation();
+            return false;
+        }
+
+        SoundInvestigationPhase phase = state.soundInvestigationPhase();
+        if (phase == null) {
+            phase = SoundInvestigationPhase.TRAVEL_TO_SOURCE;
+            state.setSoundInvestigationPhase(phase);
+        }
+        if (shouldSampleGrandEventRuntime(now)) {
+            debugLog(
+                    "GRAND_EVENT sound_probe phase={} runtime={} source={} sourcePos={}",
+                    phase.name().toLowerCase(Locale.ROOT),
+                    state.runtimeId(),
+                    playerLabel(source),
+                    sourcePos);
+        }
+
+        if (phase != SoundInvestigationPhase.SNIFF_DECISION || !state.hasSoundInvestigationSniffed()) {
+            Entity hardTarget = warden.getTarget();
+            Optional<LivingEntity> attackMemory = warden.getBrain().getMemory(MemoryModuleType.ATTACK_TARGET);
+            if (hardTarget != null || attackMemory.isPresent()) {
+                warden.setTarget(null);
+                warden.getBrain().eraseMemory(MemoryModuleType.ATTACK_TARGET);
+                Optional<LivingEntity> angryAt = warden.getEntityAngryAt();
+                if (angryAt.isPresent()) {
+                    warden.clearAnger(angryAt.get());
+                }
+                debugLog(
+                        "GRAND_EVENT sound_probe guard action=clear_intent runtime={} hardTarget={} attackMemory={}",
+                        state.runtimeId(),
+                        hardTarget == null ? "none" : hardTarget.getStringUUID(),
+                        attackMemory.map(Entity::getStringUUID).orElse("none"));
+            }
+            Optional<LivingEntity> lingeringAnger = warden.getEntityAngryAt();
+            if (lingeringAnger.isPresent()) {
+                warden.clearAnger(lingeringAnger.get());
+            }
+        }
+
+        if (phase == SoundInvestigationPhase.LOCAL_SWEEP) {
+            return tickGrandEventSoundLocalSweepPhase(level, state, zonePlayers, warden, source, sourcePos, now);
+        }
+        if (phase == SoundInvestigationPhase.SNIFF_DECISION) {
+            return tickGrandEventSoundSniffDecisionPhase(level, state, zonePlayers, warden, source, sourcePos, now);
+        }
+
+        BlockPos probeNode = state.soundInvestigationProbeNode();
+        if (probeNode == null) {
+            probeNode = resolveGrandEventSoundInvestigationNode(level, state, warden, sourcePos);
+            if (probeNode == null) {
+                debugLog(
+                        "GRAND_EVENT sound_probe clear runtime={} reason=no_probe_node source={} sourcePos={}",
+                        state.runtimeId(),
+                        playerLabel(source),
+                        sourcePos);
+                state.clearSoundInvestigation();
+                return false;
+            }
+            if (!issueGrandEventSearchNode(
+                    level,
+                    state,
+                    warden,
+                    source,
+                    probeNode,
+                    "sound_probe_restore",
+                    sourcePos.distSqr(state.anchorPos()),
+                    true)) {
+                debugLog(
+                        "GRAND_EVENT sound_probe clear runtime={} reason=probe_restore_issue_failed source={} sourcePos={} node={}",
+                        state.runtimeId(),
+                        playerLabel(source),
+                        sourcePos,
+                        probeNode);
+                state.clearSoundInvestigation();
+                return false;
+            }
+            state.markIssuedIntent(probeNode, now, "sound_probe_restore", warden.position());
+            state.markSoundInvestigationIssued(now, probeNode);
+            warden.getNavigation().moveTo(
+                    probeNode.getX() + 0.5D,
+                    probeNode.getY(),
+                    probeNode.getZ() + 0.5D,
+                    GRAND_EVENT_APPROACH_SPEED);
+        }
+
+        boolean hasWalkTarget = warden.getBrain().hasMemoryValue(MemoryModuleType.WALK_TARGET);
+        boolean hasPathMemory = warden.getBrain().hasMemoryValue(MemoryModuleType.PATH);
+        boolean hasCantReachSince = warden.getBrain().hasMemoryValue(MemoryModuleType.CANT_REACH_WALK_TARGET_SINCE);
+        boolean navDone = warden.getNavigation().isDone();
+        if (state.hasPendingIssuedNode()) {
+            state.samplePendingPathProgress(
+                    state.pendingIssuedNode(),
+                    warden.position(),
+                    hasWalkTarget,
+                    hasPathMemory,
+                    hasCantReachSince,
+                    navDone,
+                    now);
+        }
+
+        double distToProbeSqr = warden.distanceToSqr(Vec3.atCenterOf(probeNode));
+        double distToSourceSqr = warden.distanceToSqr(Vec3.atCenterOf(sourcePos));
+        boolean reachedProbe = distToProbeSqr <= GRAND_EVENT_SOUND_INVESTIGATION_REACH_DISTANCE_SQR;
+        if (!reachedProbe && navDone && distToSourceSqr <= GRAND_EVENT_SOUND_INVESTIGATION_REACH_FALLBACK_DISTANCE_SQR) {
+            reachedProbe = true;
+        }
+
+        if (!reachedProbe && state.hasPendingIssuedNode()) {
+            BlockPos pendingNode = state.pendingIssuedNode();
+            Vec3 pendingOrigin = state.pendingIssuedOriginPos();
+            double movedFromIssueSqr = pendingOrigin == null ? 0.0D : horizontalDistanceSqr(pendingOrigin, warden.position());
+            boolean authorityProgressed = pendingNode != null
+                    && pendingNode.equals(probeNode)
+                    && state.pendingAgeTicks(now) >= GRAND_EVENT_INTENT_CONSUME_MIN_AGE_TICKS
+                    && movedFromIssueSqr >= GRAND_EVENT_INTENT_CONSUME_MIN_MOVE_SQR
+                    && (hasWalkTarget || hasPathMemory || !navDone);
+            if (authorityProgressed) {
+                state.markIntentConsumed(now, pendingNode, false, Math.sqrt(movedFromIssueSqr));
+                reachedProbe = distToSourceSqr <= GRAND_EVENT_SOUND_INVESTIGATION_REACH_FALLBACK_DISTANCE_SQR;
+            }
+        }
+
+        debugLog(
+                "GRAND_EVENT sound_probe progress runtime={} source={} probeNode={} distProbe={} distSource={} pendingAge={} navDone={} hasPath={} hasWalkTarget={}",
+                state.runtimeId(),
+                playerLabel(source),
+                probeNode,
+                String.format(Locale.ROOT, "%.2f", Math.sqrt(distToProbeSqr)),
+                String.format(Locale.ROOT, "%.2f", Math.sqrt(distToSourceSqr)),
+                state.hasPendingIssuedNode() ? state.pendingAgeTicks(now) : -1L,
+                navDone,
+                hasPathMemory,
+                hasWalkTarget);
+
+        if (reachedProbe && state.hasPendingIssuedNode()) {
+            BlockPos pendingNode = state.pendingIssuedNode();
+            if (pendingNode != null && pendingNode.equals(probeNode)) {
+                Vec3 pendingOrigin = state.pendingIssuedOriginPos();
+                double movedFromIssueSqr = pendingOrigin == null ? 0.0D : horizontalDistanceSqr(pendingOrigin, warden.position());
+                state.markIntentConsumed(now, pendingNode, true, Math.sqrt(movedFromIssueSqr));
+            }
+        }
+        if (!reachedProbe) {
+            boolean hasPending = state.hasPendingIssuedNode();
+            boolean minIntervalReady = state.soundInvestigationLastIssueTick() == Long.MIN_VALUE
+                    || (now - state.soundInvestigationLastIssueTick()) >= GRAND_EVENT_SOUND_INVESTIGATION_REISSUE_TICKS;
+            boolean pendingTimedOut = hasPending && state.pendingAgeTicks(now) >= GRAND_EVENT_INTENT_NONCONSUMED_TIMEOUT_TICKS;
+            boolean pendingCantReach = hasPending && state.isPendingCantReachStalled(now);
+            boolean pendingNavIdle = hasPending && state.isPendingNavIdleStalled(now);
+            boolean navIdleNoPending = !hasPending && navDone && !hasWalkTarget && !hasPathMemory;
+            boolean allowReissue = minIntervalReady && (pendingTimedOut || pendingCantReach || pendingNavIdle || navIdleNoPending);
+            String gateReason;
+            if (!minIntervalReady) {
+                gateReason = "interval";
+            } else if (!(pendingTimedOut || pendingCantReach || pendingNavIdle || navIdleNoPending)) {
+                gateReason = "pending_active";
+            } else {
+                gateReason = "ok";
+            }
+            debugLog(
+                    "GRAND_EVENT sound_probe gate allow={} reason={} navDone={} hasPath={} hasWalkTarget={} sameNode={} pending={} pendingTimedOut={} pendingCantReach={} pendingNavIdle={} navIdleNoPending={}",
+                    allowReissue,
+                    gateReason,
+                    navDone,
+                    hasPathMemory,
+                    hasWalkTarget,
+                    state.soundInvestigationProbeNode() != null && state.soundInvestigationProbeNode().equals(probeNode),
+                    hasPending,
+                    pendingTimedOut,
+                    pendingCantReach,
+                    pendingNavIdle,
+                    navIdleNoPending);
+
+            if (allowReissue) {
+                BlockPos candidateNode = resolveGrandEventSoundInvestigationNode(level, state, warden, sourcePos);
+                boolean sameNode = candidateNode != null && candidateNode.equals(state.soundInvestigationProbeNode());
+                if (candidateNode != null
+                        && !(sameNode && hasPathMemory && !navDone)
+                        && issueGrandEventSearchNode(
+                                level,
+                                state,
+                                warden,
+                                source,
+                                candidateNode,
+                                "sound_probe_reissue",
+                                sourcePos.distSqr(state.anchorPos()),
+                                true)) {
+                    state.markIssuedIntent(candidateNode, now, "sound_probe_reissue", warden.position());
+                    state.markSoundInvestigationIssued(now, candidateNode);
+                    warden.getNavigation().moveTo(
+                            candidateNode.getX() + 0.5D,
+                            candidateNode.getY(),
+                            candidateNode.getZ() + 0.5D,
+                            GRAND_EVENT_APPROACH_SPEED);
+                    debugLog(
+                            "GRAND_EVENT sound_probe reissue runtime={} source={} node={} distToSource={}",
+                            state.runtimeId(),
+                            playerLabel(source),
+                            candidateNode,
+                            String.format(Locale.ROOT, "%.2f", Math.sqrt(distToSourceSqr)));
+                } else if (sameNode && hasPathMemory && !navDone) {
+                    debugLog(
+                            "GRAND_EVENT sound_probe gate allow=false reason=same_node_active_path runtime={} source={} node={}",
+                            state.runtimeId(),
+                            playerLabel(source),
+                            candidateNode);
+                }
+            }
+            return true;
+        }
+
+        debugLog(
+                "GRAND_EVENT sound_probe arrival reached=true runtime={} source={} probeNode={} distProbe={} distSource={} phase=travel",
+                state.runtimeId(),
+                playerLabel(source),
+                probeNode,
+                String.format(Locale.ROOT, "%.2f", Math.sqrt(distToProbeSqr)),
+                String.format(Locale.ROOT, "%.2f", Math.sqrt(distToSourceSqr)));
+        state.setSoundInvestigationPhase(SoundInvestigationPhase.LOCAL_SWEEP);
+        state.setSoundInvestigationSweepNode(null);
+        state.resetSoundInvestigationSweepAttempts();
+        return true;
+
+    }
+
+    private static boolean tickGrandEventSoundLocalSweepPhase(
+            ServerLevel level,
+            GrandEventState state,
+            List<ServerPlayer> zonePlayers,
+            Warden warden,
+            ServerPlayer source,
+            BlockPos sourcePos,
+            long now) {
+        if (level == null || state == null || warden == null || sourcePos == null || source == null) {
+            return false;
+        }
+
+        BlockPos sweepNode = state.soundInvestigationSweepNode();
+        if (sweepNode == null) {
+            sweepNode = resolveGrandEventSoundInvestigationSweepNode(level, state, warden, sourcePos, now);
+            if (sweepNode == null) {
+                state.incrementSoundInvestigationSweepAttempts();
+                if (state.soundInvestigationSweepAttempts() >= GRAND_EVENT_SOUND_INVESTIGATION_MAX_SWEEP_ATTEMPTS) {
+                    state.setSoundInvestigationPhase(SoundInvestigationPhase.SNIFF_DECISION);
+                    debugLog(
+                            "GRAND_EVENT sound_probe phase=local_sweep runtime={} source={} node=none attempts={} transition=sniff_decision",
+                            state.runtimeId(),
+                            playerLabel(source),
+                            state.soundInvestigationSweepAttempts());
+                } else {
+                    debugLog(
+                            "GRAND_EVENT sound_probe phase=local_sweep runtime={} source={} node=none attempts={} reason=no_sweep_node",
+                            state.runtimeId(),
+                            playerLabel(source),
+                            state.soundInvestigationSweepAttempts());
+                }
+                return true;
+            }
+
+            if (!issueGrandEventSearchNode(
+                    level,
+                    state,
+                    warden,
+                    source,
+                    sweepNode,
+                    "sound_probe_sweep",
+                    sourcePos.distSqr(state.anchorPos()),
+                    true)) {
+                state.incrementSoundInvestigationSweepAttempts();
+                debugLog(
+                        "GRAND_EVENT sound_probe phase=local_sweep runtime={} source={} node={} attempts={} reason=sweep_issue_failed",
+                        state.runtimeId(),
+                        playerLabel(source),
+                        sweepNode,
+                        state.soundInvestigationSweepAttempts());
+                if (state.soundInvestigationSweepAttempts() >= GRAND_EVENT_SOUND_INVESTIGATION_MAX_SWEEP_ATTEMPTS) {
+                    state.setSoundInvestigationPhase(SoundInvestigationPhase.SNIFF_DECISION);
+                }
+                return true;
+            }
+
+            state.setSoundInvestigationSweepNode(sweepNode);
+            state.markIssuedIntent(sweepNode, now, "sound_probe_sweep", warden.position());
+            state.markSoundInvestigationIssued(now, sweepNode);
+            warden.getNavigation().moveTo(
+                    sweepNode.getX() + 0.5D,
+                    sweepNode.getY(),
+                    sweepNode.getZ() + 0.5D,
+                    GRAND_EVENT_SEARCH_SPEED);
+            debugLog(
+                    "GRAND_EVENT sound_probe sweep node={} consumed=false runtime={} source={} attempts={}",
+                    sweepNode,
+                    state.runtimeId(),
+                    playerLabel(source),
+                    state.soundInvestigationSweepAttempts());
+        }
+
+        boolean hasWalkTarget = warden.getBrain().hasMemoryValue(MemoryModuleType.WALK_TARGET);
+        boolean hasPathMemory = warden.getBrain().hasMemoryValue(MemoryModuleType.PATH);
+        boolean hasCantReachSince = warden.getBrain().hasMemoryValue(MemoryModuleType.CANT_REACH_WALK_TARGET_SINCE);
+        boolean navDone = warden.getNavigation().isDone();
+        if (state.hasPendingIssuedNode()) {
+            state.samplePendingPathProgress(
+                    state.pendingIssuedNode(),
+                    warden.position(),
+                    hasWalkTarget,
+                    hasPathMemory,
+                    hasCantReachSince,
+                    navDone,
+                    now);
+        }
+
+        double distToSweepSqr = warden.distanceToSqr(Vec3.atCenterOf(sweepNode));
+        double distToSourceSqr = warden.distanceToSqr(Vec3.atCenterOf(sourcePos));
+        boolean reachedSweep = distToSweepSqr <= GRAND_EVENT_SOUND_INVESTIGATION_REACH_DISTANCE_SQR;
+        if (!reachedSweep && navDone && distToSourceSqr <= GRAND_EVENT_SOUND_INVESTIGATION_REACH_FALLBACK_DISTANCE_SQR) {
+            reachedSweep = true;
+        }
+
+        if (reachedSweep) {
+            if (state.hasPendingIssuedNode()) {
+                BlockPos pendingNode = state.pendingIssuedNode();
+                if (pendingNode != null && pendingNode.equals(sweepNode)) {
+                    Vec3 pendingOrigin = state.pendingIssuedOriginPos();
+                    double movedFromIssueSqr = pendingOrigin == null ? 0.0D : horizontalDistanceSqr(pendingOrigin, warden.position());
+                    state.markIntentConsumed(now, pendingNode, true, Math.sqrt(movedFromIssueSqr));
+                }
+            }
+            debugLog(
+                    "GRAND_EVENT sound_probe sweep node={} consumed=true runtime={} source={}",
+                    sweepNode,
+                    state.runtimeId(),
+                    playerLabel(source));
+            state.setSoundInvestigationSweepNode(null);
+            state.resetSoundInvestigationSweepAttempts();
+            state.setSoundInvestigationPhase(SoundInvestigationPhase.SNIFF_DECISION);
+            return true;
+        }
+
+        boolean hasPending = state.hasPendingIssuedNode();
+        boolean minIntervalReady = state.soundInvestigationLastIssueTick() == Long.MIN_VALUE
+                || (now - state.soundInvestigationLastIssueTick()) >= GRAND_EVENT_SOUND_INVESTIGATION_REISSUE_TICKS;
+        boolean pendingTimedOut = hasPending && state.pendingAgeTicks(now) >= GRAND_EVENT_INTENT_NONCONSUMED_TIMEOUT_TICKS;
+        boolean pendingCantReach = hasPending && state.isPendingCantReachStalled(now);
+        boolean pendingNavIdle = hasPending && state.isPendingNavIdleStalled(now);
+        boolean navIdleNoPending = !hasPending && navDone && !hasWalkTarget && !hasPathMemory;
+        boolean allowReissue = minIntervalReady && (pendingTimedOut || pendingCantReach || pendingNavIdle || navIdleNoPending);
+        if (!allowReissue) {
+            return true;
+        }
+
+        BlockPos candidateNode = resolveGrandEventSoundInvestigationSweepNode(level, state, warden, sourcePos, now);
+        boolean sameNode = candidateNode != null && candidateNode.equals(sweepNode);
+        if (candidateNode != null
+                && !(sameNode && hasPathMemory && !navDone)
+                && issueGrandEventSearchNode(
+                        level,
+                        state,
+                        warden,
+                        source,
+                        candidateNode,
+                        "sound_probe_sweep_reissue",
+                        sourcePos.distSqr(state.anchorPos()),
+                        true)) {
+            state.setSoundInvestigationSweepNode(candidateNode);
+            state.markIssuedIntent(candidateNode, now, "sound_probe_sweep_reissue", warden.position());
+            state.markSoundInvestigationIssued(now, candidateNode);
+            warden.getNavigation().moveTo(
+                    candidateNode.getX() + 0.5D,
+                    candidateNode.getY(),
+                    candidateNode.getZ() + 0.5D,
+                    GRAND_EVENT_SEARCH_SPEED);
+            debugLog(
+                    "GRAND_EVENT sound_probe reissue runtime={} source={} node={} distToSource={} phase=local_sweep",
+                    state.runtimeId(),
+                    playerLabel(source),
+                    candidateNode,
+                    String.format(Locale.ROOT, "%.2f", Math.sqrt(distToSourceSqr)));
+        }
+
+        return true;
+    }
+
+    private static boolean tickGrandEventSoundSniffDecisionPhase(
+            ServerLevel level,
+            GrandEventState state,
+            List<ServerPlayer> zonePlayers,
+            Warden warden,
+            ServerPlayer source,
+            BlockPos sourcePos,
+            long now) {
+        if (level == null || state == null || warden == null || sourcePos == null || source == null) {
+            return false;
+        }
+        double distToSourceSqr = warden.distanceToSqr(Vec3.atCenterOf(sourcePos));
+        if (!state.hasSoundInvestigationSniffed()) {
+            warden.getNavigation().stop();
+            warden.getLookControl().setLookAt(sourcePos.getX() + 0.5D, sourcePos.getY() + 0.5D, sourcePos.getZ() + 0.5D);
+            for (ServerPlayer player : zonePlayers) {
+                playLocalSoundAt(
+                        player,
+                        warden.blockPosition(),
+                        SoundEvents.WARDEN_SNIFF,
+                        SoundSource.HOSTILE,
+                        2.0F,
+                        0.92F + level.random.nextFloat() * 0.08F);
+            }
+            if (WARDEN_SNIFF_POSE != null) {
+                try {
+                    warden.setPose(WARDEN_SNIFF_POSE);
+                    state.setSniffPoseUntilTick(now + GRAND_EVENT_SNIFF_POSE_TICKS);
+                } catch (Throwable ignored) {
+                    state.setSniffPoseUntilTick(Long.MIN_VALUE);
+                }
+            }
+            state.markSoundInvestigationSniff(now);
+            debugLog(
+                    "GRAND_EVENT sound_probe sniff fired runtime={} source={} sourcePos={} distToSource={}",
+                    state.runtimeId(),
+                    playerLabel(source),
+                    sourcePos,
+                    String.format(Locale.ROOT, "%.2f", Math.sqrt(distToSourceSqr)));
+            return true;
+        }
+
+        long sniffTick = state.soundInvestigationSniffTick();
+        if (sniffTick != Long.MIN_VALUE && (now - sniffTick) < GRAND_EVENT_SOUND_INVESTIGATION_SNIFF_ATTACK_DELAY_TICKS) {
+            return true;
+        }
+
+        LivingEntity attackCandidate = resolveGrandEventSoundInvestigationAttackTarget(level, state, sourcePos);
+        if (attackCandidate != null) {
+            debugLog(
+                    "GRAND_EVENT sound_probe target_select runtime={} source={} candidate={} type={} distToSource={}",
+                    state.runtimeId(),
+                    playerLabel(source),
+                    attackCandidate.getStringUUID(),
+                    attackCandidate.getType().toShortString(),
+                    String.format(Locale.ROOT, "%.2f", Math.sqrt(distToSourceSqr)));
+            debugLog(
+                    "GRAND_EVENT sound_probe escalate_attack runtime={} source={} attackTarget={} type={} distToSource={} admittedTrigger=sound_sniff",
+                    state.runtimeId(),
+                    playerLabel(source),
+                    attackCandidate.getStringUUID(),
+                    attackCandidate.getType().toShortString(),
+                    String.format(Locale.ROOT, "%.2f", Math.sqrt(distToSourceSqr)));
+            state.clearSoundInvestigation();
+            beginGrandEventSoundCombat(level, state, zonePlayers, warden, attackCandidate, now, "sound_sniff");
+            return true;
+        }
+
+        debugLog(
+                "GRAND_EVENT sound_probe clear runtime={} reason=no_attack_candidate source={} sourcePos={}",
+                state.runtimeId(),
+                playerLabel(source),
+                sourcePos);
+        state.clearSoundInvestigation();
+        state.setNextCrossTick(now);
+        return false;
+    }
+
+    private static LivingEntity resolveGrandEventSoundInvestigationAttackTarget(
+            ServerLevel level,
+            GrandEventState state,
+            BlockPos sourcePos) {
+        if (level == null || state == null || sourcePos == null) {
+            return null;
+        }
+        Vec3 sourceCenter = Vec3.atCenterOf(sourcePos);
+        LivingEntity best = null;
+        double bestDist = Double.MAX_VALUE;
+        AABB searchBox = new AABB(sourceCenter, sourceCenter)
+                .inflate(Math.sqrt(GRAND_EVENT_SOUND_INVESTIGATION_ATTACK_RADIUS_SQR));
+        List<LivingEntity> candidates = level.getEntitiesOfClass(
+                LivingEntity.class,
+                searchBox,
+                candidate -> candidate != null
+                        && candidate.isAlive()
+                        && !candidate.isRemoved()
+                        && !(candidate instanceof Warden)
+                        && !candidate.getUUID().equals(state.wardenUuid()));
+        for (LivingEntity candidate : candidates) {
+            if (candidate instanceof ServerPlayer candidatePlayer) {
+                if (!isGrandEventTrackedPlayer(level, state, candidatePlayer)) {
+                    continue;
+                }
+            }
+            if (candidate instanceof Player player && player.isSpectator()) {
+                continue;
+            }
+            double distToSound = candidate.position().distanceToSqr(sourceCenter);
+            if (distToSound > GRAND_EVENT_SOUND_INVESTIGATION_ATTACK_RADIUS_SQR || distToSound >= bestDist) {
+                continue;
+            }
+            best = candidate;
+            bestDist = distToSound;
+        }
+        return best;
+    }
+
+    private static BlockPos resolveGrandEventSoundInvestigationNode(
+            ServerLevel level,
+            GrandEventState state,
+            Warden warden,
+            BlockPos sourcePos) {
+        if (level == null || state == null || warden == null || sourcePos == null) {
+            return null;
+        }
+        int baseY = sourcePos.getY();
+        int[][] offsets = new int[][] {
+            {0, 0},
+            {2, 0},
+            {-2, 0},
+            {0, 2},
+            {0, -2},
+            {3, 1},
+            {-3, 1},
+            {3, -1},
+            {-3, -1},
+            {4, 0},
+            {-4, 0},
+            {0, 4},
+            {0, -4}
+        };
+        for (int[] offset : offsets) {
+            BlockPos candidate = findGrandEventSearchCandidateWithTolerance(
+                    level,
+                    sourcePos.getX() + offset[0],
+                    sourcePos.getZ() + offset[1],
+                    baseY,
+                    true);
+            if (candidate == null) {
+                continue;
+            }
+            if (state.coveredAtStart()) {
+                if (!hasAnyNonAirAbove(level, candidate)) {
+                    continue;
+                }
+            } else if (hasAnyNonAirAbove(level, candidate)) {
+                continue;
+            }
+            if (warden.getNavigation().createPath(candidate, 0) == null) {
+                continue;
+            }
+            return candidate.immutable();
+        }
+        return null;
+    }
+
+    private static BlockPos resolveGrandEventSoundInvestigationSweepNode(
+            ServerLevel level,
+            GrandEventState state,
+            Warden warden,
+            BlockPos sourcePos,
+            long now) {
+        if (level == null || state == null || warden == null || sourcePos == null) {
+            return null;
+        }
+        int baseY = sourcePos.getY();
+        int attemptOffset = Math.max(0, state.soundInvestigationSweepAttempts());
+        float baseAngle = (state.searchAngleDegrees() + 95.0F + (attemptOffset * 41.0F)) % 360.0F;
+        state.setSearchAngleDegrees((baseAngle + 67.0F + level.random.nextFloat() * 20.0F) % 360.0F);
+
+        for (int attempt = 0; attempt < 16; attempt++) {
+            float jitter = (level.random.nextFloat() * 36.0F) - 18.0F;
+            float spread = attempt * (360.0F / 16.0F);
+            double angle = Math.toRadians(baseAngle + jitter + spread);
+            double distance = GRAND_EVENT_SOUND_INVESTIGATION_LOCAL_SWEEP_RADIUS_MIN
+                    + level.random.nextDouble() * (GRAND_EVENT_SOUND_INVESTIGATION_LOCAL_SWEEP_RADIUS_MAX - GRAND_EVENT_SOUND_INVESTIGATION_LOCAL_SWEEP_RADIUS_MIN);
+            int x = Mth.floor(sourcePos.getX() + Math.cos(angle) * distance);
+            int z = Mth.floor(sourcePos.getZ() + Math.sin(angle) * distance);
+            BlockPos candidate = findGrandEventSearchCandidateWithTolerance(level, x, z, baseY, true);
+            if (candidate == null) {
+                continue;
+            }
+            if (state.coveredAtStart()) {
+                if (!hasAnyNonAirAbove(level, candidate)) {
+                    continue;
+                }
+            } else if (hasAnyNonAirAbove(level, candidate)) {
+                continue;
+            }
+            if (candidate.distSqr(sourcePos) < 4.0D) {
+                continue;
+            }
+            if (candidate.distSqr(warden.blockPosition()) < 4.0D) {
+                continue;
+            }
+            if (warden.getNavigation().createPath(candidate, 0) == null) {
+                continue;
+            }
+            return candidate.immutable();
+        }
+
+        if (shouldSampleGrandEventRuntime(now)) {
+            debugLog(
+                    "GRAND_EVENT sound_probe sweep node=none runtime={} sourcePos={} reason=no_pathable_candidate",
+                    state.runtimeId(),
+                    sourcePos);
+        }
+        return null;
     }
 
     private static ServerPlayer pickGrandEventTriggeringPlayer(ServerLevel level, GrandEventState state, long now) {
@@ -5706,6 +6821,14 @@ public final class UncannyParanoiaEventSystem {
                         state.runtimeId());
                 debugLog(
                         "GRAND_EVENT exit_nav_owner=retreat_only runtime={} source=approach",
+                        state.runtimeId());
+            }
+            return false;
+        }
+        if (state.attackTarget() == null && state.hasSoundInvestigation()) {
+            if ((now % GRAND_EVENT_MOVEMENT_DEBUG_SAMPLE_INTERVAL_TICKS) == 0L) {
+                debugLog(
+                        "GRAND_EVENT search_suppressed_in_sound_probe=true runtime={} source=approach reason=sound_authority_lock",
                         state.runtimeId());
             }
             return false;
@@ -7425,6 +8548,17 @@ public final class UncannyParanoiaEventSystem {
                     state.runtimeId());
             return false;
         }
+        if (state != null
+                && state.attackTarget() == null
+                && state.hasSoundInvestigation()
+                && reason != null
+                && !reason.startsWith("sound_probe")) {
+            debugLog(
+                    "GRAND_EVENT search_suppressed_in_sound_probe=true runtime={} source=issue_node reason=sound_authority_lock flowReason={}",
+                    state.runtimeId(),
+                    reason);
+            return false;
+        }
         if (warden == null || focus == null || node == null) {
             return false;
         }
@@ -7782,7 +8916,7 @@ public final class UncannyParanoiaEventSystem {
                 String.format(Locale.ROOT, "%.2f", Math.sqrt(warden.distanceToSqr(Vec3.atCenterOf(state.anchorPos())))));
     }
 
-    private static void keepGrandWardenEngaged(Warden warden, ServerPlayer focus, long now) {
+    private static void keepGrandWardenEngaged(Warden warden, LivingEntity focus, long now) {
         if (warden == null || focus == null) {
             return;
         }
@@ -7865,7 +8999,7 @@ public final class UncannyParanoiaEventSystem {
         }
     }
 
-    private static double resolveGrandEventChaseSpeed(Warden warden, ServerPlayer target) {
+    private static double resolveGrandEventChaseSpeed(Warden warden, LivingEntity target) {
         if (warden == null || target == null) {
             return GRAND_EVENT_ATTACK_CHASE_SPEED_NEAR;
         }
@@ -7895,7 +9029,7 @@ public final class UncannyParanoiaEventSystem {
         return base;
     }
 
-    private static void applyGrandEventAggroTuning(GrandEventState state, Warden warden, ServerPlayer target, long now) {
+    private static void applyGrandEventAggroTuning(GrandEventState state, Warden warden, LivingEntity target, long now) {
         if (state == null || warden == null || target == null) {
             return;
         }
@@ -8477,6 +9611,134 @@ public final class UncannyParanoiaEventSystem {
                 state.lastAdmittedTrigger());
     }
 
+    private static void beginGrandEventSoundCombat(
+            ServerLevel level,
+            GrandEventState state,
+            List<ServerPlayer> zonePlayers,
+            Warden warden,
+            LivingEntity target,
+            long now,
+            String admittedTrigger) {
+        if (level == null || state == null || warden == null || target == null || !target.isAlive()) {
+            return;
+        }
+        state.clearAttack();
+        state.clearIssuedIntent();
+        state.clearSearchFocus();
+        state.clearSoundInvestigation();
+        state.setSoundCombatTarget(target.getUUID(), now, admittedTrigger);
+        state.setLastAdmittedTrigger(admittedTrigger);
+
+        warden.setNoAi(false);
+        warden.setTarget(target);
+        warden.setNoGravity(false);
+        warden.noPhysics = false;
+        applyGrandEventAggroTuning(state, warden, target, now);
+        warden.getNavigation().moveTo(target, resolveGrandEventChaseSpeed(warden, target));
+
+        for (ServerPlayer player : zonePlayers) {
+            playLocalSoundAt(
+                    player,
+                    target.blockPosition(),
+                    SoundEvents.WARDEN_ROAR,
+                    SoundSource.HOSTILE,
+                    2.3F,
+                    0.95F + level.random.nextFloat() * 0.08F);
+        }
+        debugLog(
+                "GRAND_EVENT sound_combat start target={} type={} dim={} admittedTrigger={}",
+                target.getStringUUID(),
+                target.getType().toShortString(),
+                level.dimension().location(),
+                admittedTrigger);
+    }
+
+    private static void tickGrandEventSoundCombat(
+            ServerLevel level,
+            GrandEventState state,
+            List<ServerPlayer> zonePlayers,
+            Warden warden,
+            long now) {
+        UUID targetId = state.soundCombatTarget();
+        if (targetId == null) {
+            return;
+        }
+        Entity raw = level.getEntity(targetId);
+        if (!(raw instanceof LivingEntity target)
+                || !target.isAlive()
+                || target.isRemoved()
+                || target.level() != level) {
+            debugLog(
+                    "GRAND_EVENT sound_combat clear runtime={} reason=target_missing target={}",
+                    state.runtimeId(),
+                    targetId);
+            state.clearSoundCombat();
+            state.setNextCrossTick(now);
+            clearGrandEventAggroTuning(state, warden, now);
+            warden.setTarget(null);
+            return;
+        }
+        if (target instanceof ServerPlayer playerTarget && !isPlayerWithinGrandEventScope(level, state, playerTarget)) {
+            debugLog(
+                    "GRAND_EVENT sound_combat clear runtime={} reason=target_out_of_scope target={}",
+                    state.runtimeId(),
+                    playerLabel(playerTarget));
+            state.clearSoundCombat();
+            state.setNextCrossTick(now);
+            clearGrandEventAggroTuning(state, warden, now);
+            warden.setTarget(null);
+            return;
+        }
+
+        double targetDistanceSqr = warden.distanceToSqr(target);
+        if (targetDistanceSqr > GRAND_EVENT_ATTACK_RELEASE_DISTANCE_SQR) {
+            debugLog(
+                    "GRAND_EVENT sound_combat clear runtime={} reason=target_too_far target={} dist={}",
+                    state.runtimeId(),
+                    target.getStringUUID(),
+                    String.format(Locale.ROOT, "%.2f", Math.sqrt(targetDistanceSqr)));
+            state.clearSoundCombat();
+            state.setNextCrossTick(now);
+            clearGrandEventAggroTuning(state, warden, now);
+            warden.setTarget(null);
+            return;
+        }
+
+        warden.setNoAi(false);
+        warden.setTarget(target);
+        warden.setNoGravity(false);
+        warden.noPhysics = false;
+        applyGrandEventAggroTuning(state, warden, target, now);
+        tickGrandEventCavePathBreak(level, state, warden, target, now);
+        if ((now % GRAND_EVENT_AGGRO_ANGER_REFRESH_TICKS) == 0L) {
+            keepGrandWardenEngaged(warden, target, now);
+        }
+        boolean waterPursuit = warden.isInWaterOrBubble() || target.isInWaterOrBubble();
+        if (waterPursuit || (now % GRAND_EVENT_ATTACK_PATH_REFRESH_TICKS) == 0L || warden.getNavigation().isDone()) {
+            warden.getNavigation().moveTo(target, resolveGrandEventChaseSpeed(warden, target));
+        }
+
+        if (!target.isAlive() || target.isDeadOrDying()) {
+            state.clearSoundCombat();
+            state.setNextCrossTick(now);
+            clearGrandEventAggroTuning(state, warden, now);
+            warden.setTarget(null);
+            for (ServerPlayer player : zonePlayers) {
+                playLocalSoundAt(
+                        player,
+                        target.blockPosition(),
+                        SoundEvents.WARDEN_LISTENING,
+                        SoundSource.HOSTILE,
+                        1.7F,
+                        0.90F + level.random.nextFloat() * 0.08F);
+            }
+            debugLog(
+                    "GRAND_EVENT sound_combat clear runtime={} reason=target_dead target={}",
+                    state.runtimeId(),
+                    target.getStringUUID());
+        }
+    }
+
     private static void tickGrandEventAttack(
             ServerLevel level,
             GrandEventState state,
@@ -8842,66 +10104,72 @@ public final class UncannyParanoiaEventSystem {
             return;
         }
 
-        Map<UUID, PausedSpecialSnapshot> pausedByEntity = ACTIVE_GRAND_PAUSED_SPECIALS.computeIfAbsent(level.dimension(), key -> new HashMap<>());
+        Map<UUID, PausedLivingSnapshot> pausedByEntity = ACTIVE_GRAND_PAUSED_LIVINGS.computeIfAbsent(level.dimension(), key -> new HashMap<>());
         pausedByEntity.entrySet().removeIf(entry -> {
             Entity raw = level.getEntity(entry.getKey());
-            return !(raw instanceof Mob mob) || !mob.isAlive() || !UncannyEntityRegistry.isSpecialEntity(mob.getType());
+            return !(raw instanceof Mob mob) || !mob.isAlive();
         });
 
         Vec3 anchorCenter = Vec3.atCenterOf(state.anchorPos());
         AABB bounds = new AABB(
-                anchorCenter.x - GRAND_EVENT_SPECIAL_PAUSE_RADIUS,
+                anchorCenter.x - GRAND_EVENT_LIVING_PAUSE_RADIUS,
                 level.getMinBuildHeight(),
-                anchorCenter.z - GRAND_EVENT_SPECIAL_PAUSE_RADIUS,
-                anchorCenter.x + GRAND_EVENT_SPECIAL_PAUSE_RADIUS,
+                anchorCenter.z - GRAND_EVENT_LIVING_PAUSE_RADIUS,
+                anchorCenter.x + GRAND_EVENT_LIVING_PAUSE_RADIUS,
                 level.getMaxBuildHeight(),
-                anchorCenter.z + GRAND_EVENT_SPECIAL_PAUSE_RADIUS);
-        List<Mob> specials = level.getEntitiesOfClass(
+                anchorCenter.z + GRAND_EVENT_LIVING_PAUSE_RADIUS);
+        List<Mob> pausedMobs = level.getEntitiesOfClass(
                 Mob.class,
                 bounds,
                 mob -> mob != null
                         && mob.isAlive()
-                        && UncannyEntityRegistry.isSpecialEntity(mob.getType())
                         && !mob.getUUID().equals(state.wardenUuid()));
 
         int pausedCount = 0;
-        for (Mob special : specials) {
+        for (Mob mob : pausedMobs) {
             pausedCount++;
-            UUID specialId = special.getUUID();
-            PausedSpecialSnapshot existing = pausedByEntity.get(specialId);
+            UUID mobId = mob.getUUID();
+            boolean isSpecial = UncannyEntityRegistry.isSpecialEntity(mob.getType());
+            PausedLivingSnapshot existing = pausedByEntity.get(mobId);
             if (existing == null) {
-                UUID targetId = special.getTarget() != null ? special.getTarget().getUUID() : null;
-                pausedByEntity.put(specialId, new PausedSpecialSnapshot(specialId, special.isNoAi(), targetId));
+                UUID targetId = mob.getTarget() != null ? mob.getTarget().getUUID() : null;
+                pausedByEntity.put(mobId, new PausedLivingSnapshot(mobId, mob.isNoAi(), targetId, isSpecial));
                 debugLog(
-                        "GRAND_EVENT special_pause apply uuid={} type={} dist={}",
-                        specialId,
-                        special.getType().toShortString(),
-                        String.format(Locale.ROOT, "%.2f", Math.sqrt(special.blockPosition().distSqr(state.anchorPos()))));
+                        "GRAND_EVENT freeze_living apply uuid={} type={} dist={} special={}",
+                        mobId,
+                        mob.getType().toShortString(),
+                        String.format(Locale.ROOT, "%.2f", Math.sqrt(mob.blockPosition().distSqr(state.anchorPos()))),
+                        isSpecial);
             }
-            if (special.getNavigation() != null) {
-                special.getNavigation().stop();
+            if (mob.getNavigation() != null) {
+                mob.getNavigation().stop();
             }
-            special.setDeltaMovement(Vec3.ZERO);
-            special.setNoAi(true);
-            special.addTag(GRAND_EVENT_PAUSED_SPECIAL_TAG);
+            if (mob.getTarget() != null) {
+                mob.setTarget(null);
+            }
+            mob.setDeltaMovement(Vec3.ZERO);
+            mob.setNoAi(true);
+            if (isSpecial) {
+                mob.addTag(GRAND_EVENT_PAUSED_SPECIAL_TAG);
+            }
         }
 
         if (shouldSampleGrandEventRuntime(now)) {
             debugLog(
-                    "GRAND_EVENT special_pause count={} radius={} runtime={}",
+                    "GRAND_EVENT freeze_living count={} radius={} runtime={}",
                     pausedCount,
-                    String.format(Locale.ROOT, "%.1f", GRAND_EVENT_SPECIAL_PAUSE_RADIUS),
+                    String.format(Locale.ROOT, "%.1f", GRAND_EVENT_LIVING_PAUSE_RADIUS),
                     state.runtimeId());
         }
     }
 
     private static void restoreGrandEventPausedSpecials(ServerLevel level, GrandEventState state, long now, String reason) {
-        Map<UUID, PausedSpecialSnapshot> pausedByEntity = ACTIVE_GRAND_PAUSED_SPECIALS.remove(level.dimension());
+        Map<UUID, PausedLivingSnapshot> pausedByEntity = ACTIVE_GRAND_PAUSED_LIVINGS.remove(level.dimension());
         if (pausedByEntity == null || pausedByEntity.isEmpty()) {
             return;
         }
 
-        for (PausedSpecialSnapshot snapshot : pausedByEntity.values()) {
+        for (PausedLivingSnapshot snapshot : pausedByEntity.values()) {
             Entity raw = level.getEntity(snapshot.entityId());
             if (!(raw instanceof Mob mob) || !mob.isAlive()) {
                 continue;
@@ -8917,15 +10185,16 @@ public final class UncannyParanoiaEventSystem {
             }
 
             debugLog(
-                    "GRAND_EVENT special_pause resume uuid={} type={} reason={}",
+                    "GRAND_EVENT freeze_living resume uuid={} type={} reason={} special={}",
                     snapshot.entityId(),
                     mob.getType().toShortString(),
-                    reason);
+                    reason,
+                    snapshot.special());
         }
 
         if (shouldSampleGrandEventRuntime(now) || UncannyConfig.DEBUG_LOGS.get()) {
             debugLog(
-                    "GRAND_EVENT special_pause cleared count={} dim={} reason={}",
+                    "GRAND_EVENT freeze_living cleared count={} dim={} reason={}",
                     pausedByEntity.size(),
                     level.dimension().location(),
                     reason);
@@ -8947,6 +10216,7 @@ public final class UncannyParanoiaEventSystem {
         restoreGrandEventPausedSpecials(level, state, now, reason);
         for (UUID trackedPlayerId : state.trackedPlayers()) {
             GRAND_EVENT_RECENT_AUDIBLE_ACTION_TICKS.remove(trackedPlayerId);
+            GRAND_EVENT_RECENT_AUDIBLE_ACTION_POSITIONS.remove(trackedPlayerId);
         }
 
         Entity raw = level.getEntity(state.wardenUuid());
@@ -8999,6 +10269,18 @@ public final class UncannyParanoiaEventSystem {
             return min;
         }
         return min + level.random.nextInt(max - min + 1);
+    }
+
+    private static ServerLevel resolvePendingGrandEventLevel(MinecraftServer server, String dimensionId) {
+        if (server == null || dimensionId == null || dimensionId.isBlank()) {
+            return null;
+        }
+        for (ServerLevel candidate : server.getAllLevels()) {
+            if (candidate.dimension().location().toString().equals(dimensionId)) {
+                return candidate;
+            }
+        }
+        return null;
     }
 
     private static void maybeTriggerRandomEvent(ServerPlayer player, long now) {
@@ -9162,7 +10444,7 @@ public final class UncannyParanoiaEventSystem {
             addAmbientEventChoiceIfReady(choices, player, "lever_answer", profileScaledWeight("lever_answer", 6, profile, danger), now);
             addAmbientEventChoiceIfReady(choices, player, "pressure_plate_reply", profileScaledWeight("pressure_plate_reply", 6, profile, danger), now);
             addAmbientEventChoiceIfReady(choices, player, "campfire_cough", profileScaledWeight("campfire_cough", 5, profile, danger), now);
-            if (hasRecentToolAnswerContext(player, recentToolAnswer, 20L * 20L)) {
+            if (hasRecentToolAnswerContext(player, recentToolAnswer, 12L * 20L)) {
                 addAmbientEventChoiceIfReady(choices, player, "tool_answer", profileScaledWeight("tool_answer", 6, profile, danger), now);
             }
         }
@@ -9270,11 +10552,11 @@ public final class UncannyParanoiaEventSystem {
         int seconds = switch (eventKey) {
             case "false_container_open" -> 190;
             case "bucket_drip" -> 210;
-            case "furnace_breath" -> 250;
+            case "furnace_breath" -> 420;
             case "lever_answer" -> 190;
             case "pressure_plate_reply" -> 190;
             case "campfire_cough" -> 250;
-            case "tool_answer" -> 300;
+            case "tool_answer" -> 760;
             default -> 0;
         };
         return seconds <= 0 ? 0L : seconds * 20L;
@@ -9594,7 +10876,7 @@ public final class UncannyParanoiaEventSystem {
             if (nearBase && awaySince != null && (now - awaySince) >= 180L * 20L) {
                 addSpecialEntityChoiceIfReady(specialChoices, player, "tenant", profileScaledWeight("tenant", 5, profile, danger), now, ignoreCooldowns);
             }
-            if (danger > 0) {
+            if (danger > 1) {
                 addSpecialEntityChoiceIfReady(specialChoices, player, "stalker", profileScaledWeight("stalker", 11, profile, danger), now, ignoreCooldowns);
             }
             if (level.getRawBrightness(player.blockPosition(), 0) <= 8) {
@@ -9664,7 +10946,7 @@ public final class UncannyParanoiaEventSystem {
         if (phase.index() >= UncannyPhase.PHASE_3.index() && danger > 0 && spawnHurler(player, true, false)) {
             return "hurler";
         }
-        if (phase.index() >= UncannyPhase.PHASE_3.index() && danger > 0 && spawnStalker(player, true, false)) {
+        if (phase.index() >= UncannyPhase.PHASE_3.index() && danger > 1 && spawnStalker(player, true, false)) {
             return "stalker";
         }
         if (phase.index() >= UncannyPhase.PHASE_2.index() && spawnFollower(player, true)) {
@@ -9681,7 +10963,7 @@ public final class UncannyParanoiaEventSystem {
     }
 
     private static String tryGuaranteedSpecialSpawn(ServerPlayer player, UncannyPhase phase, int danger) {
-        if (phase.index() >= UncannyPhase.PHASE_3.index() && danger > 0 && spawnStalker(player, true, true)) {
+        if (phase.index() >= UncannyPhase.PHASE_3.index() && danger > 1 && spawnStalker(player, true, true)) {
             return "stalker";
         }
         if (phase.index() >= UncannyPhase.PHASE_3.index() && danger > 0 && spawnHurler(player, true, true)) {
@@ -9787,9 +11069,9 @@ public final class UncannyParanoiaEventSystem {
         int baseSeconds = PROFILE_SPECIAL_ENTITY_BASE_COOLDOWN_SECONDS[profile - 1];
         double phaseMultiplier = switch (phase) {
             case PHASE_1 -> 1.30D;
-            case PHASE_2 -> 1.02D;
-            case PHASE_3 -> 0.82D;
-            case PHASE_4 -> 0.68D;
+            case PHASE_2 -> 1.15D;
+            case PHASE_3 -> 0.94D;
+            case PHASE_4 -> 0.78D;
         };
         double dangerMultiplier = DANGER_SPECIAL_ENTITY_COOLDOWN_MULTIPLIER[danger];
         int seconds = Math.max(35, (int) Math.round(baseSeconds * phaseMultiplier * dangerMultiplier));
@@ -9810,7 +11092,7 @@ public final class UncannyParanoiaEventSystem {
             case "tenant" -> 1800.0D / Math.max(1.0D, base / 20.0D);
             case "keeper" -> 2400.0D / Math.max(1.0D, base / 20.0D);
             case "knocker", "hurler", "shadow" -> 0.85D;
-            case "stalker" -> 1.10D;
+            case "stalker" -> 1.80D;
             default -> 1.00D;
         };
         return Math.max(30L * 20L, (long) Math.round(base * keyMultiplier));
@@ -9822,14 +11104,14 @@ public final class UncannyParanoiaEventSystem {
         }
         double phaseMultiplier = switch (phase) {
             case PHASE_1 -> 0.0D;
-            case PHASE_2 -> 1.00D;
-            case PHASE_3 -> 1.15D;
-            case PHASE_4 -> 1.30D;
+            case PHASE_2 -> 0.90D;
+            case PHASE_3 -> 1.00D;
+            case PHASE_4 -> 1.12D;
         };
         double chance = PROFILE_SPECIAL_ENTITY_TRIGGER_CHANCE[profile - 1]
                 * DANGER_SPECIAL_ENTITY_TRIGGER_MULTIPLIER[danger]
                 * phaseMultiplier;
-        return Mth.clamp(chance, 0.03D, 0.84D);
+        return Mth.clamp(chance, 0.02D, 0.70D);
     }
 
     private static int rollAutoCheckIntervalTicks(UncannyPhase phase, int profile, ServerLevel level) {
@@ -9971,10 +11253,10 @@ public final class UncannyParanoiaEventSystem {
 
     private static double getAmbientTriggerChance(UncannyPhase phase, int profile, int danger) {
         double base = switch (phase) {
-            case PHASE_1 -> 0.10D;
-            case PHASE_2 -> 0.14D;
-            case PHASE_3 -> 0.18D;
-            case PHASE_4 -> 0.22D;
+            case PHASE_1 -> 0.085D;
+            case PHASE_2 -> 0.12D;
+            case PHASE_3 -> 0.15D;
+            case PHASE_4 -> 0.19D;
         };
         return Mth.clamp(base * PROFILE_AMBIENT_TRIGGER_MULTIPLIER[profile - 1] * DANGER_AMBIENT_TRIGGER_MULTIPLIER[danger], 0.06D, 0.82D);
     }
@@ -10063,7 +11345,7 @@ public final class UncannyParanoiaEventSystem {
             case "watcher" -> 0.92D + (profile - 1) * 0.18D;
             case "knocker" -> 0.45D + (profile - 1) * 0.22D;
             case "flash" -> 0.12D + (profile - 1) * 0.28D;
-            case "stalker" -> 0.22D + (profile - 1) * 0.34D;
+            case "stalker" -> 0.12D + (profile - 1) * 0.20D;
             case "shadow" -> 0.32D + (profile - 1) * 0.34D;
             case "hurler" -> 0.38D + (profile - 1) * 0.33D;
             case "pulse" -> 0.08D + (profile - 1) * 0.14D;
@@ -10073,8 +11355,10 @@ public final class UncannyParanoiaEventSystem {
             case "follower" -> 0.56D + (profile - 1) * 0.22D;
             case "animal_stare_lock", "misplaced_light", "hotbar_wrong_count" -> 0.42D + (profile - 1) * 0.22D;
             case "compass_liar", "pet_refusal", "corrupt_toast", "false_recipe_toast" -> 0.26D + (profile - 1) * 0.20D;
-            case "furnace_breath", "false_container_open", "lever_answer", "pressure_plate_reply", "campfire_cough",
-                    "bucket_drip", "tool_answer" -> 0.62D + (profile - 1) * 0.18D;
+            case "tool_answer" -> 0.20D + (profile - 1) * 0.10D;
+            case "furnace_breath" -> 0.42D + (profile - 1) * 0.12D;
+            case "false_container_open", "lever_answer", "pressure_plate_reply", "campfire_cough",
+                    "bucket_drip" -> 0.54D + (profile - 1) * 0.14D;
             case "workbench_reject" -> 0.12D + (profile - 1) * 0.10D;
             case "flash_red", "void_silence", "false_fall", "ghost_miner", "cave_collapse" -> 0.65D + (profile - 1) * 0.22D;
             case "armor_break", "aquatic_steps", "living_ore" -> 0.50D + (profile - 1) * 0.28D;
@@ -10499,13 +11783,13 @@ public final class UncannyParanoiaEventSystem {
                 state.source(),
                 UncannySoundRegistry.UNCANNY_PSSS.get(),
                 SoundSource.HOSTILE,
-                0.55F,
+                0.32F,
                 0.92F + level.random.nextFloat() * 0.15F);
         state.decrementRepetitions();
         if (state.remaining() <= 0) {
             ACTIVE_FURNACE_BREATHS.remove(player.getUUID());
         } else {
-            state.setNextTick(now + 8L + level.random.nextInt(14));
+            state.setNextTick(now + 24L + level.random.nextInt(22));
         }
     }
 
@@ -12609,6 +13893,7 @@ public final class UncannyParanoiaEventSystem {
         LIVING_ORE_PRIMED.remove(playerId);
         ACTIVE_AQUATIC_BITE.remove(playerId);
         ACTIVE_SLEEP_DISTURBANCES.remove(playerId);
+        LAST_SLEEP_DISTURB_ATTEMPT_TICKS.remove(playerId);
         PENDING_SLEEP_MESSAGE_TICKS.remove(playerId);
         SKIP_NEXT_SLEEP_DISTURB.remove(playerId);
         REQUIRE_NORMAL_SLEEP_BEFORE_NEXT_DISTURB.remove(playerId);
@@ -12625,12 +13910,16 @@ public final class UncannyParanoiaEventSystem {
         LIVING_ORE_COOLDOWN_UNTIL.remove(playerId);
         TENANT_AWAY_SINCE.remove(playerId);
         GRAND_EVENT_RECENT_AUDIBLE_ACTION_TICKS.remove(playerId);
+        GRAND_EVENT_RECENT_AUDIBLE_ACTION_POSITIONS.remove(playerId);
         for (GrandEventState state : ACTIVE_GRAND_EVENTS.values()) {
             state.trackedPlayers().remove(playerId);
             state.latchedPlayers().remove(playerId);
             state.removeLastKnownPosition(playerId);
             if (playerId.equals(state.attackTarget())) {
                 state.clearAttack();
+            }
+            if (playerId.equals(state.soundCombatTarget())) {
+                state.clearSoundCombat();
             }
         }
         player.removeTag(FLASH_RED_OVERLAY_TAG);
@@ -12717,7 +14006,16 @@ public final class UncannyParanoiaEventSystem {
     private record ToolAnswerContext(BlockPos minedPos, BlockState minedState, ItemStack toolStack, long tick, ResourceKey<Level> dimension) {
     }
 
-    private record PausedSpecialSnapshot(UUID entityId, boolean hadNoAi, UUID targetId) {
+    private record PausedLivingSnapshot(UUID entityId, boolean hadNoAi, UUID targetId, boolean special) {
+    }
+
+    private record GrandEventAudibleTrigger(ServerPlayer source, BlockPos sourcePos, long tick) {
+    }
+
+    private enum SoundInvestigationPhase {
+        TRAVEL_TO_SOURCE,
+        LOCAL_SWEEP,
+        SNIFF_DECISION
     }
 
     private record MobSnapshot(UUID entityId, boolean hadNoAi) {
@@ -13475,11 +14773,24 @@ public final class UncannyParanoiaEventSystem {
         private long sniffPendingUntilTick;
         private long sniffPoseUntilTick;
         private long nextSniffSoundTick;
+        private UUID soundInvestigationTargetId;
+        private BlockPos soundInvestigationSourcePos;
+        private BlockPos soundInvestigationProbeNode;
+        private BlockPos soundInvestigationSweepNode;
+        private SoundInvestigationPhase soundInvestigationPhase;
+        private int soundInvestigationSweepAttempts;
+        private long soundInvestigationStartTick;
+        private long soundInvestigationExpireTick;
+        private long soundInvestigationLastIssueTick;
+        private long soundInvestigationSniffTick;
+        private final Map<UUID, Long> lastHandledAudibleTickByPlayer;
         private boolean emerging;
         private long emergeEndTick;
         private UUID attackTarget;
+        private UUID soundCombatTarget;
         private String lastAdmittedTrigger;
         private long attackStartTick;
+        private long soundCombatStartTick;
         private long lastCloseEncounterTick;
         private boolean closeContactActive;
         private long lastHardContactGuardTick;
@@ -13584,11 +14895,24 @@ public final class UncannyParanoiaEventSystem {
             this.sniffPendingUntilTick = Long.MIN_VALUE;
             this.sniffPoseUntilTick = Long.MIN_VALUE;
             this.nextSniffSoundTick = Long.MIN_VALUE;
+            this.soundInvestigationTargetId = null;
+            this.soundInvestigationSourcePos = null;
+            this.soundInvestigationProbeNode = null;
+            this.soundInvestigationSweepNode = null;
+            this.soundInvestigationPhase = null;
+            this.soundInvestigationSweepAttempts = 0;
+            this.soundInvestigationStartTick = Long.MIN_VALUE;
+            this.soundInvestigationExpireTick = Long.MIN_VALUE;
+            this.soundInvestigationLastIssueTick = Long.MIN_VALUE;
+            this.soundInvestigationSniffTick = Long.MIN_VALUE;
+            this.lastHandledAudibleTickByPlayer = new HashMap<>();
             this.emerging = false;
             this.emergeEndTick = Long.MIN_VALUE;
             this.attackTarget = null;
+            this.soundCombatTarget = null;
             this.lastAdmittedTrigger = "none";
             this.attackStartTick = Long.MIN_VALUE;
+            this.soundCombatStartTick = Long.MIN_VALUE;
             this.lastCloseEncounterTick = Long.MIN_VALUE;
             this.closeContactActive = false;
             this.lastHardContactGuardTick = Long.MIN_VALUE;
@@ -13773,6 +15097,24 @@ public final class UncannyParanoiaEventSystem {
             this.attackStartTick = now;
         }
 
+        private UUID soundCombatTarget() {
+            return this.soundCombatTarget;
+        }
+
+        private void setSoundCombatTarget(UUID targetId, long now, String trigger) {
+            this.soundCombatTarget = targetId;
+            this.soundCombatStartTick = now;
+            this.lastAdmittedTrigger = trigger == null ? "none" : trigger;
+        }
+
+        private void clearSoundCombat() {
+            this.soundCombatTarget = null;
+            this.soundCombatStartTick = Long.MIN_VALUE;
+            if (this.attackTarget == null) {
+                this.lastAdmittedTrigger = "none";
+            }
+        }
+
         private String lastAdmittedTrigger() {
             return this.lastAdmittedTrigger;
         }
@@ -13791,6 +15133,8 @@ public final class UncannyParanoiaEventSystem {
             this.attackStartTick = Long.MIN_VALUE;
             this.roarSniffStuckSinceTick = Long.MIN_VALUE;
             this.closeContactActive = false;
+            clearSoundInvestigation();
+            clearSoundCombat();
         }
 
         private long lastCloseEncounterTick() {
@@ -13923,6 +15267,7 @@ public final class UncannyParanoiaEventSystem {
             this.sniffPendingUntilTick = Long.MIN_VALUE;
             this.sniffPoseUntilTick = Long.MIN_VALUE;
             this.nextSniffSoundTick = Long.MIN_VALUE;
+            this.clearSoundInvestigation();
             this.nonAggroGuardLockoutUntilTick = Long.MIN_VALUE;
             this.clearPendingIssuedIntent();
             this.resetNonAggroMobility();
@@ -14583,6 +15928,126 @@ public final class UncannyParanoiaEventSystem {
                 return;
             }
             this.nextSniffSoundTick = now + rollRangeInclusive(level, GRAND_EVENT_SEARCH_SNIFF_MIN_INTERVAL_TICKS, GRAND_EVENT_SEARCH_SNIFF_MAX_INTERVAL_TICKS);
+        }
+
+        private boolean hasSoundInvestigation() {
+            return this.soundInvestigationTargetId != null && this.soundInvestigationSourcePos != null;
+        }
+
+        private SoundInvestigationPhase soundInvestigationPhase() {
+            return this.soundInvestigationPhase;
+        }
+
+        private void setSoundInvestigationPhase(SoundInvestigationPhase phase) {
+            this.soundInvestigationPhase = phase;
+        }
+
+        private UUID soundInvestigationTargetId() {
+            return this.soundInvestigationTargetId;
+        }
+
+        private BlockPos soundInvestigationSourcePos() {
+            return this.soundInvestigationSourcePos;
+        }
+
+        private void setSoundInvestigationSourcePos(BlockPos sourcePos) {
+            this.soundInvestigationSourcePos = sourcePos == null ? null : sourcePos.immutable();
+        }
+
+        private BlockPos soundInvestigationProbeNode() {
+            return this.soundInvestigationProbeNode;
+        }
+
+        private BlockPos soundInvestigationSweepNode() {
+            return this.soundInvestigationSweepNode;
+        }
+
+        private void setSoundInvestigationSweepNode(BlockPos node) {
+            this.soundInvestigationSweepNode = node == null ? null : node.immutable();
+        }
+
+        private int soundInvestigationSweepAttempts() {
+            return this.soundInvestigationSweepAttempts;
+        }
+
+        private void incrementSoundInvestigationSweepAttempts() {
+            this.soundInvestigationSweepAttempts = Math.max(0, this.soundInvestigationSweepAttempts + 1);
+        }
+
+        private void resetSoundInvestigationSweepAttempts() {
+            this.soundInvestigationSweepAttempts = 0;
+        }
+
+        private long lastHandledAudibleTick(UUID playerId) {
+            if (playerId == null) {
+                return Long.MIN_VALUE;
+            }
+            return this.lastHandledAudibleTickByPlayer.getOrDefault(playerId, Long.MIN_VALUE);
+        }
+
+        private void markHandledAudibleTick(UUID playerId, long tick) {
+            if (playerId == null || tick == Long.MIN_VALUE) {
+                return;
+            }
+            long existing = this.lastHandledAudibleTick(playerId);
+            if (tick > existing) {
+                this.lastHandledAudibleTickByPlayer.put(playerId, tick);
+            }
+        }
+
+        private long soundInvestigationStartTick() {
+            return this.soundInvestigationStartTick;
+        }
+
+        private long soundInvestigationLastIssueTick() {
+            return this.soundInvestigationLastIssueTick;
+        }
+
+        private void markSoundInvestigationIssued(long now, BlockPos probeNode) {
+            this.soundInvestigationLastIssueTick = now;
+            this.soundInvestigationProbeNode = probeNode == null ? null : probeNode.immutable();
+        }
+
+        private boolean hasSoundInvestigationSniffed() {
+            return this.soundInvestigationSniffTick != Long.MIN_VALUE;
+        }
+
+        private long soundInvestigationSniffTick() {
+            return this.soundInvestigationSniffTick;
+        }
+
+        private void markSoundInvestigationSniff(long now) {
+            this.soundInvestigationSniffTick = now;
+        }
+
+        private boolean isSoundInvestigationExpired(long now) {
+            return this.soundInvestigationExpireTick != Long.MIN_VALUE && now >= this.soundInvestigationExpireTick;
+        }
+
+        private void startSoundInvestigation(UUID targetId, BlockPos sourcePos, long now, long expireTick) {
+            this.soundInvestigationTargetId = targetId;
+            this.soundInvestigationSourcePos = sourcePos == null ? null : sourcePos.immutable();
+            this.soundInvestigationProbeNode = null;
+            this.soundInvestigationSweepNode = null;
+            this.soundInvestigationPhase = SoundInvestigationPhase.TRAVEL_TO_SOURCE;
+            this.soundInvestigationSweepAttempts = 0;
+            this.soundInvestigationStartTick = now;
+            this.soundInvestigationExpireTick = expireTick;
+            this.soundInvestigationLastIssueTick = Long.MIN_VALUE;
+            this.soundInvestigationSniffTick = Long.MIN_VALUE;
+        }
+
+        private void clearSoundInvestigation() {
+            this.soundInvestigationTargetId = null;
+            this.soundInvestigationSourcePos = null;
+            this.soundInvestigationProbeNode = null;
+            this.soundInvestigationSweepNode = null;
+            this.soundInvestigationPhase = null;
+            this.soundInvestigationSweepAttempts = 0;
+            this.soundInvestigationStartTick = Long.MIN_VALUE;
+            this.soundInvestigationExpireTick = Long.MIN_VALUE;
+            this.soundInvestigationLastIssueTick = Long.MIN_VALUE;
+            this.soundInvestigationSniffTick = Long.MIN_VALUE;
         }
 
         private boolean emerging() {

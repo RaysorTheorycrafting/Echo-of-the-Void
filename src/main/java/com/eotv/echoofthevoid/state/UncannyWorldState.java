@@ -32,6 +32,7 @@ public class UncannyWorldState extends SavedData {
     private long weatherAuxTick = Long.MIN_VALUE;
     private int weatherAuxValue;
     private long weatherSavedDayTime = Long.MIN_VALUE;
+    private String lastWeatherEventId = "";
     private int lastHeavyVisualWeatherDurationTicks;
     private boolean debugLogsEnabled;
     private long structureCooldownUntilTick = Long.MIN_VALUE;
@@ -42,6 +43,12 @@ public class UncannyWorldState extends SavedData {
     private long tensionBuilderNextGrandEventRollTick = Long.MIN_VALUE;
     private long tensionBuilderLastGrandEventTick = Long.MIN_VALUE;
     private long tensionBuilderLastUpdateTick = Long.MIN_VALUE;
+    private long tensionBuilderPendingGrandEventStartTick = Long.MIN_VALUE;
+    private String tensionBuilderPendingGrandEventDimension = "";
+    private boolean tensionBuilderPendingGrandEventForced;
+    private boolean tensionBuilderPendingGrandEventWarningSent;
+    private long tensionBuilderPendingGrandEventWarningTick = Long.MIN_VALUE;
+    private long tensionBuilderPendingGrandEventDelayTicks = Long.MIN_VALUE;
 
     private final Map<UUID, Long> lastDeathBoostTick = new HashMap<>();
     private final Map<UUID, Long> lastDeathTick = new HashMap<>();
@@ -49,6 +56,7 @@ public class UncannyWorldState extends SavedData {
     private final Map<UUID, Long> leftBaseSinceTick = new HashMap<>();
     private final Map<UUID, Long> lastDoubleDormantTick = new HashMap<>();
     private final Map<UUID, Long> lastWatcherTick = new HashMap<>();
+    private final Map<UUID, Integer> firstNightWatcherTriggered = new HashMap<>();
     private final Map<UUID, Long> restartConfirmUntilTick = new HashMap<>();
     private final Map<UUID, Integer> historyTomeMask = new HashMap<>();
     private final List<StructureMarker> structureMarkers = new ArrayList<>();
@@ -72,6 +80,7 @@ public class UncannyWorldState extends SavedData {
         data.weatherAuxTick = tag.getLong("weatherAuxTick");
         data.weatherAuxValue = tag.getInt("weatherAuxValue");
         data.weatherSavedDayTime = tag.getLong("weatherSavedDayTime");
+        data.lastWeatherEventId = tag.getString("lastWeatherEventId");
         data.lastHeavyVisualWeatherDurationTicks = tag.getInt("lastHeavyVisualWeatherDurationTicks");
         data.debugLogsEnabled = tag.getBoolean("debugLogsEnabled");
         data.structureCooldownUntilTick = tag.getLong("structureCooldownUntilTick");
@@ -82,6 +91,18 @@ public class UncannyWorldState extends SavedData {
         data.tensionBuilderNextGrandEventRollTick = tag.contains("tensionBuilderNextGrandEventRollTick") ? tag.getLong("tensionBuilderNextGrandEventRollTick") : Long.MIN_VALUE;
         data.tensionBuilderLastGrandEventTick = tag.contains("tensionBuilderLastGrandEventTick") ? tag.getLong("tensionBuilderLastGrandEventTick") : Long.MIN_VALUE;
         data.tensionBuilderLastUpdateTick = tag.contains("tensionBuilderLastUpdateTick") ? tag.getLong("tensionBuilderLastUpdateTick") : Long.MIN_VALUE;
+        data.tensionBuilderPendingGrandEventStartTick = tag.contains("tensionBuilderPendingGrandEventStartTick")
+                ? tag.getLong("tensionBuilderPendingGrandEventStartTick")
+                : Long.MIN_VALUE;
+        data.tensionBuilderPendingGrandEventDimension = tag.getString("tensionBuilderPendingGrandEventDimension");
+        data.tensionBuilderPendingGrandEventForced = tag.getBoolean("tensionBuilderPendingGrandEventForced");
+        data.tensionBuilderPendingGrandEventWarningSent = tag.getBoolean("tensionBuilderPendingGrandEventWarningSent");
+        data.tensionBuilderPendingGrandEventWarningTick = tag.contains("tensionBuilderPendingGrandEventWarningTick")
+                ? tag.getLong("tensionBuilderPendingGrandEventWarningTick")
+                : Long.MIN_VALUE;
+        data.tensionBuilderPendingGrandEventDelayTicks = tag.contains("tensionBuilderPendingGrandEventDelayTicks")
+                ? tag.getLong("tensionBuilderPendingGrandEventDelayTicks")
+                : Long.MIN_VALUE;
 
         readLongMap(tag, "lastDeathBoostTick", data.lastDeathBoostTick);
         readLongMap(tag, "lastDeathTick", data.lastDeathTick);
@@ -89,6 +110,7 @@ public class UncannyWorldState extends SavedData {
         readLongMap(tag, "leftBaseSinceTick", data.leftBaseSinceTick);
         readLongMap(tag, "lastDoubleDormantTick", data.lastDoubleDormantTick);
         readLongMap(tag, "lastWatcherTick", data.lastWatcherTick);
+        readIntMap(tag, "firstNightWatcherTriggered", data.firstNightWatcherTriggered);
         readLongMap(tag, "restartConfirmUntilTick", data.restartConfirmUntilTick);
         readIntMap(tag, "historyTomeMask", data.historyTomeMask);
         readStructureMarkers(tag, data.structureMarkers);
@@ -117,6 +139,7 @@ public class UncannyWorldState extends SavedData {
         tag.putLong("weatherAuxTick", weatherAuxTick);
         tag.putInt("weatherAuxValue", weatherAuxValue);
         tag.putLong("weatherSavedDayTime", weatherSavedDayTime);
+        tag.putString("lastWeatherEventId", lastWeatherEventId == null ? "" : lastWeatherEventId);
         tag.putInt("lastHeavyVisualWeatherDurationTicks", lastHeavyVisualWeatherDurationTicks);
         tag.putBoolean("debugLogsEnabled", debugLogsEnabled);
         tag.putLong("structureCooldownUntilTick", structureCooldownUntilTick);
@@ -127,6 +150,12 @@ public class UncannyWorldState extends SavedData {
         tag.putLong("tensionBuilderNextGrandEventRollTick", tensionBuilderNextGrandEventRollTick);
         tag.putLong("tensionBuilderLastGrandEventTick", tensionBuilderLastGrandEventTick);
         tag.putLong("tensionBuilderLastUpdateTick", tensionBuilderLastUpdateTick);
+        tag.putLong("tensionBuilderPendingGrandEventStartTick", tensionBuilderPendingGrandEventStartTick);
+        tag.putString("tensionBuilderPendingGrandEventDimension", tensionBuilderPendingGrandEventDimension == null ? "" : tensionBuilderPendingGrandEventDimension);
+        tag.putBoolean("tensionBuilderPendingGrandEventForced", tensionBuilderPendingGrandEventForced);
+        tag.putBoolean("tensionBuilderPendingGrandEventWarningSent", tensionBuilderPendingGrandEventWarningSent);
+        tag.putLong("tensionBuilderPendingGrandEventWarningTick", tensionBuilderPendingGrandEventWarningTick);
+        tag.putLong("tensionBuilderPendingGrandEventDelayTicks", tensionBuilderPendingGrandEventDelayTicks);
 
         writeLongMap(tag, "lastDeathBoostTick", lastDeathBoostTick);
         writeLongMap(tag, "lastDeathTick", lastDeathTick);
@@ -134,6 +163,7 @@ public class UncannyWorldState extends SavedData {
         writeLongMap(tag, "leftBaseSinceTick", leftBaseSinceTick);
         writeLongMap(tag, "lastDoubleDormantTick", lastDoubleDormantTick);
         writeLongMap(tag, "lastWatcherTick", lastWatcherTick);
+        writeIntMap(tag, "firstNightWatcherTriggered", firstNightWatcherTriggered);
         writeLongMap(tag, "restartConfirmUntilTick", restartConfirmUntilTick);
         writeIntMap(tag, "historyTomeMask", historyTomeMask);
         writeStructureMarkers(tag, structureMarkers);
@@ -265,6 +295,15 @@ public class UncannyWorldState extends SavedData {
         this.setDirty();
     }
 
+    public String getLastWeatherEventId() {
+        return lastWeatherEventId;
+    }
+
+    public void setLastWeatherEventId(String lastWeatherEventId) {
+        this.lastWeatherEventId = lastWeatherEventId == null ? "" : lastWeatherEventId;
+        this.setDirty();
+    }
+
     public int getLastHeavyVisualWeatherDurationTicks() {
         return lastHeavyVisualWeatherDurationTicks;
     }
@@ -352,6 +391,60 @@ public class UncannyWorldState extends SavedData {
 
     public void setTensionBuilderLastUpdateTick(long tensionBuilderLastUpdateTick) {
         this.tensionBuilderLastUpdateTick = tensionBuilderLastUpdateTick;
+        this.setDirty();
+    }
+
+    public long getTensionBuilderPendingGrandEventStartTick() {
+        return tensionBuilderPendingGrandEventStartTick;
+    }
+
+    public void setTensionBuilderPendingGrandEventStartTick(long tensionBuilderPendingGrandEventStartTick) {
+        this.tensionBuilderPendingGrandEventStartTick = tensionBuilderPendingGrandEventStartTick;
+        this.setDirty();
+    }
+
+    public String getTensionBuilderPendingGrandEventDimension() {
+        return tensionBuilderPendingGrandEventDimension;
+    }
+
+    public void setTensionBuilderPendingGrandEventDimension(String tensionBuilderPendingGrandEventDimension) {
+        this.tensionBuilderPendingGrandEventDimension = tensionBuilderPendingGrandEventDimension == null ? "" : tensionBuilderPendingGrandEventDimension;
+        this.setDirty();
+    }
+
+    public boolean isTensionBuilderPendingGrandEventWarningSent() {
+        return tensionBuilderPendingGrandEventWarningSent;
+    }
+
+    public void setTensionBuilderPendingGrandEventWarningSent(boolean tensionBuilderPendingGrandEventWarningSent) {
+        this.tensionBuilderPendingGrandEventWarningSent = tensionBuilderPendingGrandEventWarningSent;
+        this.setDirty();
+    }
+
+    public boolean isTensionBuilderPendingGrandEventForced() {
+        return tensionBuilderPendingGrandEventForced;
+    }
+
+    public void setTensionBuilderPendingGrandEventForced(boolean tensionBuilderPendingGrandEventForced) {
+        this.tensionBuilderPendingGrandEventForced = tensionBuilderPendingGrandEventForced;
+        this.setDirty();
+    }
+
+    public long getTensionBuilderPendingGrandEventWarningTick() {
+        return tensionBuilderPendingGrandEventWarningTick;
+    }
+
+    public void setTensionBuilderPendingGrandEventWarningTick(long tensionBuilderPendingGrandEventWarningTick) {
+        this.tensionBuilderPendingGrandEventWarningTick = tensionBuilderPendingGrandEventWarningTick;
+        this.setDirty();
+    }
+
+    public long getTensionBuilderPendingGrandEventDelayTicks() {
+        return tensionBuilderPendingGrandEventDelayTicks;
+    }
+
+    public void setTensionBuilderPendingGrandEventDelayTicks(long tensionBuilderPendingGrandEventDelayTicks) {
+        this.tensionBuilderPendingGrandEventDelayTicks = tensionBuilderPendingGrandEventDelayTicks;
         this.setDirty();
     }
 
@@ -499,6 +592,15 @@ public class UncannyWorldState extends SavedData {
 
     public void setLastWatcherTick(UUID playerId, long tick) {
         lastWatcherTick.put(playerId, tick);
+        this.setDirty();
+    }
+
+    public boolean isFirstNightWatcherTriggered(UUID playerId) {
+        return firstNightWatcherTriggered.getOrDefault(playerId, 0) != 0;
+    }
+
+    public void markFirstNightWatcherTriggered(UUID playerId) {
+        firstNightWatcherTriggered.put(playerId, 1);
         this.setDirty();
     }
 

@@ -58,6 +58,7 @@ public class EchoOfTheVoid {
         NeoForge.EVENT_BUS.addListener(UncannyParanoiaEventSystem::onPlayerEntityInteract);
         NeoForge.EVENT_BUS.addListener(UncannyParanoiaEventSystem::onPlayerEntityInteractSpecific);
         NeoForge.EVENT_BUS.addListener(UncannyParanoiaEventSystem::onLivingUseItemFinish);
+        NeoForge.EVENT_BUS.addListener(UncannyParanoiaEventSystem::onProjectileImpact);
         NeoForge.EVENT_BUS.addListener(UncannyParanoiaEventSystem::onBlockBreak);
         NeoForge.EVENT_BUS.addListener(UncannyParanoiaEventSystem::onLivingIncomingDamage);
         NeoForge.EVENT_BUS.addListener(UncannyParanoiaEventSystem::onEntityLeaveLevel);

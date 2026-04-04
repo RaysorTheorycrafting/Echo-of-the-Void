@@ -298,6 +298,9 @@ public final class UncannyStructureFeatureSystem {
         }
 
         ServerLevel level = player.serverLevel();
+        if (UncannyParanoiaEventSystem.isTensionBuilderAutoPauseActive(level)) {
+            return;
+        }
         BlockPos pos = event.getPos();
         if (!(level.getBlockState(pos).getBlock() instanceof ChestBlock)) {
             return;

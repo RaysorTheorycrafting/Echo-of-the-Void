@@ -40,6 +40,9 @@ public final class UncannyDoubleDormantSystem {
         if (UncannyParanoiaEventSystem.isGrandEventAutoPauseActive(level)) {
             return;
         }
+        if (UncannyParanoiaEventSystem.isTensionBuilderAutoPauseActive(level)) {
+            return;
+        }
 
         UncannyWorldState state = UncannyWorldState.get(server);
         if (!state.isSystemEnabled()) {

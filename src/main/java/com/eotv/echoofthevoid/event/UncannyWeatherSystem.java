@@ -64,7 +64,7 @@ public final class UncannyWeatherSystem {
         long now = server.getTickCount();
         sanitizeWeatherTimers(server, state, now);
 
-        if (!state.isSystemEnabled() || phaseIndex < 1) {
+        if (!state.isSystemEnabled() || phaseIndex < 2) {
             stopActiveEvent(server, state, now, true);
             clearWeatherTags(allPlayers);
             return;
@@ -74,6 +74,12 @@ public final class UncannyWeatherSystem {
             stopActiveEvent(server, state, now, true);
             clearWeatherTags(allPlayers);
             debugLog("WEATHER pause_auto dim={} reason=grand_event_active", server.overworld().dimension().location());
+            return;
+        }
+        if (UncannyParanoiaEventSystem.isTensionBuilderAutoPauseActive(server.overworld())) {
+            stopActiveEvent(server, state, now, true);
+            clearWeatherTags(allPlayers);
+            debugLog("WEATHER pause_auto dim={} reason=tension_builder_active", server.overworld().dimension().location());
             return;
         }
 
@@ -107,7 +113,7 @@ public final class UncannyWeatherSystem {
         }
 
         debugLog("WEATHER trigger-roll-hit phase={} profile={} danger={} roll={} chance={}", phaseIndex, profile, danger, roll, chance);
-        WeatherEvent selected = rollEvent(server.overworld(), phaseIndex, profile, danger);
+        WeatherEvent selected = rollEvent(server.overworld(), phaseIndex, profile, danger, state.getLastWeatherEventId());
         if (selected == null) {
             debugLog("WEATHER no-candidate-selected phase={} profile={} danger={}", phaseIndex, profile, danger);
             return;
@@ -161,6 +167,7 @@ public final class UncannyWeatherSystem {
         duration = applyVisualDurationRules(overworld, state, event, duration);
 
         state.setActiveWeatherEventId(event.id);
+        state.setLastWeatherEventId(event.id);
         state.setWeatherEventEndTick(now + duration);
         state.setWeatherAuxTick(now);
         state.setWeatherAuxValue(0);
@@ -257,10 +264,10 @@ public final class UncannyWeatherSystem {
                 }
             }
             case RAIN_DRY_STORM -> {
-                if (now % 10L == 0L) {
+                if (now % 24L == 0L) {
                     for (ServerPlayer player : players) {
-                        if (player.level().dimension() == Level.OVERWORLD) {
-                            sendHeadLockedWeatherSound(player, SoundEvents.WEATHER_RAIN_ABOVE, 1.45F, 0.92F);
+                        if (canPlayRainLikeWeatherFor(player, WeatherEvent.RAIN_DRY_STORM, now)) {
+                            sendHeadLockedWeatherSound(player, SoundEvents.WEATHER_RAIN_ABOVE, 0.70F, 0.94F);
                         }
                     }
                 }
@@ -302,10 +309,13 @@ public final class UncannyWeatherSystem {
                 }
             }
             case RAIN_SOBBING -> {
-                if (now % 50L == 0L) {
+                if (now % 90L == 0L) {
                     for (ServerPlayer player : players) {
-                        sendLocalSound(player, SoundEvents.WEATHER_RAIN_ABOVE, SoundSource.WEATHER, 0.85F, 0.84F);
-                        sendLocalSound(player, UncannySoundRegistry.UNCANNY_WHISPER.get(), SoundSource.AMBIENT, 0.45F, 0.86F + player.serverLevel().random.nextFloat() * 0.2F);
+                        if (!canPlayRainLikeWeatherFor(player, WeatherEvent.RAIN_SOBBING, now)) {
+                            continue;
+                        }
+                        sendLocalSound(player, SoundEvents.WEATHER_RAIN_ABOVE, SoundSource.WEATHER, 0.42F, 0.86F);
+                        sendLocalSound(player, UncannySoundRegistry.UNCANNY_WHISPER.get(), SoundSource.AMBIENT, 0.22F, 0.92F + player.serverLevel().random.nextFloat() * 0.14F);
                     }
                 }
             }
@@ -364,9 +374,9 @@ public final class UncannyWeatherSystem {
                 }
             }
             case FOG_BREATHING -> {
-                if (now % 55L == 0L) {
+                if (now % 95L == 0L) {
                     for (ServerPlayer player : players) {
-                        sendLocalSound(player, UncannySoundRegistry.UNCANNY_MONSTER_BREATH.get(), SoundSource.AMBIENT, 0.42F, 0.88F + player.serverLevel().random.nextFloat() * 0.2F);
+                        sendLocalSound(player, UncannySoundRegistry.UNCANNY_MONSTER_BREATH.get(), SoundSource.AMBIENT, 0.24F, 0.92F + player.serverLevel().random.nextFloat() * 0.16F);
                     }
                 }
             }
@@ -375,8 +385,8 @@ public final class UncannyWeatherSystem {
             }
             case FOG_STATIC_WALL -> {
                 for (ServerPlayer player : players) {
-                    if (player.getDeltaMovement().horizontalDistanceSqr() > 0.004D && now % 10L == 0L) {
-                        sendLocalSound(player, UncannySoundRegistry.UNCANNY_TINNITUS.get(), SoundSource.AMBIENT, 0.12F, 1.0F);
+                    if (player.getDeltaMovement().horizontalDistanceSqr() > 0.004D && now % 36L == 0L) {
+                        sendLocalSound(player, UncannySoundRegistry.UNCANNY_TINNITUS.get(), SoundSource.AMBIENT, 0.05F, 1.0F);
                     }
                 }
             }
@@ -393,9 +403,9 @@ public final class UncannyWeatherSystem {
                 }
             }
             case SKY_PRESSURE -> {
-                if (now % 80L == 0L) {
+                if (now % 130L == 0L) {
                     for (ServerPlayer player : players) {
-                        sendLocalSound(player, SoundEvents.AMBIENT_CAVE.value(), SoundSource.AMBIENT, 0.38F, 0.58F);
+                        sendLocalSound(player, SoundEvents.AMBIENT_CAVE.value(), SoundSource.AMBIENT, 0.20F, 0.62F);
                     }
                 }
             }
@@ -470,10 +480,16 @@ public final class UncannyWeatherSystem {
         }
     }
 
-    private static WeatherEvent rollEvent(ServerLevel level, int phaseIndex, int profile, int danger) {
+    private static WeatherEvent rollEvent(ServerLevel level, int phaseIndex, int profile, int danger, String lastWeatherEventId) {
         List<WeightedWeatherEvent> candidates = new ArrayList<>();
         for (WeatherEvent event : WeatherEvent.values()) {
             if (phaseIndex < event.minPhase) {
+                continue;
+            }
+            if (lastWeatherEventId != null
+                    && !lastWeatherEventId.isBlank()
+                    && lastWeatherEventId.equals(event.id)
+                    && WeatherEvent.values().length > 1) {
                 continue;
             }
             int weight = Math.max(0, Math.round(event.baseWeight * profileWeightMultiplier(profile) * dangerWeightMultiplier(event, danger)));
@@ -495,7 +511,22 @@ public final class UncannyWeatherSystem {
         }
 
         if (candidates.isEmpty()) {
-            return null;
+            if (lastWeatherEventId == null || lastWeatherEventId.isBlank()) {
+                return null;
+            }
+            // Fallback when the anti-repeat filter eliminated everything.
+            for (WeatherEvent event : WeatherEvent.values()) {
+                if (phaseIndex < event.minPhase) {
+                    continue;
+                }
+                int weight = Math.max(0, Math.round(event.baseWeight * profileWeightMultiplier(profile) * dangerWeightMultiplier(event, danger)));
+                if (weight > 0) {
+                    candidates.add(new WeightedWeatherEvent(event, weight));
+                }
+            }
+            if (candidates.isEmpty()) {
+                return null;
+            }
         }
 
         int total = 0;
@@ -544,7 +575,7 @@ public final class UncannyWeatherSystem {
         if (level.random.nextFloat() < 0.20F) {
             delay = Math.max(4L * 20L, delay - (1L + level.random.nextInt(6)) * 20L);
         }
-        return delay;
+        return Math.max(4L * 20L, Math.round(delay * 1.25D));
     }
 
     private static double rollTriggerChance(int phaseIndex, int profile) {
@@ -583,7 +614,7 @@ public final class UncannyWeatherSystem {
         if (level.random.nextFloat() < 0.20F) {
             cooldown += (12L + level.random.nextInt(34)) * 20L;
         }
-        return cooldown;
+        return Math.max(24L * 20L, Math.round(cooldown * 1.30D));
     }
 
     private static int getProfile() {
@@ -712,6 +743,27 @@ public final class UncannyWeatherSystem {
                 volume,
                 pitch,
                 player.level().random.nextLong()));
+    }
+
+    private static boolean canPlayRainLikeWeatherFor(ServerPlayer player, WeatherEvent event, long now) {
+        if (player == null || player.level().dimension() != Level.OVERWORLD) {
+            return false;
+        }
+        var biome = player.serverLevel().getBiome(player.blockPosition()).value();
+        boolean hasPrecipitation = biome.hasPrecipitation();
+        float temperature = biome.getBaseTemperature();
+        boolean allowsRain = hasPrecipitation && temperature >= 0.15F;
+        if (UncannyConfig.DEBUG_LOGS.get() && now % 40L == 0L) {
+            String biomePrecip = !hasPrecipitation ? "NONE" : (temperature < 0.15F ? "SNOW" : "RAIN");
+            debugLog(
+                    "WEATHER rain_audio_gate biomePrecip={} allow={} event={} player={} temp={}",
+                    biomePrecip,
+                    allowsRain,
+                    event.id,
+                    player.getScoreboardName(),
+                    String.format(java.util.Locale.ROOT, "%.2f", temperature));
+        }
+        return allowsRain;
     }
 
     private enum WeatherEvent {
