@@ -1,7 +1,12 @@
 package com.eotv.echoofthevoid;
 
+import com.eotv.echoofthevoid.client.UncannyAttackerRenderer;
 import com.eotv.echoofthevoid.client.UncannyHoglinRenderer;
 import com.eotv.echoofthevoid.client.UncannyMimicRenderer;
+import com.eotv.echoofthevoid.client.UncannyMournerRenderer;
+import com.eotv.echoofthevoid.client.UncannyNativeAnomalyClientEffects;
+import com.eotv.echoofthevoid.client.UncannyLocalizedWeatherClientEffects;
+import com.eotv.echoofthevoid.client.UncannyVanillaVariantClientEffects;
 import com.eotv.echoofthevoid.client.UncannyPassiveClientEffects;
 import com.eotv.echoofthevoid.client.UncannyPiglinBruteRenderer;
 import com.eotv.echoofthevoid.client.UncannySpiderRenderer;
@@ -13,13 +18,19 @@ import com.eotv.echoofthevoid.client.UncannyLlamaRenderer;
 import com.eotv.echoofthevoid.client.UncannyAltarScreen;
 import com.eotv.echoofthevoid.client.UncannyAtmosphereClientEffects;
 import com.eotv.echoofthevoid.client.UncannyClientEventEffects;
+import com.eotv.echoofthevoid.client.UncannyClientAudioEffects;
 import com.eotv.echoofthevoid.client.UncannyClientUiEffects;
 import com.eotv.echoofthevoid.client.UncannyWardenRenderer;
 import com.eotv.echoofthevoid.client.UncannyWatcherRenderer;
 import com.eotv.echoofthevoid.client.UncannyWolfRenderer;
 import com.eotv.echoofthevoid.client.UncannyZombieRenderer;
 import com.eotv.echoofthevoid.entity.UncannyEntityRegistry;
+import com.eotv.echoofthevoid.item.UncannyItemRegistry;
 import com.eotv.echoofthevoid.menu.UncannyMenuRegistry;
+import net.minecraft.client.renderer.item.CompassItemPropertyFunction;
+import net.minecraft.client.renderer.item.ItemProperties;
+import net.minecraft.core.component.DataComponents;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.client.renderer.entity.BlazeRenderer;
 import net.minecraft.client.renderer.entity.CreeperRenderer;
 import net.minecraft.client.renderer.entity.DrownedRenderer;
@@ -41,10 +52,13 @@ import net.minecraft.client.renderer.entity.VindicatorRenderer;
 import net.minecraft.client.renderer.entity.VillagerRenderer;
 import net.minecraft.client.renderer.entity.WitherSkeletonRenderer;
 import net.minecraft.client.renderer.entity.ZombieVillagerRenderer;
+import net.minecraft.world.item.CompassItem;
+import net.minecraft.world.item.component.LodestoneTracker;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.common.Mod;
+import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
 import net.neoforged.neoforge.client.event.EntityRenderersEvent;
 import net.neoforged.neoforge.client.event.RegisterMenuScreensEvent;
 import net.neoforged.neoforge.client.gui.ConfigurationScreen;
@@ -56,6 +70,7 @@ import net.minecraft.world.entity.EntityType;
 public class EchoOfTheVoidClient {
     public EchoOfTheVoidClient(IEventBus modEventBus, ModContainer container) {
         container.registerExtensionPoint(IConfigScreenFactory.class, ConfigurationScreen::new);
+        modEventBus.addListener(this::onClientSetup);
         modEventBus.addListener(this::onRegisterEntityRenderers);
         modEventBus.addListener(this::onRegisterMenuScreens);
         NeoForge.EVENT_BUS.addListener(UncannyPassiveClientEffects::onRenderLivingPre);
@@ -66,10 +81,26 @@ public class EchoOfTheVoidClient {
         NeoForge.EVENT_BUS.addListener(UncannyClientUiEffects::onRenderGuiPost);
         NeoForge.EVENT_BUS.addListener(UncannyClientUiEffects::onRenderGuiLayerPost);
         NeoForge.EVENT_BUS.addListener(UncannyClientUiEffects::onClientTick);
+        NeoForge.EVENT_BUS.addListener(UncannyClientAudioEffects::onClientTick);
+        NeoForge.EVENT_BUS.addListener(UncannyNativeAnomalyClientEffects::onClientTick);
+        NeoForge.EVENT_BUS.addListener(UncannyNativeAnomalyClientEffects::onRenderLevelStage);
+        NeoForge.EVENT_BUS.addListener(UncannyLocalizedWeatherClientEffects::onClientTick);
+        NeoForge.EVENT_BUS.addListener(UncannyLocalizedWeatherClientEffects::onRenderLevelStage);
+        NeoForge.EVENT_BUS.addListener(UncannyVanillaVariantClientEffects::onClientTick);
+        NeoForge.EVENT_BUS.addListener(UncannyVanillaVariantClientEffects::onRenderLevelStage);
         NeoForge.EVENT_BUS.addListener(UncannyAtmosphereClientEffects::onRenderGuiPost);
-        NeoForge.EVENT_BUS.addListener(UncannyAtmosphereClientEffects::onRenderLevelStage);
         NeoForge.EVENT_BUS.addListener(UncannyAtmosphereClientEffects::onRenderFog);
         NeoForge.EVENT_BUS.addListener(UncannyAtmosphereClientEffects::onComputeFogColor);
+    }
+
+    private void onClientSetup(FMLClientSetupEvent event) {
+        event.enqueueWork(() -> ItemProperties.register(
+                UncannyItemRegistry.UNCANNY_COMPASS.get(),
+                ResourceLocation.withDefaultNamespace("angle"),
+                new CompassItemPropertyFunction((level, stack, entity) -> {
+                    LodestoneTracker tracker = stack.get(DataComponents.LODESTONE_TRACKER);
+                    return tracker != null ? tracker.target().orElse(null) : CompassItem.getSpawnPosition(level);
+                })));
     }
 
     private void onRegisterEntityRenderers(EntityRenderersEvent.RegisterRenderers event) {
@@ -99,7 +130,7 @@ public class EchoOfTheVoidClient {
         event.registerEntityRenderer(UncannyEntityRegistry.UNCANNY_SLIME.get(), SlimeRenderer::new);
         event.registerEntityRenderer(UncannyEntityRegistry.UNCANNY_MAGMA_CUBE.get(), MagmaCubeRenderer::new);
         event.registerEntityRenderer(UncannyEntityRegistry.UNCANNY_WATCHER.get(), UncannyWatcherRenderer::new);
-        event.registerEntityRenderer(UncannyEntityRegistry.UNCANNY_STALKER.get(), context -> new UncannySilhouetteRenderer<>(context));
+        event.registerEntityRenderer(UncannyEntityRegistry.UNCANNY_STALKER.get(), UncannyAttackerRenderer::new);
         event.registerEntityRenderer(UncannyEntityRegistry.UNCANNY_HURLER.get(), context -> new UncannySilhouetteRenderer<>(context));
         event.registerEntityRenderer(UncannyEntityRegistry.UNCANNY_SHADOW.get(), context -> new UncannySilhouetteRenderer<>(context));
         event.registerEntityRenderer(UncannyEntityRegistry.UNCANNY_KNOCKER.get(), context -> new UncannySilhouetteRenderer<>(context));
@@ -109,6 +140,12 @@ public class EchoOfTheVoidClient {
         event.registerEntityRenderer(UncannyEntityRegistry.UNCANNY_KEEPER.get(), context -> new UncannySilhouetteRenderer<>(context));
         event.registerEntityRenderer(UncannyEntityRegistry.UNCANNY_TENANT.get(), context -> new UncannySilhouetteRenderer<>(context));
         event.registerEntityRenderer(UncannyEntityRegistry.UNCANNY_FOLLOWER.get(), context -> new UncannySilhouetteRenderer<>(context));
+        event.registerEntityRenderer(UncannyEntityRegistry.UNCANNY_SURVEYOR.get(), context -> new UncannySilhouetteRenderer<>(context));
+        event.registerEntityRenderer(UncannyEntityRegistry.UNCANNY_MOURNER.get(), UncannyMournerRenderer::new);
+        event.registerEntityRenderer(UncannyEntityRegistry.UNCANNY_DOUBLER.get(), context -> new UncannySilhouetteRenderer<>(context));
+        event.registerEntityRenderer(UncannyEntityRegistry.UNCANNY_FERRYMAN.get(), context -> new UncannySilhouetteRenderer<>(context));
+        event.registerEntityRenderer(UncannyEntityRegistry.UNCANNY_LISTENER.get(), context -> new UncannySilhouetteRenderer<>(context));
+        event.registerEntityRenderer(UncannyEntityRegistry.UNCANNY_BYSTANDER.get(), context -> new UncannySilhouetteRenderer<>(context));
         event.registerEntityRenderer(UncannyEntityRegistry.UNCANNY_STRUCTURE_VILLAGER.get(), VillagerRenderer::new);
         event.registerEntityRenderer(EntityType.LLAMA, UncannyLlamaRenderer::new);
         event.registerEntityRenderer(EntityType.WOLF, UncannyWolfRenderer::new);

@@ -2,7 +2,6 @@ package com.eotv.echoofthevoid.entity.custom;
 
 import com.eotv.echoofthevoid.entity.UncannyEntityMarker;
 import com.eotv.echoofthevoid.entity.UncannyEntityUtil;
-import com.eotv.echoofthevoid.item.UncannyItemRegistry;
 import com.eotv.echoofthevoid.sound.UncannySoundRegistry;
 import java.util.Optional;
 import java.util.UUID;
@@ -20,10 +19,8 @@ import net.minecraft.world.InteractionHand;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.ai.attributes.Attributes;
-import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.monster.Monster;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.DoorBlock;
@@ -249,7 +246,7 @@ public class UncannyKnockerEntity extends Monster implements UncannyEntityMarker
                     this.doorPos,
                     UncannySoundRegistry.UNCANNY_KNOCKER_KNOCK.get(),
                     SoundSource.HOSTILE,
-                    3.4F,
+                    1.0F,
                     0.94F + this.random.nextFloat() * 0.08F);
             this.knockPlayed = true;
         }
@@ -323,16 +320,6 @@ public class UncannyKnockerEntity extends Monster implements UncannyEntityMarker
         }
     }
 
-    @Override
-    protected void dropCustomDeathLoot(ServerLevel level, DamageSource damageSource, boolean recentlyHit) {
-        super.dropCustomDeathLoot(level, damageSource, recentlyHit);
-        if (!this.droppedShard) {
-            ItemEntity reward = new ItemEntity(level, this.getX(), this.getY(), this.getZ(), new ItemStack(UncannyItemRegistry.UNCANNY_REALITY_SHARD.get()));
-            level.addFreshEntity(reward);
-            this.droppedShard = true;
-        }
-    }
-
     private void startForcedAttack(ServerPlayer targetPlayer) {
         if (!this.canAttack) {
             startFlee();
@@ -354,7 +341,7 @@ public class UncannyKnockerEntity extends Monster implements UncannyEntityMarker
                     this.blockPosition(),
                     UncannySoundRegistry.UNCANNY_HURLER_SCREAM.get(),
                     SoundSource.HOSTILE,
-                    2.9F,
+                    1.05F,
                     0.92F);
         }
     }

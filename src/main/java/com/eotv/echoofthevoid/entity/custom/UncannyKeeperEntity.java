@@ -222,7 +222,13 @@ public class UncannyKeeperEntity extends Monster implements UncannyEntityMarker 
                 if (this.getAttribute(Attributes.MOVEMENT_SPEED) != null) {
                     this.getAttribute(Attributes.MOVEMENT_SPEED).setBaseValue(0.38D);
                 }
-                owner.playNotifySound(UncannySoundRegistry.UNCANNY_HURLER_SCREAM.get(), SoundSource.HOSTILE, 1.1F, 0.95F);
+                level.playSound(
+                        null,
+                        this,
+                        UncannySoundRegistry.UNCANNY_HURLER_SCREAM.get(),
+                        SoundSource.HOSTILE,
+                        1.1F,
+                        0.95F);
             }
         }
     }
@@ -245,12 +251,6 @@ public class UncannyKeeperEntity extends Monster implements UncannyEntityMarker 
     @Override
     protected SoundEvent getDeathSound() {
         return null;
-    }
-
-    @Override
-    protected void dropCustomDeathLoot(ServerLevel level, DamageSource damageSource, boolean recentlyHit) {
-        super.dropCustomDeathLoot(level, damageSource, recentlyHit);
-        UncannyEntityUtil.dropPulseStyleRewards(level, this, this.random);
     }
 
     @Override
@@ -316,13 +316,16 @@ public class UncannyKeeperEntity extends Monster implements UncannyEntityMarker 
     private ServerPlayer resolveOwner(ServerLevel level) {
         Optional<UUID> ownerUuid = this.entityData.get(OWNER_PLAYER);
         if (ownerUuid.isPresent()) {
-            ServerPlayer owner = level.getServer().getPlayerList().getPlayer(ownerUuid.get());
-            if (owner != null) {
-                return owner;
-            }
+            ServerPlayer bound = level.getServer().getPlayerList().getPlayer(ownerUuid.get());
+            return bound != null
+                            && bound.isAlive()
+                            && !bound.isSpectator()
+                            && bound.serverLevel() == level
+                    ? bound
+                    : null;
         }
         Player nearest = level.getNearestPlayer(this, 24.0D);
-        if (nearest instanceof ServerPlayer owner) {
+        if (nearest instanceof ServerPlayer owner && owner.isAlive() && !owner.isSpectator()) {
             this.entityData.set(OWNER_PLAYER, Optional.of(owner.getUUID()));
             return owner;
         }

@@ -1,6 +1,7 @@
 package com.eotv.echoofthevoid.client;
 
 import com.eotv.echoofthevoid.EchoOfTheVoid;
+import com.eotv.echoofthevoid.event.special.GrandWardenRules;
 import com.mojang.blaze3d.vertex.PoseStack;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.client.renderer.entity.EntityRendererProvider;
@@ -9,8 +10,8 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.entity.monster.warden.Warden;
 
 public class UncannyWardenRenderer extends WardenRenderer {
-    private static final String TAG_GRAND_WARDEN = "eotv_grand_warden";
-    private static final String GRAND_WARDEN_DISPLAY_NAME = "Warden?";
+    private static final String TAG_GRAND_WARDEN = GrandWardenRules.ENTITY_TAG;
+    private static final String GRAND_WARDEN_DISPLAY_NAME = GrandWardenRules.DISPLAY_NAME;
     private static final ResourceLocation GRAND_TEXTURE =
             ResourceLocation.fromNamespaceAndPath(EchoOfTheVoid.MODID, "textures/entity/uncanny_grand_warden_special.png");
 

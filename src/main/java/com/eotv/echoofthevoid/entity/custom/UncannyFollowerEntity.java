@@ -195,7 +195,7 @@ public class UncannyFollowerEntity extends Monster implements UncannyEntityMarke
                 this.attackEndTick = now + 20L * 16L;
                 this.setTarget(owner);
                 this.getNavigation().stop();
-                level.playSound(null, this.blockPosition(), UncannySoundRegistry.UNCANNY_HURLER_SCREAM.get(), SoundSource.HOSTILE, 2.7F, 0.88F);
+                level.playSound(null, this.blockPosition(), UncannySoundRegistry.UNCANNY_HURLER_SCREAM.get(), SoundSource.HOSTILE, 1.05F, 0.88F);
                 return;
             }
 
@@ -244,12 +244,6 @@ public class UncannyFollowerEntity extends Monster implements UncannyEntityMarke
     @Override
     protected void playStepSound(BlockPos pos, BlockState blockState) {
         UncannyEntityUtil.suppressStepSound(this, pos, blockState);
-    }
-
-    @Override
-    protected void dropCustomDeathLoot(ServerLevel level, DamageSource damageSource, boolean recentlyHit) {
-        super.dropCustomDeathLoot(level, damageSource, recentlyHit);
-        UncannyEntityUtil.dropPulseStyleRewards(level, this, this.random);
     }
 
     @Override

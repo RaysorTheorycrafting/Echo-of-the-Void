@@ -2,12 +2,9 @@ package com.eotv.echoofthevoid.entity.custom;
 
 import com.eotv.echoofthevoid.entity.UncannyEntityMarker;
 import com.eotv.echoofthevoid.entity.UncannyEntityUtil;
-import com.eotv.echoofthevoid.item.UncannyItemRegistry;
 import com.eotv.echoofthevoid.sound.UncannySoundRegistry;
 import net.minecraft.core.BlockPos;
-import net.minecraft.core.Holder;
 import net.minecraft.core.particles.DustParticleOptions;
-import net.minecraft.network.protocol.game.ClientboundSoundPacket;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvent;
@@ -22,9 +19,9 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.goal.FloatGoal;
 import net.minecraft.world.entity.ai.goal.RandomLookAroundGoal;
 import net.minecraft.world.entity.ai.goal.WaterAvoidingRandomStrollGoal;
-import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.entity.monster.Enemy;
 import net.minecraft.world.entity.monster.Monster;
-import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
 import org.joml.Vector3f;
@@ -63,7 +60,7 @@ public class UncannyPulseEntity extends Monster implements UncannyEntityMarker {
             return;
         }
 
-        if (!(this.level().getNearestPlayer(this, 48.0D) instanceof ServerPlayer target) || !target.isAlive()) {
+        if (!(this.level().getNearestPlayer(this, 24.0D) instanceof ServerPlayer target) || !target.isAlive()) {
             return;
         }
 
@@ -99,29 +96,6 @@ public class UncannyPulseEntity extends Monster implements UncannyEntityMarker {
         return null;
     }
 
-    @Override
-    protected void dropCustomDeathLoot(ServerLevel level, DamageSource damageSource, boolean recentlyHit) {
-        super.dropCustomDeathLoot(level, damageSource, recentlyHit);
-
-        if (this.random.nextFloat() < 0.10F) {
-            level.addFreshEntity(new ItemEntity(
-                    level,
-                    this.getX(),
-                    this.getY(),
-                    this.getZ(),
-                    new ItemStack(UncannyItemRegistry.UNCANNY_REALITY_SHARD.get())));
-        }
-
-        if (this.random.nextFloat() < 0.50F) {
-            level.addFreshEntity(new ItemEntity(
-                    level,
-                    this.getX(),
-                    this.getY(),
-                    this.getZ(),
-                    new ItemStack(UncannyItemRegistry.UNCANNY_REALITY_SHARD_PIECE.get())));
-        }
-    }
-
     private void tickHeartbeat(ServerPlayer target) {
         if (!this.isAlive() || this.isRemoved() || this.deathTime > 0) {
             this.nextHeartbeatTick = Long.MAX_VALUE;
@@ -133,20 +107,20 @@ public class UncannyPulseEntity extends Monster implements UncannyEntityMarker {
         }
 
         double distance = Math.sqrt(this.distanceToSqr(target));
-        double proximity = 1.0D - Mth.clamp(distance / 28.0D, 0.0D, 1.0D);
-        float volume = (float) (0.30D + proximity * 2.15D);
+        double proximity = 1.0D - Mth.clamp(distance / 20.0D, 0.0D, 1.0D);
+        float volume = (float) (0.22D + proximity * 0.50D);
         float pitch = (float) (0.72D + proximity * 0.55D);
-        target.connection.send(new ClientboundSoundPacket(
-                Holder.direct(UncannySoundRegistry.UNCANNY_HEARTBEAT.get()),
-                SoundSource.HOSTILE,
+        target.serverLevel().playSound(
+                null,
                 this.getX(),
                 this.getY() + 1.0D,
                 this.getZ(),
+                UncannySoundRegistry.UNCANNY_HEARTBEAT.get(),
+                SoundSource.HOSTILE,
                 volume,
-                pitch,
-                this.level().random.nextLong()));
+                pitch);
 
-        this.nextHeartbeatTick = now + 160L;
+        this.nextHeartbeatTick = now + 200L + this.random.nextInt(81);
     }
 
     @Override
@@ -165,7 +139,9 @@ public class UncannyPulseEntity extends Monster implements UncannyEntityMarker {
         for (LivingEntity entity : this.level().getEntitiesOfClass(
                 LivingEntity.class,
                 this.getBoundingBox().inflate(2.2D),
-                living -> living.isAlive() && living != this)) {
+                living -> living.isAlive()
+                        && living != this
+                        && (living instanceof Player || living instanceof Enemy))) {
             entity.addEffect(new MobEffectInstance(MobEffects.WITHER, 80, 0, false, true, true));
             applied = true;
         }

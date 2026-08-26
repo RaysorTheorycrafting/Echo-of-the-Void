@@ -1,0 +1,12 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "com.eotv.echoofthevoid.client.weather_mixin",
+  "compatibilityLevel": "JAVA_21",
+  "client": [
+    "UncannyLocalizedPrecipitationMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

@@ -1,6 +1,7 @@
 package com.eotv.echoofthevoid.dev;
 
 import com.eotv.echoofthevoid.EchoOfTheVoid;
+import com.eotv.echoofthevoid.network.UncannyDevMenuResultPayload;
 import com.eotv.echoofthevoid.network.UncannyDevMenuSyncPayload;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -21,6 +22,8 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.entity.Mob;
+import net.minecraft.world.phys.AABB;
 import net.neoforged.fml.loading.FMLPaths;
 import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.network.PacketDistributor;
@@ -39,7 +42,7 @@ public final class UncannyDevQaStateService {
     }
 
     public static synchronized void openMenu(ServerPlayer player) {
-        if (player == null) {
+        if (!isAuthorized(player)) {
             return;
         }
         ensureLoaded();
@@ -47,7 +50,15 @@ public final class UncannyDevQaStateService {
     }
 
     public static synchronized void handleAction(ServerPlayer player, String entryId) {
-        if (player == null || entryId == null) {
+        handleRun(player, entryId, player == null ? "" : player.getGameProfile().getName(), 4);
+    }
+
+    public static synchronized void handleRun(
+            ServerPlayer requester,
+            String entryId,
+            String requestedTargetName,
+            int requestedSpawnDistance) {
+        if (!isAuthorized(requester) || entryId == null) {
             return;
         }
         ensureLoaded();
@@ -55,25 +66,41 @@ public final class UncannyDevQaStateService {
         String normalized = normalizeId(entryId);
         UncannyDevCatalog.Entry entry = UncannyDevCatalog.byId(normalized);
         if (entry == null) {
-            player.sendSystemMessage(net.minecraft.network.chat.Component.literal("Unknown dev entry: " + entryId));
-            syncToPlayer(player, false);
+            sendResult(requester, normalized, false, "Unknown dev entry: " + entryId, requester);
+            syncToPlayer(requester, false);
             return;
         }
 
-        // Any click makes it orange for this session unless already validated green.
-        if (!GREEN_IDS.contains(normalized)) {
-            SESSION_ORANGE_IDS.computeIfAbsent(player.getUUID(), uuid -> new HashSet<>()).add(normalized);
+        ServerPlayer target = resolveTarget(requester, requestedTargetName);
+        if (target == null) {
+            sendResult(requester, normalized, false, "Target player is not online: " + requestedTargetName, requester);
+            syncToPlayer(requester, false);
+            return;
         }
 
-        boolean success = UncannyDevActionExecutor.execute(player, entry);
-        if (!success) {
-            player.sendSystemMessage(net.minecraft.network.chat.Component.literal("Dev action failed: " + entry.label()));
+        Set<UUID> before = snapshotNearbyMobIds(target);
+        UncannyDevActionExecutor.ExecutionResult result =
+                UncannyDevActionExecutor.executeDetailed(target, entry, requestedSpawnDistance);
+        int tagged = result.success() ? tagNewTestMobs(target, before) : 0;
+
+        if (result.success() && !GREEN_IDS.contains(normalized)) {
+            SESSION_ORANGE_IDS.computeIfAbsent(requester.getUUID(), uuid -> new HashSet<>()).add(normalized);
         }
-        syncToPlayer(player, false);
+
+        String message = result.message();
+        if (tagged > 0 && result.affectedEntities() == 0) {
+            message += " Marked " + tagged + " new entity/entities for cleanup.";
+        }
+        sendResult(requester, normalized, result.success(), message, target);
+        if (!result.success()) {
+            requester.sendSystemMessage(net.minecraft.network.chat.Component.literal(
+                    "Dev action failed [" + entry.id() + "]: " + result.message()));
+        }
+        syncToPlayer(requester, false);
     }
 
     public static synchronized void updateStatus(ServerPlayer player, String entryId, boolean validatedGreen) {
-        if (player == null || entryId == null) {
+        if (!isAuthorized(player) || entryId == null) {
             return;
         }
         ensureLoaded();
@@ -102,7 +129,7 @@ public final class UncannyDevQaStateService {
     }
 
     public static synchronized void syncToPlayer(ServerPlayer player, boolean openMenu) {
-        if (player == null) {
+        if (!isAuthorized(player)) {
             return;
         }
         ensureLoaded();
@@ -173,5 +200,62 @@ public final class UncannyDevQaStateService {
 
     private static String normalizeId(String id) {
         return id.trim().toLowerCase(Locale.ROOT);
+    }
+
+    private static boolean isAuthorized(ServerPlayer player) {
+        if (player != null && player.hasPermissions(2)) {
+            return true;
+        }
+        if (player != null) {
+            player.sendSystemMessage(net.minecraft.network.chat.Component.literal(
+                    "The Echo of the Void developer menu requires permission level 2."));
+        }
+        return false;
+    }
+
+    private static ServerPlayer resolveTarget(ServerPlayer requester, String requestedTargetName) {
+        if (requester == null || requester.getServer() == null) {
+            return null;
+        }
+        String targetName = requestedTargetName == null ? "" : requestedTargetName.trim();
+        if (targetName.isEmpty() || targetName.equalsIgnoreCase(requester.getGameProfile().getName())) {
+            return requester;
+        }
+        return requester.getServer().getPlayerList().getPlayerByName(targetName);
+    }
+
+    private static Set<UUID> snapshotNearbyMobIds(ServerPlayer target) {
+        AABB area = target.getBoundingBox().inflate(256.0D);
+        return target.serverLevel().getEntitiesOfClass(Mob.class, area, Mob::isAlive).stream()
+                .map(Mob::getUUID)
+                .collect(Collectors.toSet());
+    }
+
+    private static int tagNewTestMobs(ServerPlayer target, Set<UUID> before) {
+        int tagged = 0;
+        AABB area = target.getBoundingBox().inflate(256.0D);
+        for (Mob mob : target.serverLevel().getEntitiesOfClass(Mob.class, area, Mob::isAlive)) {
+            if (before.contains(mob.getUUID()) || mob.getTags().contains(UncannyDevActionExecutor.DEV_SPAWNED_TAG)) {
+                continue;
+            }
+            mob.addTag(UncannyDevActionExecutor.DEV_SPAWNED_TAG);
+            tagged++;
+        }
+        return tagged;
+    }
+
+    private static void sendResult(
+            ServerPlayer requester,
+            String entryId,
+            boolean success,
+            String message,
+            ServerPlayer target) {
+        PacketDistributor.sendToPlayer(
+                requester,
+                new UncannyDevMenuResultPayload(
+                        entryId == null ? "" : entryId,
+                        success,
+                        message == null ? "No diagnostic message." : message,
+                        target == null ? "" : target.getGameProfile().getName()));
     }
 }

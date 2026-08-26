@@ -2,6 +2,8 @@ package com.eotv.echoofthevoid.entity.custom;
 
 import com.eotv.echoofthevoid.entity.UncannyEntityMarker;
 import com.eotv.echoofthevoid.entity.UncannyEntityUtil;
+import com.eotv.echoofthevoid.event.special.ApprovedSpecialBehaviorRules;
+import com.eotv.echoofthevoid.sound.UncannySoundRegistry;
 import java.util.Optional;
 import java.util.UUID;
 import net.minecraft.core.BlockPos;
@@ -12,7 +14,9 @@ import net.minecraft.network.syncher.SynchedEntityData;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvent;
+import net.minecraft.sounds.SoundSource;
 import net.minecraft.util.Mth;
+import net.minecraft.util.RandomSource;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.LivingEntity;
@@ -33,12 +37,20 @@ import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 
 public class UncannyStalkerEntity extends Monster implements UncannyEntityMarker {
+    private static final float ATTACKER_BODY_SOUND_VOLUME = 1.00F;
+    private static final float ATTACKER_RUSH_VOLUME = 1.20F;
+    private static final float ATTACKER_SCREAM_VOLUME = 1.45F;
     private static final EntityDataAccessor<Optional<UUID>> TARGET_PLAYER =
             SynchedEntityData.defineId(UncannyStalkerEntity.class, EntityDataSerializers.OPTIONAL_UUID);
+    private static final EntityDataAccessor<Byte> ANIMATION_STYLE =
+            SynchedEntityData.defineId(UncannyStalkerEntity.class, EntityDataSerializers.BYTE);
 
     private int noPathTicks;
     private int hiddenTicks;
     private BlockPos hiddenSpot;
+    private int threatCueMode = -1;
+    private boolean threatCuePlayed;
+    private boolean discovered;
 
     public UncannyStalkerEntity(EntityType<? extends Monster> entityType, Level level) {
         super(entityType, level);
@@ -49,6 +61,7 @@ public class UncannyStalkerEntity extends Monster implements UncannyEntityMarker
     protected void defineSynchedData(SynchedEntityData.Builder builder) {
         super.defineSynchedData(builder);
         builder.define(TARGET_PLAYER, Optional.empty());
+        builder.define(ANIMATION_STYLE, (byte) AnimationStyle.CRAWL.id());
     }
 
     @Override
@@ -64,15 +77,30 @@ public class UncannyStalkerEntity extends Monster implements UncannyEntityMarker
     }
 
     public void setHuntTarget(ServerPlayer player) {
+        UUID previous = this.entityData.get(TARGET_PLAYER).orElse(null);
         this.entityData.set(TARGET_PLAYER, Optional.of(player.getUUID()));
         this.setTarget(player);
+        if (!player.getUUID().equals(previous)) {
+            this.threatCueMode = this.random.nextInt(4);
+            this.threatCuePlayed = false;
+            this.discovered = false;
+        }
         this.syncStatsFromPlayer(player);
+    }
+
+    public AnimationStyle getAnimationStyle() {
+        return AnimationStyle.byId(this.entityData.get(ANIMATION_STYLE));
+    }
+
+    public void setAnimationStyle(AnimationStyle style) {
+        this.entityData.set(ANIMATION_STYLE, (byte) (style == null ? AnimationStyle.CRAWL.id() : style.id()));
     }
 
     @Override
     public void aiStep() {
         super.aiStep();
-        UncannyEntityUtil.forceSilent(this);
+        // Old saves may contain the former blanket Silent flag. Only explicit sounds are muted now.
+        this.setSilent(false);
         UncannyEntityUtil.enableDoorNavigation(this);
 
         if (this.level().isClientSide() || !(this.level() instanceof ServerLevel serverLevel)) {
@@ -89,6 +117,13 @@ public class UncannyStalkerEntity extends Monster implements UncannyEntityMarker
             if (this.getTarget() != targetPlayer) {
                 this.setTarget(targetPlayer);
             }
+            if (this.distanceToSqr(targetPlayer) <= 6.0D * 6.0D
+                    || (this.distanceToSqr(targetPlayer) <= 18.0D * 18.0D
+                            && this.hasLineOfSight(targetPlayer)
+                            && targetPlayer.hasLineOfSight(this))) {
+                this.discovered = true;
+            }
+            maybePlayThreatCue(serverLevel, targetPlayer);
 
             if (this.tickCount % 20 == 0) {
                 if (!canPathTo(targetPlayer)) {
@@ -114,7 +149,11 @@ public class UncannyStalkerEntity extends Monster implements UncannyEntityMarker
 
     @Override
     protected void playStepSound(BlockPos pos, BlockState state) {
-        UncannyEntityUtil.suppressStepSound(this, pos, state);
+        if (!this.discovered) {
+            UncannyEntityUtil.suppressStepSound(this, pos, state);
+            return;
+        }
+        super.playStepSound(pos, state);
     }
 
     @Override
@@ -124,12 +163,33 @@ public class UncannyStalkerEntity extends Monster implements UncannyEntityMarker
 
     @Override
     protected SoundEvent getHurtSound(DamageSource source) {
-        return null;
+        return UncannySoundRegistry.UNCANNY_ATTACKER_HURT.get();
     }
 
     @Override
     protected SoundEvent getDeathSound() {
-        return null;
+        return UncannySoundRegistry.UNCANNY_ATTACKER_DEATH.get();
+    }
+
+    @Override
+    protected float getSoundVolume() {
+        return ATTACKER_BODY_SOUND_VOLUME;
+    }
+
+    @Override
+    public boolean doHurtTarget(net.minecraft.world.entity.Entity target) {
+        boolean hit = super.doHurtTarget(target);
+        if (hit) {
+            this.discovered = true;
+        }
+        if (hit
+                && !this.threatCuePlayed
+                && ApprovedSpecialBehaviorRules.shouldPlayAttackerCue(
+                        this.threatCueMode, this.distanceToSqr(target), this.hasLineOfSight(target), true)
+                && this.level() instanceof ServerLevel level) {
+            playThreatCue(level);
+        }
+        return hit;
     }
 
     @Override
@@ -138,6 +198,10 @@ public class UncannyStalkerEntity extends Monster implements UncannyEntityMarker
         this.entityData.get(TARGET_PLAYER).ifPresent(uuid -> tag.putUUID("TargetPlayer", uuid));
         tag.putInt("NoPathTicks", this.noPathTicks);
         tag.putInt("HiddenTicks", this.hiddenTicks);
+        tag.putInt("ThreatCueMode", this.threatCueMode);
+        tag.putBoolean("ThreatCuePlayed", this.threatCuePlayed);
+        tag.putBoolean("Discovered", this.discovered);
+        tag.putByte("AttackerAnimationStyle", (byte) getAnimationStyle().id());
         if (this.hiddenSpot != null) {
             tag.putInt("HiddenSpotX", this.hiddenSpot.getX());
             tag.putInt("HiddenSpotY", this.hiddenSpot.getY());
@@ -153,6 +217,14 @@ public class UncannyStalkerEntity extends Monster implements UncannyEntityMarker
         }
         this.noPathTicks = Math.max(0, tag.getInt("NoPathTicks"));
         this.hiddenTicks = Math.max(0, tag.getInt("HiddenTicks"));
+        this.threatCueMode = tag.contains("ThreatCueMode")
+                ? Mth.clamp(tag.getInt("ThreatCueMode"), 0, 3)
+                : this.random.nextInt(4);
+        this.threatCuePlayed = tag.getBoolean("ThreatCuePlayed");
+        this.discovered = tag.getBoolean("Discovered");
+        this.setAnimationStyle(tag.contains("AttackerAnimationStyle")
+                ? AnimationStyle.byId(tag.getByte("AttackerAnimationStyle"))
+                : AnimationStyle.CRAWL);
         if (tag.contains("HiddenSpotX") && tag.contains("HiddenSpotY") && tag.contains("HiddenSpotZ")) {
             this.hiddenSpot = new BlockPos(tag.getInt("HiddenSpotX"), tag.getInt("HiddenSpotY"), tag.getInt("HiddenSpotZ"));
         }
@@ -192,6 +264,35 @@ public class UncannyStalkerEntity extends Monster implements UncannyEntityMarker
     private boolean canPathTo(ServerPlayer player) {
         var path = this.getNavigation().createPath(player, 0);
         return path != null && path.canReach();
+    }
+
+    private void maybePlayThreatCue(ServerLevel level, ServerPlayer targetPlayer) {
+        if (this.threatCuePlayed) {
+            return;
+        }
+        if (ApprovedSpecialBehaviorRules.shouldPlayAttackerCue(
+                this.threatCueMode,
+                this.distanceToSqr(targetPlayer),
+                this.hasLineOfSight(targetPlayer),
+                false)) {
+            playThreatCue(level);
+        }
+    }
+
+    private void playThreatCue(ServerLevel level) {
+        this.threatCuePlayed = true;
+        boolean aggressiveScream = this.threatCueMode >= 2;
+        level.playSound(
+                null,
+                this,
+                aggressiveScream
+                        ? UncannySoundRegistry.UNCANNY_ATTACKER_SCREAM.get()
+                        : UncannySoundRegistry.UNCANNY_ATTACKER_RUSH.get(),
+                SoundSource.HOSTILE,
+                aggressiveScream ? ATTACKER_SCREAM_VOLUME : ATTACKER_RUSH_VOLUME,
+                aggressiveScream
+                        ? 0.92F + this.random.nextFloat() * 0.08F
+                        : 0.88F + this.random.nextFloat() * 0.10F);
     }
 
     private void enterHiddenState(ServerPlayer player) {
@@ -263,6 +364,29 @@ public class UncannyStalkerEntity extends Monster implements UncannyEntityMarker
         Vec3 to = targetPlayer.getEyePosition();
         HitResult hitResult = this.level().clip(new ClipContext(from, to, ClipContext.Block.COLLIDER, ClipContext.Fluid.NONE, this));
         return hitResult.getType() == HitResult.Type.BLOCK;
+    }
+
+    public enum AnimationStyle {
+        CRAWL(1),
+        OUTSTRETCHED(2);
+
+        private final int id;
+
+        AnimationStyle(int id) {
+            this.id = id;
+        }
+
+        public int id() {
+            return id;
+        }
+
+        public static AnimationStyle byId(int id) {
+            return id == OUTSTRETCHED.id ? OUTSTRETCHED : CRAWL;
+        }
+
+        public static AnimationStyle random(RandomSource random) {
+            return random.nextBoolean() ? CRAWL : OUTSTRETCHED;
+        }
     }
 }
 

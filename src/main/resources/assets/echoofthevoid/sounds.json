@@ -13,6 +13,48 @@
       "echoofthevoid:uncanny/knocker/knocker_knock_1"
     ]
   },
+  "uncanny_mourner_sob": {
+    "subtitle": "subtitle.echoofthevoid.mourner_sob",
+    "sounds": [
+      "echoofthevoid:uncanny/mourner/mourner_sob_1",
+      "echoofthevoid:uncanny/mourner/mourner_sob_2"
+    ]
+  },
+  "uncanny_ferryman_wake": {
+    "subtitle": "subtitle.echoofthevoid.ferryman_wake",
+    "sounds": [
+      "echoofthevoid:uncanny/ferryman/ferryman_wake_1",
+      "echoofthevoid:uncanny/ferryman/ferryman_wake_2"
+    ]
+  },
+  "uncanny_attacker_rush": {
+    "subtitle": "subtitle.echoofthevoid.attacker_rush",
+    "sounds": [
+      "echoofthevoid:uncanny/attacker/attacker_rush_1",
+      "echoofthevoid:uncanny/attacker/attacker_rush_2"
+    ]
+  },
+  "uncanny_attacker_scream": {
+    "subtitle": "subtitle.echoofthevoid.attacker_scream",
+    "sounds": [
+      "echoofthevoid:uncanny/attacker/attacker_scream_1",
+      "echoofthevoid:uncanny/attacker/attacker_scream_2"
+    ]
+  },
+  "uncanny_attacker_hurt": {
+    "subtitle": "subtitle.echoofthevoid.attacker_hurt",
+    "sounds": [
+      "echoofthevoid:uncanny/attacker/attacker_hurt_1",
+      "echoofthevoid:uncanny/attacker/attacker_hurt_2"
+    ]
+  },
+  "uncanny_attacker_death": {
+    "subtitle": "subtitle.echoofthevoid.attacker_death",
+    "sounds": [
+      "echoofthevoid:uncanny/attacker/attacker_death_1",
+      "echoofthevoid:uncanny/attacker/attacker_death_2"
+    ]
+  },
   "uncanny_fox_scream": {
     "subtitle": "entity.echoofthevoid.uncanny_fox",
     "sounds": [
@@ -48,6 +90,12 @@
     "subtitle": "entity.echoofthevoid.uncanny_tinnitus",
     "sounds": [
       "echoofthevoid:uncanny/events/tinnitus_1"
+    ]
+  },
+  "uncanny_terror_lock": {
+    "subtitle": "subtitle.echoofthevoid.terror_lock",
+    "sounds": [
+      "echoofthevoid:uncanny/terror/terror_lock_1"
     ]
   },
   "uncanny_psss": {

@@ -102,6 +102,10 @@ public final class UncannyConfig {
             .comment("Minutes required to progress from phase 3 to phase 4.")
             .defineInRange("uncanny.phase.p3ToP4Minutes", 60, 1, 10000);
 
+    public static final ModConfigSpec.BooleanValue CAMPAIGN_EXTRA_LONG_100_DAYS = BUILDER
+            .comment("Use the extra-long 100-day campaign instead of the standard 50-day campaign.")
+            .define("uncanny.campaign.extraLong100Days", false);
+
     public static final ModConfigSpec.DoubleValue PHASE1_REPLACEMENT_CHANCE = BUILDER
             .comment("Natural spawn replacement chance in phase 1.")
             .defineInRange("uncanny.spawn.phase1ReplacementChance", 0.01D, 0D, 1D);

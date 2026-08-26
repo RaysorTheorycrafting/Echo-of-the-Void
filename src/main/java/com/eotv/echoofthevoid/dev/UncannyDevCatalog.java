@@ -1,5 +1,8 @@
 package com.eotv.echoofthevoid.dev;
 
+import com.eotv.echoofthevoid.event.passive.AdditionalPassiveVariantCatalog;
+import com.eotv.echoofthevoid.event.passive.ApprovedVanillaVariantCatalog;
+import com.eotv.echoofthevoid.event.special.ApprovedSpecialCatalog;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -17,6 +20,8 @@ public final class UncannyDevCatalog {
         addGrouped(Category.ENTITIES, "shadow", "Shadow?", "entity_shadow_spawn", "Spawn", ActionKind.SPAWN_SPECIAL, "shadow");
         addGrouped(Category.ENTITIES, "hurler", "Hurler?", "entity_hurler_spawn", "Spawn", ActionKind.SPAWN_SPECIAL, "hurler");
         addGrouped(Category.ENTITIES, "attacker", "Attacker?", "entity_attacker_spawn", "Spawn", ActionKind.SPAWN_SPECIAL, "attacker");
+        addGrouped(Category.ENTITIES, "attacker", "Attacker?", "entity_attacker_crawl", "Animation Test - All Fours", ActionKind.SPAWN_SPECIAL, "attacker_crawl");
+        addGrouped(Category.ENTITIES, "attacker", "Attacker?", "entity_attacker_outstretched", "Animation Test - Arms Forward", ActionKind.SPAWN_SPECIAL, "attacker_outstretched");
         addGrouped(Category.ENTITIES, "knocker", "Knocker?", "entity_knocker_spawn", "Spawn", ActionKind.SPAWN_SPECIAL, "knocker");
         addGrouped(Category.ENTITIES, "presence", "Presence?", "entity_presence_spawn", "Spawn", ActionKind.SPAWN_SPECIAL, "pulse");
         addGrouped(Category.ENTITIES, "terror", "Terror?", "entity_terror_spawn", "Spawn", ActionKind.SPAWN_SPECIAL, "terror");
@@ -24,6 +29,12 @@ public final class UncannyDevCatalog {
         addGrouped(Category.ENTITIES, "keeper", "Keeper?", "entity_keeper_spawn", "Spawn", ActionKind.SPAWN_SPECIAL, "keeper");
         addGrouped(Category.ENTITIES, "tenant", "Tenant?", "entity_tenant_spawn", "Spawn", ActionKind.SPAWN_SPECIAL, "tenant");
         addGrouped(Category.ENTITIES, "follower", "Follower?", "entity_follower_spawn", "Spawn", ActionKind.SPAWN_SPECIAL, "follower");
+        for (ApprovedSpecialCatalog.Definition definition : ApprovedSpecialCatalog.definitions()) {
+            addGrouped(Category.ENTITIES, definition.id(), definition.displayName(),
+                    "entity_" + definition.id() + "_spawn",
+                    definition.status() == ApprovedSpecialCatalog.Status.PROTOTYPE ? "Spawn Prototype" : "Spawn",
+                    ActionKind.SPAWN_SPECIAL, definition.id());
+        }
 
         addGrouped(Category.ENTITIES, "mimic", "Mimic", "entity_mimic_force_event", "Force Event", ActionKind.FORCE_MIMIC, "");
         addGrouped(Category.ENTITIES, "mimic", "Mimic", "entity_mimic_spawn", "Spawn Direct", ActionKind.SPAWN_UNCANNY, "uncanny_mimic");
@@ -77,7 +88,12 @@ public final class UncannyDevCatalog {
         addGrouped(Category.ENTITIES, "ghast", "Ghast?", "entity_ghast_spawn", "Spawn", ActionKind.SPAWN_UNCANNY, "uncanny_ghast");
         addGrouped(Category.ENTITIES, "phantom", "Phantom?", "entity_phantom_spawn", "Spawn", ActionKind.SPAWN_UNCANNY, "uncanny_phantom");
         addGrouped(Category.ENTITIES, "phantom", "Phantom?", "entity_phantom_lantern_eater", "Mode - Lantern Eater", ActionKind.TRIGGER_VARIANT, "phantom_mode|lantern_eater");
-        addGrouped(Category.ENTITIES, "iron_golem", "Iron Golem?", "entity_iron_golem_spawn", "Spawn", ActionKind.SPAWN_UNCANNY, "uncanny_iron_golem");
+        addGrouped(Category.ENTITIES, "iron_golem", "Iron Golem?", "entity_iron_golem_spawn", "Spawn (Random)", ActionKind.SPAWN_UNCANNY, "uncanny_iron_golem");
+        addGrouped(Category.ENTITIES, "iron_golem", "Iron Golem?", "entity_iron_golem_v1", "Variant 1 - Still Witness", ActionKind.SPAWN_UNCANNY_FORCED, "uncanny_iron_golem|UncannyIronGolemVariant|1");
+        addGrouped(Category.ENTITIES, "iron_golem", "Iron Golem?", "entity_iron_golem_v2", "Variant 2 - Rear Guard", ActionKind.SPAWN_UNCANNY_FORCED, "uncanny_iron_golem|UncannyIronGolemVariant|2");
+        addGrouped(Category.ENTITIES, "iron_golem", "Iron Golem?", "entity_iron_golem_v3", "Variant 3 - Borrowed Gaze", ActionKind.SPAWN_UNCANNY_FORCED, "uncanny_iron_golem|UncannyIronGolemVariant|3");
+        addGrouped(Category.ENTITIES, "iron_golem", "Iron Golem?", "entity_iron_golem_v4", "Variant 4 - Empty Patrol", ActionKind.SPAWN_UNCANNY_FORCED, "uncanny_iron_golem|UncannyIronGolemVariant|4");
+        addGrouped(Category.ENTITIES, "iron_golem", "Iron Golem?", "entity_iron_golem_v5", "Variant 5 - Boundary Sentinel", ActionKind.SPAWN_UNCANNY_FORCED, "uncanny_iron_golem|UncannyIronGolemVariant|5");
         addGrouped(Category.ENTITIES, "pillager", "Pillager?", "entity_pillager_spawn", "Spawn", ActionKind.SPAWN_UNCANNY, "uncanny_pillager");
         addGrouped(Category.ENTITIES, "vindicator", "Vindicator?", "entity_vindicator_spawn", "Spawn", ActionKind.SPAWN_UNCANNY, "uncanny_vindicator");
         addGrouped(Category.ENTITIES, "evoker", "Evoker?", "entity_evoker_spawn", "Spawn", ActionKind.SPAWN_UNCANNY, "uncanny_evoker");
@@ -89,6 +105,24 @@ public final class UncannyDevCatalog {
         addGrouped(Category.ENTITIES, "magma_cube", "Magma Cube?", "entity_magma_cube_spawn", "Spawn", ActionKind.SPAWN_UNCANNY, "uncanny_magma_cube");
 
         // Entity: passive uncanny variants
+        for (AdditionalPassiveVariantCatalog.Species species : AdditionalPassiveVariantCatalog.species()) {
+            addGrouped(Category.ENTITIES, species.key(), species.displayName(),
+                    "entity_" + species.key() + "_spawn", "Spawn (Random Variant)",
+                    ActionKind.SPAWN_PASSIVE_FORCED, species.key() + "|0");
+            for (AdditionalPassiveVariantCatalog.Variant variant : species.variants()) {
+                addGrouped(Category.ENTITIES, species.key(), species.displayName(),
+                        "entity_" + species.key() + "_v" + variant.index(),
+                        "Variant " + variant.index() + " - " + variant.label(),
+                        ActionKind.SPAWN_PASSIVE_FORCED, species.key() + "|" + variant.index());
+            }
+        }
+
+        for (ApprovedVanillaVariantCatalog.Variant variant : ApprovedVanillaVariantCatalog.variants()) {
+            addGrouped(Category.ENTITIES, "vv_" + variant.typeKey(), variant.displayName(),
+                    "entity_vv_" + variant.id(), variant.behavior(),
+                    ActionKind.SPAWN_PASSIVE_FORCED, "approved|" + variant.id());
+        }
+
         addGrouped(Category.ENTITIES, "pig", "Pig?", "entity_pig_spawn", "Spawn (Random Variant)", ActionKind.SPAWN_PASSIVE_FORCED, "pig|0");
         addGrouped(Category.ENTITIES, "pig", "Pig?", "entity_pig_v1", "Variant 1 - Breath", ActionKind.SPAWN_PASSIVE_FORCED, "pig|1");
         addGrouped(Category.ENTITIES, "pig", "Pig?", "entity_pig_v2", "Variant 2 - Retrograde", ActionKind.SPAWN_PASSIVE_FORCED, "pig|2");
@@ -212,7 +246,6 @@ public final class UncannyDevCatalog {
         addGrouped(Category.EVENTS, "ghost_miner", "Ghost Miner", "event_ghost_miner", "Trigger", ActionKind.TRIGGER_EVENT, "ghost_miner");
         addGrouped(Category.EVENTS, "cave_collapse", "Cave Collapse", "event_cave_collapse", "Trigger", ActionKind.TRIGGER_EVENT, "cave_collapse");
         addGrouped(Category.EVENTS, "false_injury", "False Injury", "event_false_injury", "Trigger", ActionKind.TRIGGER_EVENT, "false_injury");
-        addGrouped(Category.EVENTS, "forced_drop", "Forced Drop", "event_forced_drop", "Trigger", ActionKind.TRIGGER_EVENT, "forced_drop");
         addGrouped(Category.EVENTS, "corrupt_message", "Corrupt Message", "event_corrupt_message", "Trigger", ActionKind.TRIGGER_EVENT, "corrupt_message");
         addGrouped(Category.EVENTS, "bed", "Bed Disturbance", "event_bed_disturbance", "Trigger", ActionKind.TRIGGER_EVENT, "bed");
         addGrouped(Category.EVENTS, "animal_stare_lock", "Animal Stare Lock", "event_animal_stare_lock", "Trigger", ActionKind.TRIGGER_EVENT, "animal_stare_lock");
@@ -236,11 +269,6 @@ public final class UncannyDevCatalog {
         addGrouped(Category.EVENTS, "asphyxia", "Asphyxia", "event_asphyxia_false_alert", "Variant - False Alert", ActionKind.TRIGGER_VARIANT, "asphyxia|false_alert");
         addGrouped(Category.EVENTS, "asphyxia", "Asphyxia", "event_asphyxia_terrain_drowning", "Variant - Terrain Drowning", ActionKind.TRIGGER_VARIANT, "asphyxia|terrain_drowning");
         addGrouped(Category.EVENTS, "asphyxia", "Asphyxia", "event_asphyxia_heavy_lungs", "Variant - Heavy Lungs", ActionKind.TRIGGER_VARIANT, "asphyxia|heavy_lungs");
-
-        addGrouped(Category.EVENTS, "armor_break", "Armor Break", "event_armor_break", "Trigger (Random)", ActionKind.TRIGGER_EVENT, "armor_break");
-        addGrouped(Category.EVENTS, "armor_break", "Armor Break", "event_armor_break_ghost_sound", "Variant - Ghost Sound", ActionKind.TRIGGER_VARIANT, "armor_break|ghost_sound");
-        addGrouped(Category.EVENTS, "armor_break", "Armor Break", "event_armor_break_drop_gear", "Variant - Drop Gear", ActionKind.TRIGGER_VARIANT, "armor_break|drop_gear");
-        addGrouped(Category.EVENTS, "armor_break", "Armor Break", "event_armor_break_cracked_defense", "Variant - Cracked Defense", ActionKind.TRIGGER_VARIANT, "armor_break|cracked_defense");
 
         addGrouped(Category.EVENTS, "aquatic_steps", "Aquatic Steps", "event_aquatic_steps", "Trigger (Random)", ActionKind.TRIGGER_EVENT, "aquatic_steps");
         addGrouped(Category.EVENTS, "aquatic_steps", "Aquatic Steps", "event_aquatic_steps_follower", "Variant - Follower", ActionKind.TRIGGER_VARIANT, "aquatic_steps|follower");
@@ -270,8 +298,35 @@ public final class UncannyDevCatalog {
         addGrouped(Category.EVENTS, "projected_shadow", "Projected Shadow", "event_projected_shadow_shadow_assault", "Variant - Shadow Assault", ActionKind.TRIGGER_VARIANT, "projected_shadow|shadow_assault");
         addGrouped(Category.EVENTS, "projected_shadow", "Projected Shadow", "event_projected_shadow_ghost_shot", "Variant - Ghost Shot", ActionKind.TRIGGER_VARIANT, "projected_shadow|ghost_shot");
 
-        addGrouped(Category.EVENTS, "giant_sun", "Giant Sun", "event_giant_sun", "Trigger", ActionKind.TRIGGER_EVENT, "giant_sun");
         addGrouped(Category.EVENTS, "hunter_fog", "Hunter Fog", "event_hunter_fog", "Trigger", ActionKind.TRIGGER_EVENT, "hunter_fog");
+        addGrouped(Category.EVENTS, "orphan_shadow", "Orphan Shadow", "event_orphan_shadow", "Trigger", ActionKind.TRIGGER_EVENT, "orphan_shadow");
+        addGrouped(Category.EVENTS, "ghost_breaking", "Ghost Breaking", "event_ghost_breaking", "Trigger", ActionKind.TRIGGER_EVENT, "ghost_breaking");
+        addGrouped(Category.EVENTS, "cold_furnace", "Cold Furnace", "event_cold_furnace", "Trigger", ActionKind.TRIGGER_EVENT, "cold_furnace");
+        addGrouped(Category.EVENTS, "empty_teleport", "Empty Teleport", "event_empty_teleport", "Trigger", ActionKind.TRIGGER_EVENT, "empty_teleport");
+        addGrouped(Category.EVENTS, "false_animal_hurt", "False Animal Hurt", "event_false_animal_hurt", "Trigger", ActionKind.TRIGGER_EVENT, "false_animal_hurt");
+        addGrouped(Category.EVENTS, "stolen_pose", "Stolen Pose", "event_stolen_pose", "Trigger", ActionKind.TRIGGER_EVENT, "stolen_pose");
+        addGrouped(Category.EVENTS, "fishing_tug", "Fishing Tug", "event_fishing_tug", "Trigger", ActionKind.TRIGGER_EVENT, "fishing_tug");
+        addGrouped(Category.EVENTS, "leaf_reply", "Leaf Reply", "event_leaf_reply", "Trigger", ActionKind.TRIGGER_EVENT, "leaf_reply");
+        addGrouped(Category.EVENTS, "silent_bell", "Silent Bell", "event_silent_bell", "Trigger", ActionKind.TRIGGER_EVENT, "silent_bell");
+        addGrouped(Category.EVENTS, "empty_congregation", "Empty Congregation", "event_empty_congregation", "Trigger", ActionKind.TRIGGER_EVENT, "empty_congregation");
+        addGrouped(Category.EVENTS, "empty_lead", "Empty Lead", "event_empty_lead", "Trigger", ActionKind.TRIGGER_EVENT, "empty_lead");
+        addGrouped(Category.EVENTS, "borrowed_painting", "Borrowed Painting", "event_borrowed_painting", "Trigger", ActionKind.TRIGGER_EVENT, "borrowed_painting");
+        addGrouped(Category.EVENTS, "returned_drop", "Returned Drop", "event_returned_drop", "Trigger", ActionKind.TRIGGER_EVENT, "returned_drop");
+        addGrouped(Category.EVENTS, "ghost_cart", "Ghost Cart", "event_ghost_cart", "Trigger", ActionKind.TRIGGER_EVENT, "ghost_cart");
+        addGrouped(Category.EVENTS, "misdirected_enchantment", "Misdirected Enchantment", "event_misdirected_enchantment", "Trigger", ActionKind.TRIGGER_EVENT, "misdirected_enchantment");
+        addGrouped(Category.EVENTS, "orphan_signal", "Orphan Signal", "event_orphan_signal", "Trigger", ActionKind.TRIGGER_EVENT, "orphan_signal");
+        addGrouped(Category.EVENTS, "cauldron_echo", "Cauldron Echo", "event_cauldron_echo", "Trigger", ActionKind.TRIGGER_EVENT, "cauldron_echo");
+        addGrouped(Category.EVENTS, "map_intruder", "Map Intruder", "event_map_intruder", "Trigger", ActionKind.TRIGGER_EVENT, "map_intruder");
+        addGrouped(Category.EVENTS, "empty_wake", "Empty Wake", "event_empty_wake", "Trigger", ActionKind.TRIGGER_EVENT, "empty_wake");
+        addGrouped(Category.EVENTS, "countercurrent_column", "Countercurrent Column", "event_countercurrent_column", "Trigger", ActionKind.TRIGGER_EVENT, "countercurrent_column");
+        addGrouped(Category.EVENTS, "false_sculk_vibration", "False Sculk Vibration", "event_false_sculk_vibration", "Trigger", ActionKind.TRIGGER_EVENT, "false_sculk_vibration");
+        addGrouped(Category.EVENTS, "watching_arrow", "Watching Arrow", "event_watching_arrow", "Trigger", ActionKind.TRIGGER_EVENT, "watching_arrow");
+        addGrouped(Category.EVENTS, "suspended_fall", "Suspended Fall", "event_suspended_fall", "Trigger", ActionKind.TRIGGER_EVENT, "suspended_fall");
+        addGrouped(Category.EVENTS, "beacon_fragment", "Beacon Fragment", "event_beacon_fragment", "Trigger", ActionKind.TRIGGER_EVENT, "beacon_fragment");
+        addGrouped(Category.EVENTS, "stray_experience", "Stray Experience", "event_stray_experience", "Trigger", ActionKind.TRIGGER_EVENT, "stray_experience");
+        addGrouped(Category.EVENTS, "extra_in_the_herd", "Extra in the Herd", "event_extra_in_the_herd", "Trigger", ActionKind.TRIGGER_EVENT, "extra_in_the_herd");
+        addGrouped(Category.EVENTS, "lava_wake", "Lava Wake", "event_lava_wake", "Trigger", ActionKind.TRIGGER_EVENT, "lava_wake");
+        addGrouped(Category.EVENTS, "false_lid", "False Lid", "event_false_lid", "Trigger", ActionKind.TRIGGER_EVENT, "false_lid");
         addGrouped(Category.EVENTS, "grand_event", "Grand Event", "event_grand_event_warden", "Trigger - Warden", ActionKind.TRIGGER_EVENT, "grand_event_warden");
         addGrouped(Category.EVENTS, "grand_event", "Grand Event", "event_grand_event_stop", "Force Stop", ActionKind.TRIGGER_EVENT, "grand_event_stop");
         addGrouped(Category.EVENTS, "tension_builder", "Tension Builder", "event_tension_builder_start", "Start Cycle Window", ActionKind.TRIGGER_EVENT, "tension_builder_start");
@@ -282,6 +337,15 @@ public final class UncannyDevCatalog {
         addGrouped(Category.WEATHER, "rain", "Rain", "weather_rain_dry_storm", "Dry Storm", ActionKind.TRIGGER_WEATHER, "rain_dry_storm");
         addGrouped(Category.WEATHER, "rain", "Rain", "weather_rain_ash", "Ash Rain", ActionKind.TRIGGER_WEATHER, "rain_ash");
         addGrouped(Category.WEATHER, "rain", "Rain", "weather_rain_sobbing", "Sobbing Sky", ActionKind.TRIGGER_WEATHER, "rain_sobbing");
+
+        addGrouped(Category.WEATHER, "localized_rain", "Localized Rain", "weather_rain_front", "Rain Front", ActionKind.TRIGGER_WEATHER, "rain_front");
+        addGrouped(Category.WEATHER, "localized_rain", "Localized Rain", "weather_suspended_rain", "Suspended Rain", ActionKind.TRIGGER_WEATHER, "suspended_rain");
+        addGrouped(Category.WEATHER, "localized_rain", "Localized Rain", "weather_dry_eye", "Dry Eye", ActionKind.TRIGGER_WEATHER, "dry_eye");
+        addGrouped(Category.WEATHER, "localized_rain", "Localized Rain", "weather_clear_downpour", "Clear Downpour", ActionKind.TRIGGER_WEATHER, "clear_downpour");
+        addGrouped(Category.WEATHER, "localized_rain", "Localized Rain", "weather_wrong_snowline", "Wrong Snowline", ActionKind.TRIGGER_WEATHER, "wrong_snowline");
+        addGrouped(Category.WEATHER, "localized_rain", "Localized Rain", "weather_light_avoiding_rain", "Light-Avoiding Rain", ActionKind.TRIGGER_WEATHER, "light_avoiding_rain");
+        addGrouped(Category.WEATHER, "localized_rain", "Localized Rain", "weather_converging_rain", "Converging Rain", ActionKind.TRIGGER_WEATHER, "converging_rain");
+        addGrouped(Category.WEATHER, "localized_rain", "Localized Rain", "weather_leaking_sky", "Leaking Sky", ActionKind.TRIGGER_WEATHER, "leaking_sky");
 
         addGrouped(Category.WEATHER, "thunder", "Thunder", "weather_thunder_silent", "Silent Thunder", ActionKind.TRIGGER_WEATHER, "thunder_silent");
         addGrouped(Category.WEATHER, "thunder", "Thunder", "weather_thunder_artificial", "Artificial Thunder", ActionKind.TRIGGER_WEATHER, "thunder_artificial");
@@ -404,6 +468,67 @@ public final class UncannyDevCatalog {
 
         addGrouped(Category.STRUCTURES, "secret_house", "Secret House", "structure_secret_house", "Generate - Secret House (Black Door)", ActionKind.TRIGGER_SECRET_HOUSE, "secret_house");
 
+        // Audio diagnostics. These entries never alter scheduler state; they expose the raw
+        // registered sounds through the delivery mode stated in their group.
+        addAudio("physical", "Physical / spatial", "uncanny_hurler_scream", "Hurler scream", false);
+        addAudio("physical", "Physical / spatial", "uncanny_knocker_knock", "Knocker knock", false);
+        addAudio("physical", "Physical / spatial", "uncanny_mourner_sob", "Mourner sob", false);
+        addAudio("physical", "Physical / spatial", "uncanny_ferryman_wake", "Ferryman wake", false);
+        addAudio("physical", "Physical / spatial", "uncanny_attacker_rush", "Attacker rush", false);
+        addAudio("physical", "Physical / spatial", "uncanny_attacker_scream", "Attacker aggressive scream", false);
+        addAudio("physical", "Physical / spatial", "uncanny_attacker_hurt", "Attacker hurt", false);
+        addAudio("physical", "Physical / spatial", "uncanny_attacker_death", "Attacker death", false);
+        addAudio("physical", "Physical / spatial", "uncanny_fox_scream", "Fox scream", false);
+        addAudio("physical", "Physical / spatial", "uncanny_heartbeat", "Heartbeat", false);
+        addAudio("physical", "Physical / spatial", "uncanny_monster_breath", "Monster breath", false);
+        addAudio("physical", "Physical / spatial", "uncanny_scary_laugh", "Scary laugh", false);
+        addAudio("physical", "Physical / spatial", "uncanny_whisper", "Whisper", false);
+        addAudio("physical", "Physical / spatial", "uncanny_psss", "Furnace breath", false);
+        addAudio("physical", "Physical / spatial", "uncanny_follow_me_creature_glitch", "Follow-me glitch", false);
+        addAudio("physical", "Physical / spatial", "ore_inside_knock", "Ore inside knock", false);
+        addAudio("physical", "Physical / spatial", "campfire_cough_creepy", "Campfire cough", false);
+        addAudio("physical", "Physical / spatial", "uncanny_zombie_tall_ambient", "Tall zombie ambient", false);
+        addAudio("physical", "Physical / spatial", "uncanny_zombie_tall_hurt", "Tall zombie hurt", false);
+        addAudio("physical", "Physical / spatial", "uncanny_zombie_tall_death", "Tall zombie death", false);
+        addAudio("physical", "Physical / spatial", "uncanny_zombie_tall_step", "Tall zombie step", false);
+        addAudio("warning", "Grand Warden warnings", "uncanny_grandevent_dont_move", "Don't move", true);
+        addAudio("warning", "Grand Warden warnings", "uncanny_grandevent_dont_make_a_sound", "Don't make a sound", true);
+        addAudio("warning", "Grand Warden warnings", "uncanny_grandevent_it_is_here", "It is here", true);
+        addAudio("mental", "Mental / private", "uncanny_tinnitus", "Tinnitus", true);
+        addAudio("mental", "Mental / private", "uncanny_terror_lock", "Terror camera lock", true);
+        addAudio("mental", "Mental / private", "uncanny_heartbeat", "Heartbeat (mental route)", true);
+        addAudio("mental", "Mental / private", "uncanny_monster_breath", "Breath (mental route)", true);
+        addAudio("mental", "Mental / private", "uncanny_whisper", "Whisper (mental route)", true);
+
+        addAudio("villager_flat", "Structure villager — Flat", "uncanny_villager_flat_ambient", "Ambient", false);
+        addAudio("villager_flat", "Structure villager — Flat", "uncanny_villager_flat_hurt", "Hurt", false);
+        addAudio("villager_flat", "Structure villager — Flat", "uncanny_villager_flat_death", "Death", false);
+        addAudio("villager_flat", "Structure villager — Flat", "uncanny_villager_flat_trade", "Trade", false);
+        addAudio("villager_gigantic", "Structure villager — Gigantic", "uncanny_villager_huge_long_wide_ambient", "Ambient", false);
+        addAudio("villager_gigantic", "Structure villager — Gigantic", "uncanny_villager_huge_long_wide_hurt", "Hurt", false);
+        addAudio("villager_gigantic", "Structure villager — Gigantic", "uncanny_villager_huge_long_wide_death", "Death", false);
+        addAudio("villager_gigantic", "Structure villager — Gigantic", "uncanny_villager_huge_long_wide_trade", "Trade", false);
+        addAudio("villager_tall_thin", "Structure villager — Tall Thin", "uncanny_villager_huge_thin_ambient", "Ambient", false);
+        addAudio("villager_tall_thin", "Structure villager — Tall Thin", "uncanny_villager_huge_thin_hurt", "Hurt", false);
+        addAudio("villager_tall_thin", "Structure villager — Tall Thin", "uncanny_villager_huge_thin_death", "Death", false);
+        addAudio("villager_tall_thin", "Structure villager — Tall Thin", "uncanny_villager_huge_thin_trade", "Trade", false);
+        addAudio("villager_wide", "Structure villager — Very Wide", "uncanny_villager_very_wide_ambient", "Ambient", false);
+        addAudio("villager_wide", "Structure villager — Very Wide", "uncanny_villager_very_wide_hurt", "Hurt", false);
+        addAudio("villager_wide", "Structure villager — Very Wide", "uncanny_villager_very_wide_death", "Death", false);
+        addAudio("villager_wide", "Structure villager — Very Wide", "uncanny_villager_very_wide_trade", "Trade", false);
+        addAudio("villager_long", "Structure villager — Very Long", "uncanny_villager_very_long_ambient", "Ambient", false);
+        addAudio("villager_long", "Structure villager — Very Long", "uncanny_villager_very_long_hurt", "Hurt", false);
+        addAudio("villager_long", "Structure villager — Very Long", "uncanny_villager_very_long_death", "Death", false);
+        addAudio("villager_long", "Structure villager — Very Long", "uncanny_villager_very_long_trade", "Trade", false);
+
+        // Session-safe QA controls. They are deliberately explicit rather than hidden action IDs.
+        addGrouped(Category.TOOLS, "cleanup", "Cleanup", "tool_cleanup_entities", "Remove dev-spawned entities", ActionKind.CLEAN_TEST_ENTITIES, "");
+        addGrouped(Category.TOOLS, "cleanup", "Cleanup", "tool_reset_transient", "Reset transient test state", ActionKind.RESET_TEST_ENVIRONMENT, "");
+        addGrouped(Category.TOOLS, "phase", "World phase", "tool_phase_1", "Set Phase 1", ActionKind.SET_PHASE, "1");
+        addGrouped(Category.TOOLS, "phase", "World phase", "tool_phase_2", "Set Phase 2", ActionKind.SET_PHASE, "2");
+        addGrouped(Category.TOOLS, "phase", "World phase", "tool_phase_3", "Set Phase 3", ActionKind.SET_PHASE, "3");
+        addGrouped(Category.TOOLS, "phase", "World phase", "tool_phase_4", "Set Phase 4", ActionKind.SET_PHASE, "4");
+
         ENTRIES.sort(Comparator.comparing(Entry::category).thenComparing(Entry::id));
     }
 
@@ -415,7 +540,7 @@ public final class UncannyDevCatalog {
     }
 
     public static List<Category> primaryCategories() {
-        return List.of(Category.ENTITIES, Category.EVENTS, Category.WEATHER, Category.STRUCTURES);
+        return List.of(Category.ENTITIES, Category.EVENTS, Category.WEATHER, Category.STRUCTURES, Category.AUDIO, Category.TOOLS);
     }
 
     public static List<Group> groups(Category category) {
@@ -473,6 +598,18 @@ public final class UncannyDevCatalog {
         ENTRIES.add(entry);
     }
 
+    private static void addAudio(String groupKey, String groupLabel, String soundId, String label, boolean mental) {
+        String route = mental ? "mental" : "physical";
+        addGrouped(
+                Category.AUDIO,
+                groupKey,
+                groupLabel,
+                "audio_" + route + "_" + soundId,
+                label,
+                mental ? ActionKind.PLAY_SOUND_MENTAL : ActionKind.PLAY_SOUND_PHYSICAL,
+                soundId);
+    }
+
     private static String normalize(String value) {
         if (value == null) {
             return null;
@@ -486,7 +623,9 @@ public final class UncannyDevCatalog {
         ENTITIES("Entities"),
         EVENTS("Events"),
         WEATHER("Weather"),
-        STRUCTURES("Structures");
+        STRUCTURES("Structures"),
+        AUDIO("Audio"),
+        TOOLS("Tools");
 
         private final String label;
 
@@ -511,7 +650,12 @@ public final class UncannyDevCatalog {
         TRIGGER_WEATHER,
         STOP_WEATHER,
         TRIGGER_STRUCTURE,
-        TRIGGER_SECRET_HOUSE
+        TRIGGER_SECRET_HOUSE,
+        PLAY_SOUND_PHYSICAL,
+        PLAY_SOUND_MENTAL,
+        CLEAN_TEST_ENTITIES,
+        RESET_TEST_ENVIRONMENT,
+        SET_PHASE
     }
 
     public enum QaStatus {

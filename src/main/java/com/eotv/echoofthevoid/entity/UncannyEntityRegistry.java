@@ -38,6 +38,7 @@ import com.eotv.echoofthevoid.entity.custom.UncannyWitherSkeletonEntity;
 import com.eotv.echoofthevoid.entity.custom.UncannyZombieEntity;
 import com.eotv.echoofthevoid.entity.custom.UncannyZombieVillagerEntity;
 import com.eotv.echoofthevoid.entity.custom.UncannyBlazeEntity;
+import com.eotv.echoofthevoid.entity.custom.UncannyApprovedSpecialEntity;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
@@ -188,6 +189,19 @@ public final class UncannyEntityRegistry {
     public static final DeferredHolder<EntityType<?>, EntityType<UncannyFollowerEntity>> UNCANNY_FOLLOWER = registerMonster(
             "uncanny_follower", () -> EntityType.Builder.of(UncannyFollowerEntity::new, MobCategory.MONSTER).sized(0.6F, 1.95F).build(id("uncanny_follower")));
 
+    public static final DeferredHolder<EntityType<?>, EntityType<UncannyApprovedSpecialEntity>> UNCANNY_SURVEYOR = registerMonster(
+            "uncanny_surveyor", () -> EntityType.Builder.of(UncannyApprovedSpecialEntity::new, MobCategory.MONSTER).sized(0.6F, 1.95F).build(id("uncanny_surveyor")));
+    public static final DeferredHolder<EntityType<?>, EntityType<UncannyApprovedSpecialEntity>> UNCANNY_MOURNER = registerMonster(
+            "uncanny_mourner", () -> EntityType.Builder.of(UncannyApprovedSpecialEntity::new, MobCategory.MONSTER).sized(0.6F, 1.95F).build(id("uncanny_mourner")));
+    public static final DeferredHolder<EntityType<?>, EntityType<UncannyApprovedSpecialEntity>> UNCANNY_DOUBLER = registerMonster(
+            "uncanny_doubler", () -> EntityType.Builder.of(UncannyApprovedSpecialEntity::new, MobCategory.MONSTER).sized(0.6F, 1.95F).build(id("uncanny_doubler")));
+    public static final DeferredHolder<EntityType<?>, EntityType<UncannyApprovedSpecialEntity>> UNCANNY_FERRYMAN = registerMonster(
+            "uncanny_ferryman", () -> EntityType.Builder.of(UncannyApprovedSpecialEntity::new, MobCategory.MONSTER).sized(0.6F, 1.95F).build(id("uncanny_ferryman")));
+    public static final DeferredHolder<EntityType<?>, EntityType<UncannyApprovedSpecialEntity>> UNCANNY_LISTENER = registerMonster(
+            "uncanny_listener", () -> EntityType.Builder.of(UncannyApprovedSpecialEntity::new, MobCategory.MONSTER).sized(0.6F, 1.95F).build(id("uncanny_listener")));
+    public static final DeferredHolder<EntityType<?>, EntityType<UncannyApprovedSpecialEntity>> UNCANNY_BYSTANDER = registerMonster(
+            "uncanny_bystander", () -> EntityType.Builder.of(UncannyApprovedSpecialEntity::new, MobCategory.MONSTER).sized(0.6F, 1.95F).build(id("uncanny_bystander")));
+
     public static final DeferredHolder<EntityType<?>, EntityType<UncannyStructureVillagerEntity>> UNCANNY_STRUCTURE_VILLAGER = registerMonster(
             "uncanny_structure_villager", () -> EntityType.Builder.of(UncannyStructureVillagerEntity::new, MobCategory.MONSTER).sized(0.6F, 1.95F).build(id("uncanny_structure_villager")));
 
@@ -247,6 +261,18 @@ public final class UncannyEntityRegistry {
         COMMAND_TO_UNCANNY.put("tenant", UNCANNY_TENANT);
         COMMAND_TO_UNCANNY.put("uncanny_follower", UNCANNY_FOLLOWER);
         COMMAND_TO_UNCANNY.put("follower", UNCANNY_FOLLOWER);
+        COMMAND_TO_UNCANNY.put("uncanny_surveyor", UNCANNY_SURVEYOR);
+        COMMAND_TO_UNCANNY.put("surveyor", UNCANNY_SURVEYOR);
+        COMMAND_TO_UNCANNY.put("uncanny_mourner", UNCANNY_MOURNER);
+        COMMAND_TO_UNCANNY.put("mourner", UNCANNY_MOURNER);
+        COMMAND_TO_UNCANNY.put("uncanny_doubler", UNCANNY_DOUBLER);
+        COMMAND_TO_UNCANNY.put("doubler", UNCANNY_DOUBLER);
+        COMMAND_TO_UNCANNY.put("uncanny_ferryman", UNCANNY_FERRYMAN);
+        COMMAND_TO_UNCANNY.put("ferryman", UNCANNY_FERRYMAN);
+        COMMAND_TO_UNCANNY.put("uncanny_listener", UNCANNY_LISTENER);
+        COMMAND_TO_UNCANNY.put("listener", UNCANNY_LISTENER);
+        COMMAND_TO_UNCANNY.put("uncanny_bystander", UNCANNY_BYSTANDER);
+        COMMAND_TO_UNCANNY.put("bystander", UNCANNY_BYSTANDER);
         COMMAND_TO_UNCANNY.put("uncanny_structure_villager", UNCANNY_STRUCTURE_VILLAGER);
         COMMAND_TO_UNCANNY.put("structure_villager", UNCANNY_STRUCTURE_VILLAGER);
     }
@@ -269,6 +295,18 @@ public final class UncannyEntityRegistry {
         return supplier == null ? null : supplier.get();
     }
 
+    public static EntityType<UncannyApprovedSpecialEntity> approvedSpecialById(String id) {
+        return switch (id == null ? "" : id.toLowerCase(Locale.ROOT)) {
+            case "surveyor" -> UNCANNY_SURVEYOR.get();
+            case "mourner" -> UNCANNY_MOURNER.get();
+            case "doubler" -> UNCANNY_DOUBLER.get();
+            case "ferryman" -> UNCANNY_FERRYMAN.get();
+            case "listener" -> UNCANNY_LISTENER.get();
+            case "bystander" -> UNCANNY_BYSTANDER.get();
+            default -> null;
+        };
+    }
+
     public static boolean isSpecialEntity(EntityType<?> type) {
         return type == UNCANNY_DOUBLE_DORMANT.get()
                 || type == UNCANNY_WATCHER.get()
@@ -281,7 +319,13 @@ public final class UncannyEntityRegistry {
                 || type == UNCANNY_USHER.get()
                 || type == UNCANNY_KEEPER.get()
                 || type == UNCANNY_TENANT.get()
-                || type == UNCANNY_FOLLOWER.get();
+                || type == UNCANNY_FOLLOWER.get()
+                || type == UNCANNY_SURVEYOR.get()
+                || type == UNCANNY_MOURNER.get()
+                || type == UNCANNY_DOUBLER.get()
+                || type == UNCANNY_FERRYMAN.get()
+                || type == UNCANNY_LISTENER.get()
+                || type == UNCANNY_BYSTANDER.get();
     }
 
     public static void onEntityAttributeCreation(EntityAttributeCreationEvent event) {
@@ -425,6 +469,20 @@ public final class UncannyEntityRegistry {
                 .add(Attributes.FOLLOW_RANGE, 56.0D)
                 .add(Attributes.KNOCKBACK_RESISTANCE, 0.6D);
         event.put(UNCANNY_FOLLOWER.get(), followerAttributes.build());
+
+        AttributeSupplier approvedSpecialAttributes = Mob.createMobAttributes()
+                .add(Attributes.MAX_HEALTH, 20.0D)
+                .add(Attributes.MOVEMENT_SPEED, 0.31D)
+                .add(Attributes.ATTACK_DAMAGE, 3.0D)
+                .add(Attributes.FOLLOW_RANGE, 64.0D)
+                .add(Attributes.KNOCKBACK_RESISTANCE, 0.35D)
+                .build();
+        event.put(UNCANNY_SURVEYOR.get(), approvedSpecialAttributes);
+        event.put(UNCANNY_MOURNER.get(), approvedSpecialAttributes);
+        event.put(UNCANNY_DOUBLER.get(), approvedSpecialAttributes);
+        event.put(UNCANNY_FERRYMAN.get(), approvedSpecialAttributes);
+        event.put(UNCANNY_LISTENER.get(), approvedSpecialAttributes);
+        event.put(UNCANNY_BYSTANDER.get(), approvedSpecialAttributes);
 
         AttributeSupplier.Builder structureVillagerAttributes = Villager.createAttributes()
                 .add(Attributes.MAX_HEALTH, 20.0D)

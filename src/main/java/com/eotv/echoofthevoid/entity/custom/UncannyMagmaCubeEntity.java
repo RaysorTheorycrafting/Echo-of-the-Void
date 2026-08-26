@@ -19,7 +19,6 @@ public class UncannyMagmaCubeEntity extends MagmaCube implements UncannyEntityMa
     public UncannyMagmaCubeEntity(EntityType<? extends MagmaCube> entityType, Level level) {
         super(entityType, level);
         UncannyEntityUtil.applyDisplayName(this, "Magma Cube?");
-        this.setSilent(true);
     }
 
     @Override
@@ -36,7 +35,7 @@ public class UncannyMagmaCubeEntity extends MagmaCube implements UncannyEntityMa
     @Override
     public void aiStep() {
         super.aiStep();
-        UncannyEntityUtil.forceSilent(this);
+        this.setSilent(false);
 
         if (this.level().isClientSide()) {
             return;

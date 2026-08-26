@@ -1,5 +1,7 @@
 package com.eotv.echoofthevoid.state;
 
+import com.eotv.echoofthevoid.campaign.CampaignCulminationState;
+import com.eotv.echoofthevoid.lore.UncannyJournalCatalog;
 import com.eotv.echoofthevoid.phase.UncannyPhase;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -31,9 +33,19 @@ public class UncannyWorldState extends SavedData {
     private long weatherEventEndTick = Long.MIN_VALUE;
     private long weatherAuxTick = Long.MIN_VALUE;
     private int weatherAuxValue;
+    private String weatherTargetPlayerUuid = "";
     private long weatherSavedDayTime = Long.MIN_VALUE;
     private String lastWeatherEventId = "";
     private int lastHeavyVisualWeatherDurationTicks;
+    private int localizedWeatherX;
+    private int localizedWeatherY;
+    private int localizedWeatherZ;
+    private double localizedWeatherDirectionX;
+    private double localizedWeatherDirectionZ;
+    private int localizedWeatherRadius;
+    private long localizedWeatherSeed;
+    private long localizedWeatherStartTick = Long.MIN_VALUE;
+    private String localizedWeatherData = "";
     private boolean debugLogsEnabled;
     private long structureCooldownUntilTick = Long.MIN_VALUE;
     private long structureNextCheckTick = Long.MIN_VALUE;
@@ -49,6 +61,19 @@ public class UncannyWorldState extends SavedData {
     private boolean tensionBuilderPendingGrandEventWarningSent;
     private long tensionBuilderPendingGrandEventWarningTick = Long.MIN_VALUE;
     private long tensionBuilderPendingGrandEventDelayTicks = Long.MIN_VALUE;
+    private boolean beaconFragmentOccurred;
+    private boolean mournerOccurred;
+    private boolean campaignDirectorInitialized;
+    private long campaignElapsedTicks;
+    private long campaignLastObservedDayTime = Long.MIN_VALUE;
+    private long campaignDirectorSeed;
+    private String campaignBeat = "UNEASE";
+    private long campaignBeatRemainingTicks;
+    private int campaignBeatSequence;
+    private long campaignLastStrongEventTick = Long.MIN_VALUE;
+    private String campaignCulminationState = CampaignCulminationState.UNINITIALIZED.name();
+    private long campaignCulminationScheduledTick = Long.MIN_VALUE;
+    private long campaignCulminationRetryTick = Long.MIN_VALUE;
 
     private final Map<UUID, Long> lastDeathBoostTick = new HashMap<>();
     private final Map<UUID, Long> lastDeathTick = new HashMap<>();
@@ -59,7 +84,10 @@ public class UncannyWorldState extends SavedData {
     private final Map<UUID, Integer> firstNightWatcherTriggered = new HashMap<>();
     private final Map<UUID, Long> restartConfirmUntilTick = new HashMap<>();
     private final Map<UUID, Integer> historyTomeMask = new HashMap<>();
+    private final Map<UUID, DeathSite> deathSites = new HashMap<>();
     private final List<StructureMarker> structureMarkers = new ArrayList<>();
+    private final List<Long> playerPlacedLights = new ArrayList<>();
+    private final List<String> campaignRecentFamilies = new ArrayList<>();
 
     public static UncannyWorldState create() {
         return new UncannyWorldState();
@@ -79,9 +107,20 @@ public class UncannyWorldState extends SavedData {
         data.weatherEventEndTick = tag.getLong("weatherEventEndTick");
         data.weatherAuxTick = tag.getLong("weatherAuxTick");
         data.weatherAuxValue = tag.getInt("weatherAuxValue");
+        data.weatherTargetPlayerUuid = tag.getString("weatherTargetPlayerUuid");
         data.weatherSavedDayTime = tag.getLong("weatherSavedDayTime");
         data.lastWeatherEventId = tag.getString("lastWeatherEventId");
         data.lastHeavyVisualWeatherDurationTicks = tag.getInt("lastHeavyVisualWeatherDurationTicks");
+        data.localizedWeatherX = tag.getInt("localizedWeatherX");
+        data.localizedWeatherY = tag.getInt("localizedWeatherY");
+        data.localizedWeatherZ = tag.getInt("localizedWeatherZ");
+        data.localizedWeatherDirectionX = tag.getDouble("localizedWeatherDirectionX");
+        data.localizedWeatherDirectionZ = tag.getDouble("localizedWeatherDirectionZ");
+        data.localizedWeatherRadius = tag.getInt("localizedWeatherRadius");
+        data.localizedWeatherSeed = tag.getLong("localizedWeatherSeed");
+        data.localizedWeatherStartTick = tag.contains("localizedWeatherStartTick")
+                ? tag.getLong("localizedWeatherStartTick") : Long.MIN_VALUE;
+        data.localizedWeatherData = tag.getString("localizedWeatherData");
         data.debugLogsEnabled = tag.getBoolean("debugLogsEnabled");
         data.structureCooldownUntilTick = tag.getLong("structureCooldownUntilTick");
         data.structureNextCheckTick = tag.getLong("structureNextCheckTick");
@@ -103,6 +142,24 @@ public class UncannyWorldState extends SavedData {
         data.tensionBuilderPendingGrandEventDelayTicks = tag.contains("tensionBuilderPendingGrandEventDelayTicks")
                 ? tag.getLong("tensionBuilderPendingGrandEventDelayTicks")
                 : Long.MIN_VALUE;
+        data.beaconFragmentOccurred = tag.getBoolean("beaconFragmentOccurred");
+        data.mournerOccurred = tag.getBoolean("mournerOccurred");
+        data.campaignDirectorInitialized = tag.getBoolean("campaignDirectorInitialized");
+        data.campaignElapsedTicks = Math.max(0L, tag.getLong("campaignElapsedTicks"));
+        data.campaignLastObservedDayTime = tag.contains("campaignLastObservedDayTime")
+                ? tag.getLong("campaignLastObservedDayTime") : Long.MIN_VALUE;
+        data.campaignDirectorSeed = tag.getLong("campaignDirectorSeed");
+        data.campaignBeat = tag.getString("campaignBeat");
+        data.campaignBeatRemainingTicks = tag.getLong("campaignBeatRemainingTicks");
+        data.campaignBeatSequence = Math.max(0, tag.getInt("campaignBeatSequence"));
+        data.campaignLastStrongEventTick = tag.contains("campaignLastStrongEventTick")
+                ? tag.getLong("campaignLastStrongEventTick") : Long.MIN_VALUE;
+        data.campaignCulminationState = CampaignCulminationState.fromSavedName(
+                tag.getString("campaignCulminationState")).name();
+        data.campaignCulminationScheduledTick = tag.contains("campaignCulminationScheduledTick")
+                ? tag.getLong("campaignCulminationScheduledTick") : Long.MIN_VALUE;
+        data.campaignCulminationRetryTick = tag.contains("campaignCulminationRetryTick")
+                ? tag.getLong("campaignCulminationRetryTick") : Long.MIN_VALUE;
 
         readLongMap(tag, "lastDeathBoostTick", data.lastDeathBoostTick);
         readLongMap(tag, "lastDeathTick", data.lastDeathTick);
@@ -113,7 +170,14 @@ public class UncannyWorldState extends SavedData {
         readIntMap(tag, "firstNightWatcherTriggered", data.firstNightWatcherTriggered);
         readLongMap(tag, "restartConfirmUntilTick", data.restartConfirmUntilTick);
         readIntMap(tag, "historyTomeMask", data.historyTomeMask);
+        readDeathSites(tag, data.deathSites);
         readStructureMarkers(tag, data.structureMarkers);
+        readStringList(tag, "campaignRecentFamilies", data.campaignRecentFamilies, 6);
+        for (long packedPos : tag.getLongArray("playerPlacedLights")) {
+            if (!data.playerPlacedLights.contains(packedPos) && data.playerPlacedLights.size() < 256) {
+                data.playerPlacedLights.add(packedPos);
+            }
+        }
 
         return data;
     }
@@ -138,9 +202,19 @@ public class UncannyWorldState extends SavedData {
         tag.putLong("weatherEventEndTick", weatherEventEndTick);
         tag.putLong("weatherAuxTick", weatherAuxTick);
         tag.putInt("weatherAuxValue", weatherAuxValue);
+        tag.putString("weatherTargetPlayerUuid", weatherTargetPlayerUuid == null ? "" : weatherTargetPlayerUuid);
         tag.putLong("weatherSavedDayTime", weatherSavedDayTime);
         tag.putString("lastWeatherEventId", lastWeatherEventId == null ? "" : lastWeatherEventId);
         tag.putInt("lastHeavyVisualWeatherDurationTicks", lastHeavyVisualWeatherDurationTicks);
+        tag.putInt("localizedWeatherX", localizedWeatherX);
+        tag.putInt("localizedWeatherY", localizedWeatherY);
+        tag.putInt("localizedWeatherZ", localizedWeatherZ);
+        tag.putDouble("localizedWeatherDirectionX", localizedWeatherDirectionX);
+        tag.putDouble("localizedWeatherDirectionZ", localizedWeatherDirectionZ);
+        tag.putInt("localizedWeatherRadius", localizedWeatherRadius);
+        tag.putLong("localizedWeatherSeed", localizedWeatherSeed);
+        tag.putLong("localizedWeatherStartTick", localizedWeatherStartTick);
+        tag.putString("localizedWeatherData", localizedWeatherData == null ? "" : localizedWeatherData);
         tag.putBoolean("debugLogsEnabled", debugLogsEnabled);
         tag.putLong("structureCooldownUntilTick", structureCooldownUntilTick);
         tag.putLong("structureNextCheckTick", structureNextCheckTick);
@@ -156,6 +230,20 @@ public class UncannyWorldState extends SavedData {
         tag.putBoolean("tensionBuilderPendingGrandEventWarningSent", tensionBuilderPendingGrandEventWarningSent);
         tag.putLong("tensionBuilderPendingGrandEventWarningTick", tensionBuilderPendingGrandEventWarningTick);
         tag.putLong("tensionBuilderPendingGrandEventDelayTicks", tensionBuilderPendingGrandEventDelayTicks);
+        tag.putBoolean("beaconFragmentOccurred", beaconFragmentOccurred);
+        tag.putBoolean("mournerOccurred", mournerOccurred);
+        tag.putBoolean("campaignDirectorInitialized", campaignDirectorInitialized);
+        tag.putLong("campaignElapsedTicks", campaignElapsedTicks);
+        tag.putLong("campaignLastObservedDayTime", campaignLastObservedDayTime);
+        tag.putLong("campaignDirectorSeed", campaignDirectorSeed);
+        tag.putString("campaignBeat", campaignBeat == null ? "UNEASE" : campaignBeat);
+        tag.putLong("campaignBeatRemainingTicks", campaignBeatRemainingTicks);
+        tag.putInt("campaignBeatSequence", campaignBeatSequence);
+        tag.putLong("campaignLastStrongEventTick", campaignLastStrongEventTick);
+        tag.putString("campaignCulminationState", CampaignCulminationState.fromSavedName(
+                campaignCulminationState).name());
+        tag.putLong("campaignCulminationScheduledTick", campaignCulminationScheduledTick);
+        tag.putLong("campaignCulminationRetryTick", campaignCulminationRetryTick);
 
         writeLongMap(tag, "lastDeathBoostTick", lastDeathBoostTick);
         writeLongMap(tag, "lastDeathTick", lastDeathTick);
@@ -166,7 +254,10 @@ public class UncannyWorldState extends SavedData {
         writeIntMap(tag, "firstNightWatcherTriggered", firstNightWatcherTriggered);
         writeLongMap(tag, "restartConfirmUntilTick", restartConfirmUntilTick);
         writeIntMap(tag, "historyTomeMask", historyTomeMask);
+        writeDeathSites(tag, deathSites);
         writeStructureMarkers(tag, structureMarkers);
+        writeStringList(tag, "campaignRecentFamilies", campaignRecentFamilies);
+        tag.putLongArray("playerPlacedLights", playerPlacedLights);
         return tag;
     }
 
@@ -228,6 +319,172 @@ public class UncannyWorldState extends SavedData {
         return !purgeActive;
     }
 
+    public boolean hasBeaconFragmentOccurred() {
+        return beaconFragmentOccurred;
+    }
+
+    public void markBeaconFragmentOccurred() {
+        if (!beaconFragmentOccurred) {
+            beaconFragmentOccurred = true;
+            this.setDirty();
+        }
+    }
+
+    public boolean hasMournerOccurred() {
+        return mournerOccurred;
+    }
+
+    public boolean isCampaignDirectorInitialized() {
+        return campaignDirectorInitialized;
+    }
+
+    public void initializeCampaignDirector(
+            long elapsedTicks,
+            long observedDayTime,
+            long seed,
+            String beat,
+            long beatRemainingTicks) {
+        campaignDirectorInitialized = true;
+        campaignElapsedTicks = Math.max(0L, elapsedTicks);
+        campaignLastObservedDayTime = observedDayTime;
+        campaignDirectorSeed = seed;
+        campaignBeat = beat == null || beat.isBlank() ? "UNEASE" : beat;
+        campaignBeatRemainingTicks = Math.max(1L, beatRemainingTicks);
+        campaignBeatSequence = 0;
+        campaignLastStrongEventTick = Long.MIN_VALUE;
+        campaignCulminationState = CampaignCulminationState.UNINITIALIZED.name();
+        campaignCulminationScheduledTick = Long.MIN_VALUE;
+        campaignCulminationRetryTick = Long.MIN_VALUE;
+        campaignRecentFamilies.clear();
+        this.setDirty();
+    }
+
+    public void resetCampaignDirector() {
+        campaignDirectorInitialized = false;
+        campaignElapsedTicks = 0L;
+        campaignLastObservedDayTime = Long.MIN_VALUE;
+        campaignDirectorSeed = 0L;
+        campaignBeat = "UNEASE";
+        campaignBeatRemainingTicks = 0L;
+        campaignBeatSequence = 0;
+        campaignLastStrongEventTick = Long.MIN_VALUE;
+        campaignCulminationState = CampaignCulminationState.UNINITIALIZED.name();
+        campaignCulminationScheduledTick = Long.MIN_VALUE;
+        campaignCulminationRetryTick = Long.MIN_VALUE;
+        campaignRecentFamilies.clear();
+        this.setDirty();
+    }
+
+    public long getCampaignElapsedTicks() {
+        return campaignElapsedTicks;
+    }
+
+    public long getCampaignLastObservedDayTime() {
+        return campaignLastObservedDayTime;
+    }
+
+    public void observeCampaignDayTime(long dayTime) {
+        if (campaignLastObservedDayTime != dayTime) {
+            campaignLastObservedDayTime = dayTime;
+            this.setDirty();
+        }
+    }
+
+    public void advanceCampaignDirector(long elapsedDelta, long observedDayTime) {
+        long clampedDelta = Math.max(0L, elapsedDelta);
+        campaignElapsedTicks = saturatingAdd(campaignElapsedTicks, clampedDelta);
+        campaignBeatRemainingTicks -= clampedDelta;
+        campaignLastObservedDayTime = observedDayTime;
+        this.setDirty();
+    }
+
+    public long getCampaignDirectorSeed() {
+        return campaignDirectorSeed;
+    }
+
+    public String getCampaignBeat() {
+        return campaignBeat;
+    }
+
+    public long getCampaignBeatRemainingTicks() {
+        return campaignBeatRemainingTicks;
+    }
+
+    public int getCampaignBeatSequence() {
+        return campaignBeatSequence;
+    }
+
+    public void startCampaignBeat(String beat, long durationTicks, int sequence) {
+        long overdueTicks = Math.min(0L, campaignBeatRemainingTicks);
+        campaignBeat = beat == null || beat.isBlank() ? "UNEASE" : beat;
+        campaignBeatRemainingTicks = Math.max(Long.MIN_VALUE + 1L, durationTicks + overdueTicks);
+        campaignBeatSequence = Math.max(0, sequence);
+        this.setDirty();
+    }
+
+    public long getCampaignLastStrongEventTick() {
+        return campaignLastStrongEventTick;
+    }
+
+    public void setCampaignLastStrongEventTick(long tick) {
+        campaignLastStrongEventTick = tick;
+        this.setDirty();
+    }
+
+    public CampaignCulminationState getCampaignCulminationState() {
+        return CampaignCulminationState.fromSavedName(campaignCulminationState);
+    }
+
+    public long getCampaignCulminationScheduledTick() {
+        return campaignCulminationScheduledTick;
+    }
+
+    public long getCampaignCulminationRetryTick() {
+        return campaignCulminationRetryTick;
+    }
+
+    public void scheduleCampaignCulmination(long scheduledTick) {
+        campaignCulminationState = CampaignCulminationState.PENDING.name();
+        campaignCulminationScheduledTick = Math.max(0L, scheduledTick);
+        campaignCulminationRetryTick = campaignCulminationScheduledTick;
+        this.setDirty();
+    }
+
+    public void postponeCampaignCulmination(long retryTick) {
+        if (getCampaignCulminationState() != CampaignCulminationState.PENDING) {
+            return;
+        }
+        campaignCulminationRetryTick = Math.max(campaignCulminationScheduledTick, retryTick);
+        this.setDirty();
+    }
+
+    public void markCampaignCulminationSatisfied() {
+        campaignCulminationState = CampaignCulminationState.SATISFIED.name();
+        campaignCulminationRetryTick = Long.MIN_VALUE;
+        this.setDirty();
+    }
+
+    public void markCampaignCulminationExpired() {
+        campaignCulminationState = CampaignCulminationState.EXPIRED.name();
+        campaignCulminationRetryTick = Long.MIN_VALUE;
+        this.setDirty();
+    }
+
+    public List<String> getCampaignRecentFamilies() {
+        return List.copyOf(campaignRecentFamilies);
+    }
+
+    public void rememberCampaignFamily(String family, int maximumEntries) {
+        if (family == null || family.isBlank() || maximumEntries <= 0) {
+            return;
+        }
+        campaignRecentFamilies.add(0, family);
+        while (campaignRecentFamilies.size() > maximumEntries) {
+            campaignRecentFamilies.remove(campaignRecentFamilies.size() - 1);
+        }
+        this.setDirty();
+    }
+
     public int getCurrentPhaseIndex() {
         return purgeActive ? 0 : phase.index();
     }
@@ -286,6 +543,15 @@ public class UncannyWorldState extends SavedData {
         this.setDirty();
     }
 
+    public String getWeatherTargetPlayerUuid() {
+        return weatherTargetPlayerUuid;
+    }
+
+    public void setWeatherTargetPlayerUuid(String weatherTargetPlayerUuid) {
+        this.weatherTargetPlayerUuid = weatherTargetPlayerUuid == null ? "" : weatherTargetPlayerUuid;
+        this.setDirty();
+    }
+
     public long getWeatherSavedDayTime() {
         return weatherSavedDayTime;
     }
@@ -311,6 +577,78 @@ public class UncannyWorldState extends SavedData {
     public void setLastHeavyVisualWeatherDurationTicks(int lastHeavyVisualWeatherDurationTicks) {
         this.lastHeavyVisualWeatherDurationTicks = Math.max(0, lastHeavyVisualWeatherDurationTicks);
         this.setDirty();
+    }
+
+    public void configureLocalizedWeather(
+            BlockPos center,
+            double directionX,
+            double directionZ,
+            int radius,
+            long seed,
+            long startTick,
+            String data) {
+        localizedWeatherX = center.getX();
+        localizedWeatherY = center.getY();
+        localizedWeatherZ = center.getZ();
+        localizedWeatherDirectionX = directionX;
+        localizedWeatherDirectionZ = directionZ;
+        localizedWeatherRadius = Math.max(0, radius);
+        localizedWeatherSeed = seed;
+        localizedWeatherStartTick = startTick;
+        localizedWeatherData = data == null ? "" : data;
+        this.setDirty();
+    }
+
+    public void clearLocalizedWeather() {
+        configureLocalizedWeather(BlockPos.ZERO, 0.0D, 0.0D, 0, 0L, Long.MIN_VALUE, "");
+    }
+
+    public BlockPos getLocalizedWeatherCenter() {
+        return new BlockPos(localizedWeatherX, localizedWeatherY, localizedWeatherZ);
+    }
+
+    public double getLocalizedWeatherDirectionX() {
+        return localizedWeatherDirectionX;
+    }
+
+    public double getLocalizedWeatherDirectionZ() {
+        return localizedWeatherDirectionZ;
+    }
+
+    public int getLocalizedWeatherRadius() {
+        return localizedWeatherRadius;
+    }
+
+    public long getLocalizedWeatherSeed() {
+        return localizedWeatherSeed;
+    }
+
+    public long getLocalizedWeatherStartTick() {
+        return localizedWeatherStartTick;
+    }
+
+    public String getLocalizedWeatherData() {
+        return localizedWeatherData;
+    }
+
+    public void rememberPlayerPlacedLight(BlockPos pos) {
+        long packed = pos.asLong();
+        playerPlacedLights.remove(packed);
+        playerPlacedLights.add(packed);
+        while (playerPlacedLights.size() > 256) {
+            playerPlacedLights.remove(0);
+        }
+        this.setDirty();
+    }
+
+    public void forgetPlayerPlacedLight(BlockPos pos) {
+        if (playerPlacedLights.remove(pos.asLong())) {
+            this.setDirty();
+        }
+    }
+
+    public List<BlockPos> getPlayerPlacedLights() {
+        return playerPlacedLights.stream().map(BlockPos::of).toList();
     }
 
     public boolean isDebugLogsEnabled() {
@@ -554,6 +892,35 @@ public class UncannyWorldState extends SavedData {
         this.setDirty();
     }
 
+    public void recordDeathSite(UUID playerId, ResourceKey<Level> dimension, BlockPos position, long tick) {
+        String dimensionId = normalizeDimension(dimension);
+        if (playerId == null || dimensionId == null || position == null) {
+            return;
+        }
+        deathSites.put(playerId, new DeathSite(dimensionId, position.asLong(), tick, false));
+        this.setDirty();
+    }
+
+    public DeathSite getDeathSite(UUID playerId) {
+        return deathSites.get(playerId);
+    }
+
+    public void markMournerUsed(UUID playerId) {
+        boolean changed = false;
+        if (!mournerOccurred) {
+            mournerOccurred = true;
+            changed = true;
+        }
+        DeathSite current = deathSites.get(playerId);
+        if (current != null && !current.mournerUsed()) {
+            deathSites.put(playerId, new DeathSite(current.dimension(), current.posLong(), current.tick(), true));
+            changed = true;
+        }
+        if (changed) {
+            this.setDirty();
+        }
+    }
+
     public Long getLastRespawnTick(UUID playerId) {
         return lastRespawnTick.get(playerId);
     }
@@ -618,6 +985,15 @@ public class UncannyWorldState extends SavedData {
         return -1;
     }
 
+    public int findWeightedMissingHistoryTome(
+            UUID playerId, int maxTomes, double logicalStoryDay, double roll) {
+        if (playerId == null || maxTomes <= 0) {
+            return -1;
+        }
+        return UncannyJournalCatalog.selectMissing(
+                historyTomeMask.getOrDefault(playerId, 0), maxTomes, logicalStoryDay, roll);
+    }
+
     public void markHistoryTomeFound(UUID playerId, int tomeIndex) {
         if (playerId == null || tomeIndex <= 0 || tomeIndex > 30) {
             return;
@@ -668,6 +1044,13 @@ public class UncannyWorldState extends SavedData {
 
     private static int clampLockPhase(int phaseIndex) {
         return Math.max(1, Math.min(4, phaseIndex));
+    }
+
+    private static long saturatingAdd(long left, long right) {
+        if (right > 0L && left > Long.MAX_VALUE - right) {
+            return Long.MAX_VALUE;
+        }
+        return left + right;
     }
 
     private void pruneStructureMarkers() {
@@ -737,6 +1120,62 @@ public class UncannyWorldState extends SavedData {
         }
     }
 
+    private static void writeStringList(CompoundTag parent, String key, List<String> values) {
+        ListTag list = new ListTag();
+        for (String value : values) {
+            if (value == null || value.isBlank()) {
+                continue;
+            }
+            CompoundTag item = new CompoundTag();
+            item.putString("value", value);
+            list.add(item);
+        }
+        parent.put(key, list);
+    }
+
+    private static void readStringList(
+            CompoundTag parent,
+            String key,
+            List<String> values,
+            int maximumEntries) {
+        values.clear();
+        ListTag list = parent.getList(key, Tag.TAG_COMPOUND);
+        for (int i = 0; i < list.size() && values.size() < maximumEntries; i++) {
+            String value = list.getCompound(i).getString("value");
+            if (!value.isBlank()) {
+                values.add(value);
+            }
+        }
+    }
+
+    private static void writeDeathSites(CompoundTag parent, Map<UUID, DeathSite> sites) {
+        ListTag list = new ListTag();
+        for (Map.Entry<UUID, DeathSite> entry : sites.entrySet()) {
+            CompoundTag item = new CompoundTag();
+            item.putUUID("player", entry.getKey());
+            item.putString("dimension", entry.getValue().dimension());
+            item.putLong("pos", entry.getValue().posLong());
+            item.putLong("tick", entry.getValue().tick());
+            item.putBoolean("mournerUsed", entry.getValue().mournerUsed());
+            list.add(item);
+        }
+        parent.put("deathSites", list);
+    }
+
+    private static void readDeathSites(CompoundTag parent, Map<UUID, DeathSite> sites) {
+        sites.clear();
+        ListTag list = parent.getList("deathSites", Tag.TAG_COMPOUND);
+        for (int i = 0; i < list.size(); i++) {
+            CompoundTag item = list.getCompound(i);
+            if (!item.hasUUID("player") || item.getString("dimension").isBlank()) {
+                continue;
+            }
+            sites.put(item.getUUID("player"), new DeathSite(
+                    item.getString("dimension"), item.getLong("pos"), item.getLong("tick"),
+                    item.getBoolean("mournerUsed")));
+        }
+    }
+
     private static void writeStructureMarkers(CompoundTag parent, List<StructureMarker> markers) {
         ListTag list = new ListTag();
         for (StructureMarker marker : markers) {
@@ -764,6 +1203,12 @@ public class UncannyWorldState extends SavedData {
     }
 
     public record StructureMarker(String type, String dimension, long posLong) {
+    }
+
+    public record DeathSite(String dimension, long posLong, long tick, boolean mournerUsed) {
+        public BlockPos position() {
+            return BlockPos.of(posLong);
+        }
     }
 }
 

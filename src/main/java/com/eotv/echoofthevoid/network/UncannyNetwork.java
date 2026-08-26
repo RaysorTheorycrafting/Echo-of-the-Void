@@ -1,9 +1,12 @@
 package com.eotv.echoofthevoid.network;
 
 import com.eotv.echoofthevoid.client.UncannyClientAudioEffects;
+import com.eotv.echoofthevoid.client.UncannyNativeAnomalyClientEffects;
+import com.eotv.echoofthevoid.client.UncannyLocalizedWeatherClientEffects;
 import com.eotv.echoofthevoid.client.UncannyDevMenuClientState;
 import com.eotv.echoofthevoid.client.UncannyClientUiEffects;
 import com.eotv.echoofthevoid.client.UncannyPassiveClientEffects;
+import com.eotv.echoofthevoid.client.UncannyVanillaVariantClientEffects;
 import com.eotv.echoofthevoid.dev.UncannyDevQaStateService;
 import net.minecraft.server.level.ServerPlayer;
 import com.eotv.echoofthevoid.event.UncannyClientStateSync;
@@ -36,9 +39,73 @@ public final class UncannyNetwork {
                 UncannyDevMenuSyncPayload.STREAM_CODEC,
                 UncannyNetwork::handleDevMenuSync);
         registrar.playToClient(
+                UncannyDevMenuResultPayload.TYPE,
+                UncannyDevMenuResultPayload.STREAM_CODEC,
+                UncannyNetwork::handleDevMenuResult);
+        registrar.playToClient(
                 UncannyZombieRalePayload.TYPE,
                 UncannyZombieRalePayload.STREAM_CODEC,
                 UncannyNetwork::handleZombieRale);
+        registrar.playToClient(
+                UncannyMentalSoundPayload.TYPE,
+                UncannyMentalSoundPayload.STREAM_CODEC,
+                UncannyNetwork::handleMentalSound);
+        registrar.playToClient(
+                UncannyOrphanShadowPayload.TYPE,
+                UncannyOrphanShadowPayload.STREAM_CODEC,
+                UncannyNetwork::handleOrphanShadow);
+        registrar.playToClient(
+                UncannyArmorStandPosePayload.TYPE,
+                UncannyArmorStandPosePayload.STREAM_CODEC,
+                UncannyNetwork::handleArmorStandPose);
+        registrar.playToClient(
+                UncannyFishingTugPayload.TYPE,
+                UncannyFishingTugPayload.STREAM_CODEC,
+                UncannyNetwork::handleFishingTug);
+        registrar.playToClient(
+                UncannyEmptyLeadPayload.TYPE,
+                UncannyEmptyLeadPayload.STREAM_CODEC,
+                UncannyNetwork::handleEmptyLead);
+        registrar.playToClient(
+                UncannyPaintingVariantPayload.TYPE,
+                UncannyPaintingVariantPayload.STREAM_CODEC,
+                UncannyNetwork::handlePaintingVariant);
+        registrar.playToClient(
+                UncannyReturnedItemPayload.TYPE,
+                UncannyReturnedItemPayload.STREAM_CODEC,
+                UncannyNetwork::handleReturnedItem);
+        registrar.playToClient(
+                UncannyMapIntruderPayload.TYPE,
+                UncannyMapIntruderPayload.STREAM_CODEC,
+                UncannyNetwork::handleMapIntruder);
+        registrar.playToClient(
+                UncannyArrowGazePayload.TYPE,
+                UncannyArrowGazePayload.STREAM_CODEC,
+                UncannyNetwork::handleArrowGaze);
+        registrar.playToClient(
+                UncannySuspendedFallPayload.TYPE,
+                UncannySuspendedFallPayload.STREAM_CODEC,
+                UncannyNetwork::handleSuspendedFall);
+        registrar.playToClient(
+                UncannyBeaconFragmentPayload.TYPE,
+                UncannyBeaconFragmentPayload.STREAM_CODEC,
+                UncannyNetwork::handleBeaconFragment);
+        registrar.playToClient(
+                UncannyStrayExperiencePayload.TYPE,
+                UncannyStrayExperiencePayload.STREAM_CODEC,
+                UncannyNetwork::handleStrayExperience);
+        registrar.playToClient(
+                UncannyExtraHerdAnimalPayload.TYPE,
+                UncannyExtraHerdAnimalPayload.STREAM_CODEC,
+                UncannyNetwork::handleExtraHerdAnimal);
+        registrar.playToClient(
+                UncannyLocalizedWeatherPayload.TYPE,
+                UncannyLocalizedWeatherPayload.STREAM_CODEC,
+                UncannyNetwork::handleLocalizedWeather);
+        registrar.playToClient(
+                UncannyVanillaVariantVisualPayload.TYPE,
+                UncannyVanillaVariantVisualPayload.STREAM_CODEC,
+                UncannyNetwork::handleVanillaVariantVisual);
         registrar.playToClient(
                 UncannyHotbarWrongCountPayload.TYPE,
                 UncannyHotbarWrongCountPayload.STREAM_CODEC,
@@ -55,6 +122,10 @@ public final class UncannyNetwork {
                 UncannyDevMenuActionPayload.TYPE,
                 UncannyDevMenuActionPayload.STREAM_CODEC,
                 UncannyNetwork::handleDevMenuAction);
+        registrar.playToServer(
+                UncannyDevMenuRunPayload.TYPE,
+                UncannyDevMenuRunPayload.STREAM_CODEC,
+                UncannyNetwork::handleDevMenuRun);
         registrar.playToServer(
                 UncannyDevMenuQaStatusPayload.TYPE,
                 UncannyDevMenuQaStatusPayload.STREAM_CODEC,
@@ -77,8 +148,83 @@ public final class UncannyNetwork {
         context.enqueueWork(() -> UncannyDevMenuClientState.applySync(payload));
     }
 
+    private static void handleDevMenuResult(final UncannyDevMenuResultPayload payload, final IPayloadContext context) {
+        context.enqueueWork(() -> UncannyDevMenuClientState.applyResult(payload));
+    }
+
     private static void handleZombieRale(final UncannyZombieRalePayload payload, final IPayloadContext context) {
         context.enqueueWork(() -> UncannyClientAudioEffects.playZombieRaleInHead(payload.volume(), payload.pitch()));
+    }
+
+    private static void handleMentalSound(final UncannyMentalSoundPayload payload, final IPayloadContext context) {
+        context.enqueueWork(() -> UncannyClientAudioEffects.playInHead(
+                payload.soundId(),
+                payload.sourceName(),
+                payload.volume(),
+                payload.pitch(),
+                payload.maximumDurationTicks()));
+    }
+
+    private static void handleOrphanShadow(final UncannyOrphanShadowPayload payload, final IPayloadContext context) {
+        context.enqueueWork(() -> UncannyNativeAnomalyClientEffects.applyOrphanShadow(payload));
+    }
+
+    private static void handleArmorStandPose(
+            final UncannyArmorStandPosePayload payload,
+            final IPayloadContext context) {
+        context.enqueueWork(() -> UncannyNativeAnomalyClientEffects.applyArmorStandPose(payload));
+    }
+
+    private static void handleFishingTug(final UncannyFishingTugPayload payload, final IPayloadContext context) {
+        context.enqueueWork(() -> UncannyNativeAnomalyClientEffects.applyFishingTug(payload));
+    }
+
+    private static void handleEmptyLead(final UncannyEmptyLeadPayload payload, final IPayloadContext context) {
+        context.enqueueWork(() -> UncannyNativeAnomalyClientEffects.applyEmptyLead(payload));
+    }
+
+    private static void handlePaintingVariant(
+            final UncannyPaintingVariantPayload payload,
+            final IPayloadContext context) {
+        context.enqueueWork(() -> UncannyNativeAnomalyClientEffects.applyPaintingVariant(payload));
+    }
+
+    private static void handleReturnedItem(final UncannyReturnedItemPayload payload, final IPayloadContext context) {
+        context.enqueueWork(() -> UncannyNativeAnomalyClientEffects.applyReturnedItem(payload));
+    }
+
+    private static void handleMapIntruder(final UncannyMapIntruderPayload payload, final IPayloadContext context) {
+        context.enqueueWork(() -> UncannyNativeAnomalyClientEffects.applyMapIntruder(payload));
+    }
+
+    private static void handleArrowGaze(final UncannyArrowGazePayload payload, final IPayloadContext context) {
+        context.enqueueWork(() -> UncannyNativeAnomalyClientEffects.applyArrowGaze(payload));
+    }
+
+    private static void handleSuspendedFall(final UncannySuspendedFallPayload payload, final IPayloadContext context) {
+        context.enqueueWork(() -> UncannyNativeAnomalyClientEffects.applySuspendedFall(payload));
+    }
+
+    private static void handleBeaconFragment(final UncannyBeaconFragmentPayload payload, final IPayloadContext context) {
+        context.enqueueWork(() -> UncannyNativeAnomalyClientEffects.applyBeaconFragment(payload));
+    }
+
+    private static void handleStrayExperience(final UncannyStrayExperiencePayload payload, final IPayloadContext context) {
+        context.enqueueWork(() -> UncannyNativeAnomalyClientEffects.applyStrayExperience(payload));
+    }
+
+    private static void handleExtraHerdAnimal(final UncannyExtraHerdAnimalPayload payload, final IPayloadContext context) {
+        context.enqueueWork(() -> UncannyNativeAnomalyClientEffects.applyExtraHerdAnimal(payload));
+    }
+
+    private static void handleLocalizedWeather(final UncannyLocalizedWeatherPayload payload, final IPayloadContext context) {
+        context.enqueueWork(() -> UncannyLocalizedWeatherClientEffects.apply(payload));
+    }
+
+    private static void handleVanillaVariantVisual(
+            final UncannyVanillaVariantVisualPayload payload,
+            final IPayloadContext context) {
+        context.enqueueWork(() -> UncannyVanillaVariantClientEffects.apply(payload));
     }
 
     private static void handleHotbarWrongCount(final UncannyHotbarWrongCountPayload payload, final IPayloadContext context) {
@@ -99,6 +245,19 @@ public final class UncannyNetwork {
                 return;
             }
             UncannyDevQaStateService.handleAction(player, payload.entryId());
+        });
+    }
+
+    private static void handleDevMenuRun(final UncannyDevMenuRunPayload payload, final IPayloadContext context) {
+        context.enqueueWork(() -> {
+            if (!(context.player() instanceof ServerPlayer player)) {
+                return;
+            }
+            UncannyDevQaStateService.handleRun(
+                    player,
+                    payload.entryId(),
+                    payload.targetName(),
+                    payload.spawnDistance());
         });
     }
 

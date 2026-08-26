@@ -34,7 +34,7 @@ public class UncannyPillagerEntity extends Pillager implements UncannyEntityMark
     @Override
     public void aiStep() {
         super.aiStep();
-        UncannyEntityUtil.forceSilent(this);
+        this.setSilent(false);
 
         if (this.level().isClientSide()) {
             return;
@@ -89,7 +89,7 @@ public class UncannyPillagerEntity extends Pillager implements UncannyEntityMark
 
     @Override
     protected void playStepSound(BlockPos pos, BlockState blockState) {
-        UncannyEntityUtil.suppressStepSound(this, pos, blockState);
+        super.playStepSound(pos, blockState);
     }
 
     private int randomStareTicks() {

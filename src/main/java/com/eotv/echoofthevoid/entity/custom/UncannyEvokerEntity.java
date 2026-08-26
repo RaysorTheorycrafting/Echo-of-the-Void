@@ -25,7 +25,7 @@ public class UncannyEvokerEntity extends Evoker implements UncannyEntityMarker {
     @Override
     public void aiStep() {
         super.aiStep();
-        UncannyEntityUtil.forceSilent(this);
+        this.setSilent(false);
 
         if (this.level().isClientSide() || this.delayedFangCueTicks < 0) {
             return;

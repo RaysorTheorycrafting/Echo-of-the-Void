@@ -23,7 +23,7 @@ public class UncannyEndermiteEntity extends Endermite implements UncannyEntityMa
     @Override
     public void aiStep() {
         super.aiStep();
-        UncannyEntityUtil.forceSilent(this);
+        this.setSilent(false);
 
         if (level().isClientSide()) {
             return;
@@ -47,7 +47,7 @@ public class UncannyEndermiteEntity extends Endermite implements UncannyEntityMa
 
     @Override
     protected void playStepSound(BlockPos pos, BlockState blockState) {
-        UncannyEntityUtil.suppressStepSound(this, pos, blockState);
+        super.playStepSound(pos, blockState);
     }
 }
 

@@ -22,6 +22,9 @@ public final class UncannyEventController {
 
         UncannyWorldState state = UncannyWorldState.get(player.getServer());
         state.setLastDeathTick(player.getUUID(), player.getServer().getTickCount());
+        state.recordDeathSite(
+                player.getUUID(), player.serverLevel().dimension(), player.blockPosition(),
+                player.getServer().getTickCount());
 
         UncannyPhaseManager.applyDeathAcceleration(player);
     }
@@ -37,13 +40,25 @@ public final class UncannyEventController {
 
         UncannyWorldState state = UncannyWorldState.get(player.getServer());
         state.setLastRespawnTick(player.getUUID(), player.getServer().getTickCount());
+        UncannyParanoiaEventSystem.deferCampaignCulminationForPlayer(player);
+        UncannyClientStateSync.clearPlayerCache(player);
     }
 
     public static void onPlayerLogout(PlayerEvent.PlayerLoggedOutEvent event) {
         if (event.getEntity() instanceof ServerPlayer player) {
+            UncannyParanoiaEventSystem.forgetCampaignCulminationPlayer(player);
             UncannyClientStateSync.clearPlayerCache(player);
         }
         UncannyDevQaStateService.onPlayerLogout(event);
+    }
+
+    public static void onPlayerChangedDimension(PlayerEvent.PlayerChangedDimensionEvent event) {
+        if (event.getEntity() instanceof ServerPlayer player) {
+            UncannyParanoiaEventSystem.deferCampaignCulminationForPlayer(player);
+            // Force phase/weather/paranoia payloads to be evaluated again for the new dimension.
+            // In particular, an Overworld-only presentation must be cleared immediately in the Nether or End.
+            UncannyClientStateSync.clearPlayerCache(player);
+        }
     }
 }
 

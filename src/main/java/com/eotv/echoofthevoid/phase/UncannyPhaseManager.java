@@ -1,7 +1,9 @@
 package com.eotv.echoofthevoid.phase;
 
+import com.eotv.echoofthevoid.campaign.UncannyCampaignDirector;
 import com.eotv.echoofthevoid.config.UncannyConfig;
 import com.eotv.echoofthevoid.event.UncannyClientStateSync;
+import com.eotv.echoofthevoid.event.UncannyParanoiaEventSystem;
 import com.eotv.echoofthevoid.state.UncannyWorldState;
 import java.util.List;
 import java.util.UUID;
@@ -30,6 +32,8 @@ public final class UncannyPhaseManager {
         List<ServerPlayer> activePlayers = server.getPlayerList().getPlayers().stream()
                 .filter(player -> !player.isSpectator())
                 .toList();
+
+        UncannyCampaignDirector.tick(server, state, !activePlayers.isEmpty());
 
         if (activePlayers.isEmpty()) {
             return;
@@ -161,6 +165,8 @@ public final class UncannyPhaseManager {
         state.setLockedPhaseIndex(1);
         state.setPhase(UncannyPhase.PHASE_1);
         state.setProgressToNextPhase(0.0D);
+        state.resetCampaignDirector();
+        UncannyParanoiaEventSystem.resetCampaignCulminationPlayerContexts();
         syncAllPlayerPhaseTags(server, 1);
         broadcastPhase(server, UncannyPhase.PHASE_1);
     }

@@ -3,6 +3,7 @@ package com.eotv.echoofthevoid.event;
 import com.eotv.echoofthevoid.block.UncannyBlockRegistry;
 import com.eotv.echoofthevoid.config.UncannyConfig;
 import com.eotv.echoofthevoid.entity.UncannyEntityRegistry;
+import com.eotv.echoofthevoid.event.passive.RabbitVariantBehaviorSystem;
 import com.eotv.echoofthevoid.item.UncannyItemRegistry;
 import com.eotv.echoofthevoid.phase.UncannyPhase;
 import com.eotv.echoofthevoid.sound.UncannySoundRegistry;
@@ -45,6 +46,7 @@ import net.minecraft.world.entity.animal.Fox;
 import net.minecraft.world.entity.animal.IronGolem;
 import net.minecraft.world.entity.animal.Parrot;
 import net.minecraft.world.entity.animal.Pig;
+import net.minecraft.world.entity.animal.Rabbit;
 import net.minecraft.world.entity.animal.Salmon;
 import net.minecraft.world.entity.animal.Sheep;
 import net.minecraft.world.entity.animal.Squid;
@@ -97,6 +99,10 @@ public final class UncannyPassiveVariantSystem {
     private static final String TAG_FISH_GAZE = "UncannyPassiveFishGazeTicks";
     private static final String TAG_PARROT_ALARM_END = "UncannyPassiveParrotAlarmEnd";
     private static final String TAG_VILLAGER_OFFER_INIT = "UncannyPassiveVillagerOfferInit";
+    private static final String TAG_VILLAGER_MIRROR_END = "UncannyPassiveVillagerMirrorEnd";
+    private static final String TAG_VILLAGER_MIRROR_TARGET = "UncannyPassiveVillagerMirrorTarget";
+    private static final String TAG_WOLF_FEINT_END = "UncannyPassiveWolfFeintEnd";
+    private static final String TAG_WOLF_FEINT_COOLDOWN = "UncannyPassiveWolfFeintCooldown";
     private static final String TAG_TRADER_OFFER_INIT = "UncannyPassiveTraderOfferInit";
     private static final String TAG_LLAMA_BLACK_MARKER = "eotv_black_llama";
     private static final String TEAM_LLAMA_BLACK = "eotv_black_llama";
@@ -204,6 +210,8 @@ public final class UncannyPassiveVariantSystem {
             tickVillager(serverLevel, (Villager) mob, variant);
         } else if (type.equals("wandering_trader")) {
             tickWanderingTrader(serverLevel, (WanderingTrader) mob, variant);
+        } else if (type.equals("rabbit") && mob instanceof Rabbit rabbit) {
+            RabbitVariantBehaviorSystem.tick(serverLevel, rabbit, variant);
         }
     }
 
@@ -434,9 +442,8 @@ public final class UncannyPassiveVariantSystem {
         ItemStack held = player.getItemInHand(hand);
 
         if (mob instanceof Cow cow && isVariant(cow, "cow", 5) && held.is(Items.BUCKET)) {
-            player.hurt(player.damageSources().generic(), 2.0F);
-            player.level().playSound(null, player, SoundEvents.SKELETON_HURT, SoundSource.PLAYERS, 1.1F, 0.65F);
-            ((ServerLevel) player.level()).sendParticles(ParticleTypes.SMOKE, cow.getX(), cow.getY() + 0.7D, cow.getZ(), 20, 0.35D, 0.4D, 0.35D, 0.02D);
+            playSound((ServerLevel) player.level(), cow, SoundEvents.SKELETON_HURT, 0.72F, 0.68F);
+            ((ServerLevel) player.level()).sendParticles(ParticleTypes.SMOKE, cow.getX(), cow.getY() + 0.7D, cow.getZ(), 14, 0.28D, 0.34D, 0.28D, 0.012D);
             cow.discard();
             return true;
         }
@@ -506,11 +513,9 @@ public final class UncannyPassiveVariantSystem {
         }
 
         if (mob instanceof Villager villager && isVariant(villager, "villager", 5)) {
-            UncannyParanoiaEventSystem.triggerFlashError(player);
-            if (player.level().random.nextBoolean()) {
-                UncannyParanoiaEventSystem.spawnStalker(player);
-            }
-            villager.discard();
+            long now = player.getServer().getTickCount();
+            villager.getPersistentData().putLong(TAG_VILLAGER_MIRROR_END, now + 20L * 12L);
+            villager.getPersistentData().putUUID(TAG_VILLAGER_MIRROR_TARGET, player.getUUID());
             player.closeContainer();
             return;
         }
@@ -832,9 +837,37 @@ public final class UncannyPassiveVariantSystem {
                 }
             }
             case 5 -> {
-                if (wolf.isTame() && wolf.getOwner() instanceof Player owner && owner.isAlive() && owner.getHealth() <= 6.0F) {
-                    wolf.setTame(false, true);
-                    wolf.setTarget(owner);
+                long feintEnd = wolf.getPersistentData().getLong(TAG_WOLF_FEINT_END);
+                if (feintEnd > now) {
+                    wolf.setTarget(null);
+                    if (wolf.getOwner() instanceof Player owner && owner.isAlive() && !owner.isSpectator()) {
+                        double distance = Math.sqrt(wolf.distanceToSqr(owner));
+                        if (distance > 2.15D) {
+                            wolf.getNavigation().moveTo(owner, 1.42D);
+                        } else {
+                            wolf.getNavigation().stop();
+                            wolf.setDeltaMovement(0.0D, Math.min(0.0D, wolf.getDeltaMovement().y), 0.0D);
+                            forceLookAt(wolf, owner);
+                        }
+                    }
+                    return;
+                }
+                if (feintEnd != 0L) {
+                    wolf.getPersistentData().remove(TAG_WOLF_FEINT_END);
+                    wolf.getNavigation().stop();
+                }
+
+                long cooldownEnd = wolf.getPersistentData().getLong(TAG_WOLF_FEINT_COOLDOWN);
+                if (wolf.isTame()
+                        && wolf.getOwner() instanceof Player owner
+                        && owner.isAlive()
+                        && !owner.isSpectator()
+                        && owner.getHealth() <= 6.0F
+                        && now >= cooldownEnd) {
+                    wolf.getPersistentData().putLong(TAG_WOLF_FEINT_END, now + 20L * 5L);
+                    wolf.getPersistentData().putLong(TAG_WOLF_FEINT_COOLDOWN, now + 20L * 60L * 5L);
+                    wolf.setTarget(null);
+                    playSound(level, wolf, SoundEvents.WOLF_GROWL, 0.9F, 0.72F);
                 }
             }
             default -> {
@@ -1140,9 +1173,43 @@ public final class UncannyPassiveVariantSystem {
                     ensureVillagerMacabreOffer(villager);
                 }
             }
+            case 5 -> tickVillagerMirror(level, villager);
             default -> {
             }
         }
+    }
+
+    private static void tickVillagerMirror(ServerLevel level, Villager villager) {
+        long now = level.getServer().getTickCount();
+        long end = villager.getPersistentData().getLong(TAG_VILLAGER_MIRROR_END);
+        if (end <= now) {
+            if (end != 0L) {
+                villager.getPersistentData().remove(TAG_VILLAGER_MIRROR_END);
+                villager.getPersistentData().remove(TAG_VILLAGER_MIRROR_TARGET);
+                villager.setSilent(false);
+            }
+            return;
+        }
+
+        if (!villager.getPersistentData().hasUUID(TAG_VILLAGER_MIRROR_TARGET)) {
+            villager.getPersistentData().remove(TAG_VILLAGER_MIRROR_END);
+            return;
+        }
+        ServerPlayer target = level.getServer().getPlayerList()
+                .getPlayer(villager.getPersistentData().getUUID(TAG_VILLAGER_MIRROR_TARGET));
+        if (target == null || target.serverLevel() != level || !target.isAlive()) {
+            villager.getPersistentData().remove(TAG_VILLAGER_MIRROR_END);
+            villager.getPersistentData().remove(TAG_VILLAGER_MIRROR_TARGET);
+            villager.setSilent(false);
+            return;
+        }
+
+        villager.setSilent(true);
+        villager.getNavigation().stop();
+        villager.setDeltaMovement(0.0D, Math.min(0.0D, villager.getDeltaMovement().y), 0.0D);
+        villager.setYRot(target.getYRot());
+        villager.setYHeadRot(target.getYHeadRot());
+        villager.setXRot(target.getXRot());
     }
 
     private static void tickWanderingTrader(ServerLevel level, WanderingTrader trader, int variant) {
@@ -1559,6 +1626,9 @@ public final class UncannyPassiveVariantSystem {
         tag.putInt(TAG_CAT_REVIVES, 0);
         mob.getTags().removeIf(existing -> existing.startsWith("eotv_passive_"));
         mob.addTag(passiveRenderTag(getTypeKey(mob), clampedVariant));
+        if (mob instanceof Rabbit rabbit) {
+            RabbitVariantBehaviorSystem.reset(rabbit, clampedVariant, mob.level().getGameTime());
+        }
         return true;
     }
 
@@ -1579,6 +1649,7 @@ public final class UncannyPassiveVariantSystem {
 
     private static EntityType<? extends Mob> resolvePassiveEntityType(String typeKey) {
         return switch (typeKey.trim().toLowerCase(java.util.Locale.ROOT)) {
+            case "rabbit" -> EntityType.RABBIT;
             case "chicken" -> EntityType.CHICKEN;
             case "pig" -> EntityType.PIG;
             case "cow" -> EntityType.COW;
@@ -1631,7 +1702,8 @@ public final class UncannyPassiveVariantSystem {
                 || type == EntityType.PARROT
                 || type == EntityType.LLAMA
                 || type == EntityType.VILLAGER
-                || type == EntityType.WANDERING_TRADER;
+                || type == EntityType.WANDERING_TRADER
+                || type == EntityType.RABBIT;
     }
 
     private static String passiveTypeKey(EntityType<?> type) {
@@ -1658,7 +1730,7 @@ public final class UncannyPassiveVariantSystem {
 
     private static boolean isReplacementEligibleSpawnType(MobSpawnType spawnType) {
         return switch (spawnType) {
-            case SPAWNER, DISPENSER, TRIAL_SPAWNER, BUCKET, BREEDING, MOB_SUMMONED, TRIGGERED -> false;
+            case SPAWNER, SPAWN_EGG, COMMAND, DISPENSER, TRIAL_SPAWNER, BUCKET, BREEDING, MOB_SUMMONED, TRIGGERED -> false;
             default -> true;
         };
     }

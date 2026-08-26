@@ -1,5 +1,6 @@
 package com.eotv.echoofthevoid.event;
 
+import com.eotv.echoofthevoid.campaign.UncannyCampaignDirector;
 import com.eotv.echoofthevoid.config.UncannyConfig;
 import com.eotv.echoofthevoid.entity.UncannyEntityRegistry;
 import com.eotv.echoofthevoid.entity.custom.UncannyDoubleDormantEntity;
@@ -111,6 +112,7 @@ public final class UncannyDoubleDormantSystem {
         spawnMimic(player, baseContext.baseCenter, level);
         state.setLastDoubleDormantTick(playerId, now);
         state.setLastGlobalEventTick(now);
+        UncannyCampaignDirector.recordEvent(state, "double_dormant");
     }
 
     public static void forceMimic(ServerPlayer player) {

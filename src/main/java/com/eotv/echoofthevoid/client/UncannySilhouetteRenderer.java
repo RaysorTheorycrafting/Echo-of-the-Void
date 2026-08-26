@@ -18,7 +18,13 @@ public class UncannySilhouetteRenderer<T extends Mob> extends HumanoidMobRendere
             ResourceLocation.fromNamespaceAndPath(EchoOfTheVoid.MODID, "textures/entity/color_black.png");
 
     public UncannySilhouetteRenderer(EntityRendererProvider.Context context) {
-        super(context, new PlayerModel<>(context.bakeLayer(ModelLayers.PLAYER), false), 0.0F);
+        this(context, new PlayerModel<>(context.bakeLayer(ModelLayers.PLAYER), false));
+    }
+
+    protected UncannySilhouetteRenderer(
+            EntityRendererProvider.Context context,
+            PlayerModel<T> model) {
+        super(context, model, 0.0F);
     }
 
     @Override

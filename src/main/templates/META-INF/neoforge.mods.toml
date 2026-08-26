@@ -8,13 +8,19 @@ version="${mod_version}"
 displayName="${mod_name}"
 authors="Raysor"
 description='''
-Echo Of The Void transforms familiar Minecraft threats into uncanny mirrors.
-As global phases advance, natural monster spawns are increasingly replaced by
-silent or behavior-shifted variants until the world is fully corrupted.
+Echo Of The Void turns familiar Minecraft rules into a gradual horror campaign.
+Shared anomalies, altered creatures, hostile Specials and rare major encounters
+build an unpredictable but fair progression through a world that no longer feels stable.
 '''
 
 [[mixins]]
-config="${mod_id}.client.mixins.json"
+config="${mod_id}.darkness.mixins.json"
+
+[[mixins]]
+config="${mod_id}.weather.mixins.json"
+
+[[mixins]]
+config="${mod_id}.variant.mixins.json"
 
 [[dependencies.${mod_id}]]
 modId="neoforge"

@@ -1,15 +1,9 @@
 package com.eotv.echoofthevoid.entity;
 
-import com.eotv.echoofthevoid.item.UncannyItemRegistry;
 import net.minecraft.core.BlockPos;
-import net.minecraft.server.level.ServerLevel;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.ai.navigation.GroundPathNavigation;
-import net.minecraft.world.entity.item.ItemEntity;
-import net.minecraft.world.entity.Entity;
-import net.minecraft.util.RandomSource;
-import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.block.DoorBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
@@ -63,23 +57,5 @@ public final class UncannyEntityUtil {
         }
     }
 
-    public static void dropPulseStyleRewards(ServerLevel level, Entity entity, RandomSource random) {
-        if (random.nextFloat() < 0.10F) {
-            level.addFreshEntity(new ItemEntity(
-                    level,
-                    entity.getX(),
-                    entity.getY(),
-                    entity.getZ(),
-                    new ItemStack(UncannyItemRegistry.UNCANNY_REALITY_SHARD.get())));
-        }
-        if (random.nextFloat() < 0.50F) {
-            level.addFreshEntity(new ItemEntity(
-                    level,
-                    entity.getX(),
-                    entity.getY(),
-                    entity.getZ(),
-                    new ItemStack(UncannyItemRegistry.UNCANNY_REALITY_SHARD_PIECE.get())));
-        }
-    }
 }
 

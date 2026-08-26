@@ -19,7 +19,7 @@ public class UncannyDrownedEntity extends Drowned implements UncannyEntityMarker
     @Override
     public void aiStep() {
         super.aiStep();
-        UncannyEntityUtil.forceSilent(this);
+        this.setSilent(false);
 
         if (!this.level().isClientSide() && this.isInWater()) {
             LivingEntity target = this.getTarget();
@@ -32,7 +32,7 @@ public class UncannyDrownedEntity extends Drowned implements UncannyEntityMarker
 
     @Override
     protected void playStepSound(BlockPos pos, BlockState blockState) {
-        UncannyEntityUtil.suppressStepSound(this, pos, blockState);
+        super.playStepSound(pos, blockState);
     }
 }
 

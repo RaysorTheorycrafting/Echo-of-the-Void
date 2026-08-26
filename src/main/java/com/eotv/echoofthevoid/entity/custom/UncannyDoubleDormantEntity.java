@@ -3,7 +3,6 @@ package com.eotv.echoofthevoid.entity.custom;
 import com.eotv.echoofthevoid.config.UncannyConfig;
 import com.eotv.echoofthevoid.entity.UncannyEntityMarker;
 import com.eotv.echoofthevoid.entity.UncannyEntityUtil;
-import com.eotv.echoofthevoid.item.UncannyItemRegistry;
 import java.util.Optional;
 import java.util.UUID;
 import net.minecraft.core.BlockPos;
@@ -19,7 +18,6 @@ import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LivingEntity;
-import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.monster.Zombie;
 import net.minecraft.world.item.ArmorItem;
 import net.minecraft.world.item.AxeItem;
@@ -146,12 +144,6 @@ public class UncannyDoubleDormantEntity extends Zombie implements UncannyEntityM
     }
 
     @Override
-    protected void dropCustomDeathLoot(ServerLevel level, DamageSource damageSource, boolean recentlyHit) {
-        ItemEntity reward = new ItemEntity(level, this.getX(), this.getY(), this.getZ(), new ItemStack(UncannyItemRegistry.UNCANNY_REALITY_SHARD.get()));
-        level.addFreshEntity(reward);
-    }
-
-    @Override
     protected SoundEvent getAmbientSound() {
         return null;
     }
@@ -173,7 +165,15 @@ public class UncannyDoubleDormantEntity extends Zombie implements UncannyEntityM
 
     private ServerPlayer resolveCopiedPlayer(ServerLevel level) {
         Optional<UUID> targetUuid = this.getCopiedTargetUuid();
-        return targetUuid.map(uuid -> level.getServer().getPlayerList().getPlayer(uuid)).orElse(null);
+        ServerPlayer copied = targetUuid
+                .map(uuid -> level.getServer().getPlayerList().getPlayer(uuid))
+                .orElse(null);
+        return copied != null
+                        && copied.isAlive()
+                        && !copied.isSpectator()
+                        && copied.serverLevel() == level
+                ? copied
+                : null;
     }
 
     private boolean hasDirectEyeContact(ServerPlayer player) {

@@ -260,7 +260,7 @@ public class UncannyHurlerEntity extends Monster implements UncannyEntityMarker 
     }
 
     private void triggerReaction(ServerPlayer player) {
-        this.level().playSound(null, player, UncannySoundRegistry.UNCANNY_HURLER_SCREAM.get(), this.getSoundSource(), 2.8F, 0.85F);
+        this.level().playSound(null, player, UncannySoundRegistry.UNCANNY_HURLER_SCREAM.get(), this.getSoundSource(), 1.10F, 0.85F);
         if (this.random.nextInt(100) < this.attackChancePercent) {
             this.setMode(MODE_ATTACK);
             this.modeTicks = 130 + this.random.nextInt(71);

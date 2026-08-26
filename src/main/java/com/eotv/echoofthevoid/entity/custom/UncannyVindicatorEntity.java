@@ -24,7 +24,7 @@ public class UncannyVindicatorEntity extends Vindicator implements UncannyEntity
     @Override
     public void aiStep() {
         super.aiStep();
-        UncannyEntityUtil.forceSilent(this);
+        this.setSilent(false);
 
         if (this.getItemBySlot(EquipmentSlot.MAINHAND).isEmpty()) {
             this.setItemSlot(EquipmentSlot.MAINHAND, new ItemStack(Items.IRON_AXE));

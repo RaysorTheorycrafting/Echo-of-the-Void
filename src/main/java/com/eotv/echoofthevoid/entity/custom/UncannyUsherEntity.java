@@ -8,6 +8,8 @@ import com.eotv.echoofthevoid.sound.UncannySoundRegistry;
 import java.util.Optional;
 import java.util.UUID;
 import net.minecraft.core.BlockPos;
+import net.minecraft.tags.BlockTags;
+import net.minecraft.util.Mth;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.syncher.EntityDataAccessor;
 import net.minecraft.network.syncher.EntityDataSerializers;
@@ -19,6 +21,7 @@ import net.minecraft.sounds.SoundEvents;
 import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.MoverType;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.ai.goal.FloatGoal;
 import net.minecraft.world.entity.ai.goal.LookAtPlayerGoal;
@@ -30,11 +33,15 @@ import net.minecraft.world.entity.monster.Monster;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.level.block.LeavesBlock;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.pathfinder.PathType;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.phys.Vec3;
 
 public class UncannyUsherEntity extends Monster implements UncannyEntityMarker {
+    private static final int STUCK_INITIAL_GRACE_SAMPLES = 2;
+    private static final int STUCK_REPATH_SAMPLES = 3;
+    private static final int STUCK_FAILSAFE_SAMPLES = 12;
     private static final EntityDataAccessor<Optional<UUID>> TARGET_PLAYER =
             SynchedEntityData.defineId(UncannyUsherEntity.class, EntityDataSerializers.OPTIONAL_UUID);
 
@@ -59,6 +66,11 @@ public class UncannyUsherEntity extends Monster implements UncannyEntityMarker {
     public UncannyUsherEntity(EntityType<? extends Monster> entityType, Level level) {
         super(entityType, level);
         UncannyEntityUtil.applyDisplayName(this, "Usher?");
+        this.setPathfindingMalus(PathType.LEAVES, 0.0F);
+        this.getNavigation().setMaxVisitedNodesMultiplier(2.0F);
+        if (this.getAttribute(Attributes.STEP_HEIGHT) != null) {
+            this.getAttribute(Attributes.STEP_HEIGHT).setBaseValue(1.0D);
+        }
     }
 
     @Override
@@ -82,7 +94,7 @@ public class UncannyUsherEntity extends Monster implements UncannyEntityMarker {
         this.attackRoll = this.random.nextInt(100);
         this.ignoredTicks = 0;
         this.stuckTicks = 0;
-        this.stuckCheckGrace = 12;
+        this.stuckCheckGrace = STUCK_INITIAL_GRACE_SAMPLES;
         this.lastPos = this.position();
         this.nextCueTick = this.tickCount + 30;
         this.cueIntervalTicks = 120;
@@ -127,7 +139,6 @@ public class UncannyUsherEntity extends Monster implements UncannyEntityMarker {
 
         this.setTarget(null);
         this.setSilent(true);
-        this.jumping = false;
         this.lookAt(player, 70.0F, 70.0F);
         this.getLookControl().setLookAt(player.getX(), player.getEyeY(), player.getZ(), 70.0F, 70.0F);
         if (!this.guiding) {
@@ -142,7 +153,7 @@ public class UncannyUsherEntity extends Monster implements UncannyEntityMarker {
         }
         boolean playerFollowing = player.distanceToSqr(this) <= 14.0D * 14.0D;
         if (!this.followCuePlayed && this.lookedTicks >= 20) {
-            playCue(level, player, true);
+            playCue(level, true);
             this.followCuePlayed = true;
             this.ignoredTicks = 0;
             this.nextCueTick = this.tickCount + 200;
@@ -151,14 +162,14 @@ public class UncannyUsherEntity extends Monster implements UncannyEntityMarker {
                 && this.tickCount >= this.nextCueTick
                 && (!this.guiding || !playerFollowing)
                 && player.distanceToSqr(this) > 9.0D * 9.0D) {
-            playCue(level, player, true);
+            playCue(level, true);
             this.ignoredTicks = 0;
             this.nextCueTick = this.tickCount + 200;
         } else if (this.tickCount >= this.nextCueTick
                 && !looked
                 && (!this.guiding || !playerFollowing)
                 && !(this.followCuePlayed && player.distanceToSqr(this) <= 9.0D * 9.0D)) {
-            playCue(level, player, false);
+            playCue(level, false);
             this.ignoredTicks += 20;
             this.cueIntervalTicks = this.followCuePlayed ? 150 + this.random.nextInt(91) : 95 + this.random.nextInt(61);
             this.nextCueTick = this.tickCount + this.cueIntervalTicks;
@@ -171,7 +182,7 @@ public class UncannyUsherEntity extends Monster implements UncannyEntityMarker {
             this.guiding = true;
             this.guideStartTick = this.tickCount;
             this.stuckTicks = 0;
-            this.stuckCheckGrace = 12;
+            this.stuckCheckGrace = STUCK_INITIAL_GRACE_SAMPLES;
             this.lastPos = this.position();
         }
 
@@ -182,8 +193,6 @@ public class UncannyUsherEntity extends Monster implements UncannyEntityMarker {
                         this.guideTarget.getY(),
                         this.guideTarget.getZ() + 0.5D,
                         1.14D);
-                clearLeavesInFront(level);
-                tryStepUpObstacle(level);
             } else {
                 this.getNavigation().stop();
             }
@@ -282,7 +291,7 @@ public class UncannyUsherEntity extends Monster implements UncannyEntityMarker {
             }
             this.lastPos = this.position();
 
-            if (this.stuckTicks >= 50
+            if (this.stuckTicks >= STUCK_FAILSAFE_SAMPLES
                     && this.guideTarget != null
                     && this.guideStartTick >= 0
                     && (this.tickCount - this.guideStartTick) >= 220) {
@@ -292,12 +301,12 @@ public class UncannyUsherEntity extends Monster implements UncannyEntityMarker {
                         this.guideTarget.getZ() + 0.5D);
                 if (targetDistSqr <= 36.0D) {
                     this.stuckTicks = 0;
-                    this.stuckCheckGrace = 10;
+                    this.stuckCheckGrace = STUCK_INITIAL_GRACE_SAMPLES;
                 } else if (targetDistSqr <= 24.0D * 24.0D) {
                     debugLogVanish(level, player, "stuck_near_target", targetDistSqr, Math.abs(this.getY() - (this.guideTarget.getY() + 0.5D)));
                     startVanishing(level);
                     return;
-                } else if (this.guideTarget != null) {
+                } else {
                     double hdx = this.getX() - (this.guideTarget.getX() + 0.5D);
                     double hdz = this.getZ() - (this.guideTarget.getZ() + 0.5D);
                     if ((hdx * hdx + hdz * hdz) <= 56.0D * 56.0D) {
@@ -305,7 +314,6 @@ public class UncannyUsherEntity extends Monster implements UncannyEntityMarker {
                         startVanishing(level);
                         return;
                     }
-                } else {
                     debugLogCompassDrop(level, player, targetDistSqr, this.stuckTicks);
                     level.addFreshEntity(new ItemEntity(
                             level,
@@ -314,10 +322,10 @@ public class UncannyUsherEntity extends Monster implements UncannyEntityMarker {
                             this.getZ(),
                             new ItemStack(UncannyItemRegistry.UNCANNY_COMPASS.get())));
                     level.playSound(null, this.blockPosition(), SoundEvents.AMBIENT_CAVE.value(), SoundSource.HOSTILE, 0.9F, 0.86F);
-                    this.discard();
+                    startVanishing(level);
                     return;
                 }
-            } else if (this.stuckTicks >= 50
+            } else if (this.stuckTicks >= STUCK_FAILSAFE_SAMPLES
                     && this.guideStartTick >= 0
                     && (this.tickCount - this.guideStartTick) >= 220) {
                 debugLogCompassDrop(level, player, -1.0D, this.stuckTicks);
@@ -328,10 +336,13 @@ public class UncannyUsherEntity extends Monster implements UncannyEntityMarker {
                         this.getZ(),
                         new ItemStack(UncannyItemRegistry.UNCANNY_COMPASS.get())));
                 level.playSound(null, this.blockPosition(), SoundEvents.AMBIENT_CAVE.value(), SoundSource.HOSTILE, 0.9F, 0.86F);
-                this.discard();
+                startVanishing(level);
                 return;
-            } else if (this.stuckTicks >= 24) {
+            } else if (this.stuckTicks >= STUCK_REPATH_SAMPLES) {
                 this.getNavigation().stop();
+                if (this.onGround()) {
+                    this.getJumpControl().jump();
+                }
                 if (this.guideTarget != null) {
                     this.getNavigation().moveTo(
                             this.guideTarget.getX() + 0.5D,
@@ -362,6 +373,56 @@ public class UncannyUsherEntity extends Monster implements UncannyEntityMarker {
     }
 
     @Override
+    public void move(MoverType moverType, Vec3 movement) {
+        if (!shouldPhaseThroughLeaves(movement)) {
+            super.move(moverType, movement);
+            return;
+        }
+
+        Vec3 horizontal = new Vec3(movement.x, 0.0D, movement.z);
+        boolean previousNoPhysics = this.noPhysics;
+        try {
+            this.noPhysics = true;
+            super.move(moverType, horizontal);
+        } finally {
+            this.noPhysics = previousNoPhysics;
+        }
+
+        if (movement.y != 0.0D) {
+            // Vertical collision remains Vanilla so leaves never let Usher fall through terrain.
+            super.move(moverType, new Vec3(0.0D, movement.y, 0.0D));
+        }
+    }
+
+    private boolean shouldPhaseThroughLeaves(Vec3 movement) {
+        if (movement.horizontalDistanceSqr() < 1.0E-8D) {
+            return false;
+        }
+
+        AABB probe = this.getBoundingBox()
+                .expandTowards(movement.x, 0.0D, movement.z)
+                .deflate(1.0E-5D);
+        boolean foundLeaves = false;
+        BlockPos.MutableBlockPos cursor = new BlockPos.MutableBlockPos();
+        for (int x = Mth.floor(probe.minX); x <= Mth.floor(probe.maxX); x++) {
+            for (int y = Mth.floor(probe.minY); y <= Mth.floor(probe.maxY); y++) {
+                for (int z = Mth.floor(probe.minZ); z <= Mth.floor(probe.maxZ); z++) {
+                    cursor.set(x, y, z);
+                    BlockState state = this.level().getBlockState(cursor);
+                    if (state.getCollisionShape(this.level(), cursor).isEmpty()) {
+                        continue;
+                    }
+                    if (!state.is(BlockTags.LEAVES)) {
+                        return false;
+                    }
+                    foundLeaves = true;
+                }
+            }
+        }
+        return foundLeaves;
+    }
+
+    @Override
     protected SoundEvent getAmbientSound() {
         return null;
     }
@@ -383,13 +444,7 @@ public class UncannyUsherEntity extends Monster implements UncannyEntityMarker {
 
     @Override
     public void jumpFromGround() {
-        // Usher never jumps: only step-up and pathing adjustments are used.
-    }
-
-    @Override
-    protected void dropCustomDeathLoot(ServerLevel level, DamageSource damageSource, boolean recentlyHit) {
-        super.dropCustomDeathLoot(level, damageSource, recentlyHit);
-        UncannyEntityUtil.dropPulseStyleRewards(level, this, this.random);
+        super.jumpFromGround();
     }
 
     @Override
@@ -433,7 +488,9 @@ public class UncannyUsherEntity extends Monster implements UncannyEntityMarker {
         this.attackRoll = Math.max(0, tag.getInt("AttackRoll"));
         this.aggressive = tag.getBoolean("Aggressive");
         this.cueIntervalTicks = Math.max(40, tag.contains("CueIntervalTicks") ? tag.getInt("CueIntervalTicks") : 120);
-        this.stuckCheckGrace = Math.max(0, tag.getInt("StuckCheckGrace"));
+        this.stuckCheckGrace = Math.min(
+                STUCK_INITIAL_GRACE_SAMPLES,
+                Math.max(0, tag.getInt("StuckCheckGrace")));
         this.guiding = tag.getBoolean("Guiding");
         this.lookedTicks = Math.max(0, tag.getInt("LookedTicks"));
         this.followCuePlayed = tag.getBoolean("FollowCuePlayed");
@@ -469,7 +526,7 @@ public class UncannyUsherEntity extends Monster implements UncannyEntityMarker {
         return look.dot(toEntity) > 0.955D;
     }
 
-    private void playCue(ServerLevel level, ServerPlayer player, boolean looked) {
+    private void playCue(ServerLevel level, boolean looked) {
         SoundEvent event;
         float volume;
         float pitch;
@@ -491,7 +548,7 @@ public class UncannyUsherEntity extends Monster implements UncannyEntityMarker {
             }
         }
         if (event != null) {
-            player.playNotifySound(event, SoundSource.HOSTILE, volume, pitch);
+            level.playSound(null, this.getX(), this.getEyeY(), this.getZ(), event, SoundSource.HOSTILE, volume, pitch);
         }
     }
 
@@ -508,72 +565,6 @@ public class UncannyUsherEntity extends Monster implements UncannyEntityMarker {
                 stuckSeconds,
                 targetInfo,
                 targetDistSqr);
-    }
-
-    private void tryStepUpObstacle(ServerLevel level) {
-        Vec3 forward = this.getDeltaMovement();
-        if (forward.horizontalDistanceSqr() < 0.0009D && this.guideTarget != null) {
-            Vec3 towardTarget = Vec3.atCenterOf(this.guideTarget).subtract(this.position());
-            forward = new Vec3(towardTarget.x, 0.0D, towardTarget.z);
-        }
-        if (forward.horizontalDistanceSqr() < 0.0009D) {
-            return;
-        }
-        forward = new Vec3(forward.x, 0.0D, forward.z).normalize();
-        BlockPos aheadBase = BlockPos.containing(
-                this.getX() + forward.x * 0.9D,
-                this.getY(),
-                this.getZ() + forward.z * 0.9D);
-        if (isPassableForStep(level, aheadBase) && isPassableForStep(level, aheadBase.above())) {
-            return;
-        }
-        for (int step = 1; step <= 2; step++) {
-            BlockPos feet = aheadBase.above(step);
-            BlockPos head = feet.above();
-            BlockPos floor = feet.below();
-            if (!isPassableForStep(level, feet) || !isPassableForStep(level, head)) {
-                continue;
-            }
-            if (!level.getBlockState(floor).isSolidRender(level, floor)) {
-                continue;
-            }
-            this.setPos(
-                    aheadBase.getX() + 0.5D - forward.x * 0.15D,
-                    feet.getY(),
-                    aheadBase.getZ() + 0.5D - forward.z * 0.15D);
-            return;
-        }
-    }
-
-    private boolean isPassableForStep(ServerLevel level, BlockPos pos) {
-        BlockState state = level.getBlockState(pos);
-        return state.isAir() || state.getCollisionShape(level, pos).isEmpty();
-    }
-
-    private void clearLeavesInFront(ServerLevel level) {
-        if ((this.tickCount % 4) != 0) {
-            return;
-        }
-        Vec3 forward = this.getDeltaMovement().horizontalDistanceSqr() > 0.0001D
-                ? this.getDeltaMovement().normalize()
-                : this.getLookAngle().normalize();
-        if (forward.lengthSqr() < 0.0001D) {
-            return;
-        }
-        BlockPos origin = BlockPos.containing(this.getX() + forward.x * 0.9D, this.getY() + 0.9D, this.getZ() + forward.z * 0.9D);
-        for (int dy = -1; dy <= 1; dy++) {
-            for (int dx = -1; dx <= 1; dx++) {
-                for (int dz = -1; dz <= 1; dz++) {
-                    BlockPos target = origin.offset(dx, dy, dz);
-                    BlockState state = level.getBlockState(target);
-                    if (state.getBlock() instanceof LeavesBlock) {
-                        level.destroyBlock(target, false, this);
-                    } else if (!state.isAir() && state.canBeReplaced()) {
-                        level.destroyBlock(target, false, this);
-                    }
-                }
-            }
-        }
     }
 
     private void startVanishing(ServerLevel level) {

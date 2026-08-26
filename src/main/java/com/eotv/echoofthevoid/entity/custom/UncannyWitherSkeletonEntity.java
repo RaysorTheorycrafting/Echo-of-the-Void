@@ -50,7 +50,7 @@ public class UncannyWitherSkeletonEntity extends WitherSkeleton implements Uncan
     @Override
     public void aiStep() {
         super.aiStep();
-        UncannyEntityUtil.forceSilent(this);
+        this.setSilent(false);
 
         if (!variantInitialized) {
             setArcherVariant(this.random.nextBoolean());

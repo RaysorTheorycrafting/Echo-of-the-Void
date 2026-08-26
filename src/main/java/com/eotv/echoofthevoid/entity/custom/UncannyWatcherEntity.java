@@ -4,6 +4,7 @@ import com.eotv.echoofthevoid.EchoOfTheVoid;
 import com.eotv.echoofthevoid.config.UncannyConfig;
 import com.eotv.echoofthevoid.entity.UncannyEntityMarker;
 import com.eotv.echoofthevoid.entity.UncannyEntityUtil;
+import com.eotv.echoofthevoid.event.special.WatcherObservationRules;
 import java.util.Optional;
 import java.util.UUID;
 import net.minecraft.commands.CommandSourceStack;
@@ -316,15 +317,12 @@ public class UncannyWatcherEntity extends Monster implements UncannyEntityMarker
     }
 
     private boolean isPlayerLookingAtWatcher(ServerPlayer player) {
-        if (!player.hasLineOfSight(this)) {
-            return false;
-        }
+        boolean hasLineOfSight = player.hasLineOfSight(this);
         Vec3 look = player.getViewVector(1.0F).normalize();
         Vec3 toWatcher = this.getEyePosition().subtract(player.getEyePosition());
-        if (toWatcher.lengthSqr() < 0.0001D) {
-            return true;
-        }
-        return look.dot(toWatcher.normalize()) > 0.93D;
+        double lookDot = toWatcher.lengthSqr() < 0.0001D ? 1.0D : look.dot(toWatcher.normalize());
+        return WatcherObservationRules.canAccumulateDirectLook(
+                player.isSleeping(), hasLineOfSight, lookDot);
     }
 
     private boolean isOutOfView(ServerPlayer player) {

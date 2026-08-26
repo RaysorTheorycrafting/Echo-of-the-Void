@@ -25,7 +25,7 @@ public class UncannyPiglinBruteEntity extends PiglinBrute implements UncannyEnti
     @Override
     public void aiStep() {
         super.aiStep();
-        UncannyEntityUtil.forceSilent(this);
+        this.setSilent(false);
 
         if (this.level().isClientSide()) {
             return;

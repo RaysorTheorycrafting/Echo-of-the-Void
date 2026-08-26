@@ -19,7 +19,6 @@ public class UncannySlimeEntity extends Slime implements UncannyEntityMarker {
     public UncannySlimeEntity(EntityType<? extends Slime> entityType, Level level) {
         super(entityType, level);
         UncannyEntityUtil.applyDisplayName(this, "Slime?");
-        this.setSilent(true);
     }
 
     @Override
@@ -36,7 +35,7 @@ public class UncannySlimeEntity extends Slime implements UncannyEntityMarker {
     @Override
     public void aiStep() {
         super.aiStep();
-        UncannyEntityUtil.forceSilent(this);
+        this.setSilent(false);
 
         if (this.level().isClientSide()) {
             return;

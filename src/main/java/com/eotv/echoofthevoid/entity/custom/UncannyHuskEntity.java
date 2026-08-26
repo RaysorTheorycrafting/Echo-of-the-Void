@@ -17,12 +17,12 @@ public class UncannyHuskEntity extends Husk implements UncannyEntityMarker {
     @Override
     public void aiStep() {
         super.aiStep();
-        UncannyEntityUtil.forceSilent(this);
+        this.setSilent(false);
     }
 
     @Override
     protected void playStepSound(BlockPos pos, BlockState blockState) {
-        UncannyEntityUtil.suppressStepSound(this, pos, blockState);
+        super.playStepSound(pos, blockState);
     }
 }
 

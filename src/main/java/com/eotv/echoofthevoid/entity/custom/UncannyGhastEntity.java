@@ -35,7 +35,7 @@ public class UncannyGhastEntity extends Ghast implements UncannyEntityMarker {
         this.setDeltaMovement(this.getDeltaMovement().add(toPlayer.scale(0.04D)));
 
         if (this.tickCount % 200 == 0) {
-            this.level().playSound(null, this.blockPosition(), SoundEvents.GHAST_SCREAM, this.getSoundSource(), 2.0F, 0.9F);
+            this.level().playSound(null, this.blockPosition(), SoundEvents.GHAST_SCREAM, this.getSoundSource(), 1.15F, 0.9F);
         }
     }
 }

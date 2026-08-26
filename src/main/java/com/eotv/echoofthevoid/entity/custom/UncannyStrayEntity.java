@@ -25,7 +25,7 @@ public class UncannyStrayEntity extends Stray implements UncannyEntityMarker {
     @Override
     public void aiStep() {
         super.aiStep();
-        UncannyEntityUtil.forceSilent(this);
+        this.setSilent(false);
 
         if (level().isClientSide()) {
             return;
@@ -58,7 +58,7 @@ public class UncannyStrayEntity extends Stray implements UncannyEntityMarker {
 
     @Override
     protected void playStepSound(BlockPos pos, BlockState blockState) {
-        UncannyEntityUtil.suppressStepSound(this, pos, blockState);
+        super.playStepSound(pos, blockState);
     }
 }
 

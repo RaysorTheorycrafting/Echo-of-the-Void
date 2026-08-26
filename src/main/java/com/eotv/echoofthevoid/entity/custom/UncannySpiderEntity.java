@@ -80,7 +80,7 @@ public class UncannySpiderEntity extends Spider implements UncannyEntityMarker {
     @Override
     public void aiStep() {
         super.aiStep();
-        UncannyEntityUtil.forceSilent(this);
+        this.setSilent(false);
 
         SpiderVariant variant = getSpiderVariant();
         if (variant == SpiderVariant.UNASSIGNED && this.level() instanceof ServerLevel serverLevel) {
@@ -181,7 +181,11 @@ public class UncannySpiderEntity extends Spider implements UncannyEntityMarker {
 
     @Override
     protected void playStepSound(BlockPos pos, BlockState blockState) {
-        UncannyEntityUtil.suppressStepSound(this, pos, blockState);
+        if (this.isSilent()) {
+            UncannyEntityUtil.suppressStepSound(this, pos, blockState);
+            return;
+        }
+        super.playStepSound(pos, blockState);
     }
 
     @Override
@@ -273,7 +277,7 @@ public class UncannySpiderEntity extends Spider implements UncannyEntityMarker {
     }
 
     private void tickGhostWeaver(ServerLevel level, long now) {
-        this.setSilent(true);
+        this.setSilent(false);
         this.setInvisible(false);
 
         Player target = resolveNearbyPlayer(level, 24.0D);
@@ -351,7 +355,7 @@ public class UncannySpiderEntity extends Spider implements UncannyEntityMarker {
             this.fakeDeathActive = false;
             this.setSilent(false);
             this.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SPEED, 20 * 10, 1, false, false, true));
-            level.playSound(null, this.getX(), this.getY(), this.getZ(), SoundEvents.SPIDER_AMBIENT, this.getSoundSource(), 2.5F, 0.55F);
+            level.playSound(null, this.getX(), this.getY(), this.getZ(), SoundEvents.SPIDER_AMBIENT, this.getSoundSource(), 1.05F, 0.55F);
             if (nearest != null) {
                 this.setTarget(nearest);
             }

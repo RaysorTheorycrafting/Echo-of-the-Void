@@ -1,8 +1,8 @@
 package com.eotv.echoofthevoid.entity.custom;
 
+import com.eotv.echoofthevoid.block.UncannyBlockRegistry;
 import com.eotv.echoofthevoid.entity.UncannyEntityMarker;
 import com.eotv.echoofthevoid.entity.UncannyEntityUtil;
-import com.eotv.echoofthevoid.item.UncannyItemRegistry;
 import net.minecraft.core.BlockPos;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.server.level.ServerLevel;
@@ -10,17 +10,20 @@ import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.ai.attributes.Attributes;
-import net.minecraft.world.entity.item.ItemEntity;
+import net.minecraft.world.entity.animal.Cat;
+import net.minecraft.world.entity.animal.IronGolem;
+import net.minecraft.world.entity.animal.Wolf;
 import net.minecraft.world.entity.monster.Monster;
 import net.minecraft.world.entity.player.Player;
-import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
 
 public class UncannyShadowEntity extends Monster implements UncannyEntityMarker {
     private static final int LIGHT_SCAN_RADIUS = 14;
+    private static final double FEAR_RADIUS = 7.0D;
 
     private BlockPos targetLightPos;
     private int fleeTicks;
@@ -44,13 +47,8 @@ public class UncannyShadowEntity extends Monster implements UncannyEntityMarker 
             return;
         }
 
-        ServerPlayer nearestPlayer = null;
-        Player nearest = this.level().getNearestPlayer(this, 28.0D);
-        if (nearest instanceof ServerPlayer serverPlayer && serverPlayer.isAlive()) {
-            nearestPlayer = serverPlayer;
-        }
-
-        if (this.fleeTicks <= 0 && nearestPlayer != null && (this.distanceToSqr(nearestPlayer) <= 16.0D || isPlayerLookingAtShadow(nearestPlayer))) {
+        LivingEntity nearestThreat = findNearestFearSource((ServerLevel) this.level());
+        if (!this.sinking && this.fleeTicks <= 0 && nearestThreat != null) {
             startFlee();
         }
 
@@ -65,9 +63,9 @@ public class UncannyShadowEntity extends Monster implements UncannyEntityMarker 
                 return;
             }
             this.fleeTicks--;
-            if (nearestPlayer != null) {
-                fleeFrom(nearestPlayer);
-                if (isOutOfView(nearestPlayer)) {
+            if (nearestThreat != null) {
+                fleeFrom(nearestThreat);
+                if (nearestThreat instanceof ServerPlayer player && isOutOfView(player)) {
                     this.unseenTicks++;
                 } else {
                     this.unseenTicks = 0;
@@ -78,7 +76,7 @@ public class UncannyShadowEntity extends Monster implements UncannyEntityMarker 
             }
 
             if (this.fleeTicks <= 0 || this.unseenTicks >= 26) {
-                this.discard();
+                startSinking();
             }
             return;
         }
@@ -88,13 +86,6 @@ public class UncannyShadowEntity extends Monster implements UncannyEntityMarker 
         if (this.tickCount % 6 == 0) {
             destroyNearbyLights(this.blockPosition());
         }
-    }
-
-    @Override
-    protected void dropCustomDeathLoot(ServerLevel level, DamageSource damageSource, boolean recentlyHit) {
-        super.dropCustomDeathLoot(level, damageSource, recentlyHit);
-        ItemEntity reward = new ItemEntity(level, this.getX(), this.getY(), this.getZ(), new ItemStack(UncannyItemRegistry.UNCANNY_REALITY_SHARD.get()));
-        level.addFreshEntity(reward);
     }
 
     @Override
@@ -140,6 +131,10 @@ public class UncannyShadowEntity extends Monster implements UncannyEntityMarker 
         this.scanCooldown = Math.max(0, tag.getInt("ScanCooldown"));
         this.sinking = tag.getBoolean("Sinking");
         this.sinkTicks = Math.max(0, tag.getInt("SinkTicks"));
+        if (this.sinking) {
+            this.setNoGravity(true);
+            this.noPhysics = true;
+        }
         if (tag.contains("TargetLightX") && tag.contains("TargetLightY") && tag.contains("TargetLightZ")) {
             this.targetLightPos = new BlockPos(tag.getInt("TargetLightX"), tag.getInt("TargetLightY"), tag.getInt("TargetLightZ"));
         }
@@ -159,15 +154,18 @@ public class UncannyShadowEntity extends Monster implements UncannyEntityMarker 
             return;
         }
         this.sinking = true;
-        this.sinkTicks = 34 + this.random.nextInt(14);
+        this.sinkTicks = 60 + this.random.nextInt(31);
+        this.fleeTicks = 0;
+        this.targetLightPos = null;
+        this.setNoGravity(true);
+        this.noPhysics = true;
         this.getNavigation().stop();
     }
 
     private void tickSinking() {
         this.setNoGravity(true);
         this.noPhysics = true;
-        this.setDeltaMovement(0.0D, -0.05D, 0.0D);
-        this.setPos(this.getX(), this.getY() - 0.05D, this.getZ());
+        this.setDeltaMovement(0.0D, -0.035D, 0.0D);
         if (--this.sinkTicks <= 0) {
             this.discard();
         }
@@ -207,11 +205,7 @@ public class UncannyShadowEntity extends Monster implements UncannyEntityMarker 
             for (int dz = -LIGHT_SCAN_RADIUS; dz <= LIGHT_SCAN_RADIUS; dz++) {
                 for (int dy = -6; dy <= 6; dy++) {
                     BlockPos candidate = origin.offset(dx, dy, dz);
-                    BlockState state = this.level().getBlockState(candidate);
-                    if (state.isAir() || state.getLightEmission(this.level(), candidate) < 11) {
-                        continue;
-                    }
-                    if (state.getDestroySpeed(this.level(), candidate) < 0.0F) {
+                    if (!isDestroyableLight(candidate)) {
                         continue;
                     }
 
@@ -231,18 +225,7 @@ public class UncannyShadowEntity extends Monster implements UncannyEntityMarker 
         if (pos == null) {
             return false;
         }
-        BlockState state = this.level().getBlockState(pos);
-        return !state.isAir() && state.getLightEmission(this.level(), pos) >= 11 && state.getDestroySpeed(this.level(), pos) >= 0.0F;
-    }
-
-    private boolean isPlayerLookingAtShadow(ServerPlayer player) {
-        if (!player.hasLineOfSight(this) || !this.hasLineOfSight(player)) {
-            return false;
-        }
-
-        Vec3 look = player.getViewVector(1.0F).normalize();
-        Vec3 toShadow = this.position().subtract(player.getEyePosition()).normalize();
-        return look.dot(toShadow) > 0.955D;
+        return isDestroyableLight(pos);
     }
 
     private boolean isOutOfView(ServerPlayer player) {
@@ -254,8 +237,40 @@ public class UncannyShadowEntity extends Monster implements UncannyEntityMarker 
         return look.dot(toShadow) < 0.14D;
     }
 
-    private void fleeFrom(ServerPlayer player) {
-        Vec3 away = this.position().subtract(player.position());
+    private LivingEntity findNearestFearSource(ServerLevel level) {
+        LivingEntity closest = null;
+        double bestDistanceSqr = FEAR_RADIUS * FEAR_RADIUS;
+        for (LivingEntity candidate : level.getEntitiesOfClass(
+                LivingEntity.class,
+                this.getBoundingBox().inflate(FEAR_RADIUS),
+                this::isFearSource)) {
+            double distanceSqr = this.distanceToSqr(candidate);
+            if (distanceSqr <= bestDistanceSqr) {
+                bestDistanceSqr = distanceSqr;
+                closest = candidate;
+            }
+        }
+        return closest;
+    }
+
+    private boolean isFearSource(LivingEntity entity) {
+        if (!entity.isAlive() || entity == this) {
+            return false;
+        }
+        if (entity instanceof Player player) {
+            return !player.isSpectator();
+        }
+        if (entity instanceof Wolf wolf) {
+            return wolf.isTame();
+        }
+        if (entity instanceof Cat cat) {
+            return cat.isTame();
+        }
+        return entity instanceof IronGolem ironGolem && ironGolem.isPlayerCreated();
+    }
+
+    private void fleeFrom(LivingEntity threat) {
+        Vec3 away = this.position().subtract(threat.position());
         if (away.lengthSqr() < 0.001D) {
             away = new Vec3(1.0D, 0.0D, 0.0D);
         } else {
@@ -281,17 +296,22 @@ public class UncannyShadowEntity extends Monster implements UncannyEntityMarker 
             for (int dz = -1; dz <= 1; dz++) {
                 for (int dy = -1; dy <= 1; dy++) {
                     BlockPos pos = center.offset(dx, dy, dz);
-                    BlockState state = this.level().getBlockState(pos);
-                    if (state.isAir() || state.getLightEmission(this.level(), pos) < 11) {
-                        continue;
-                    }
-                    if (state.getDestroySpeed(this.level(), pos) < 0.0F) {
+                    if (!isDestroyableLight(pos)) {
                         continue;
                     }
                     this.level().destroyBlock(pos, true, this);
                 }
             }
         }
+    }
+
+    private boolean isDestroyableLight(BlockPos pos) {
+        BlockState state = this.level().getBlockState(pos);
+        return !state.isAir()
+                && !state.is(UncannyBlockRegistry.UNCANNY_ALTAR.get())
+                && !state.is(UncannyBlockRegistry.UNCANNY_ALTAR_PART.get())
+                && state.getLightEmission(this.level(), pos) >= 11
+                && state.getDestroySpeed(this.level(), pos) >= 0.0F;
     }
 }
 

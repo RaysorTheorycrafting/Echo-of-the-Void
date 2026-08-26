@@ -18,8 +18,6 @@ import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.MobSpawnType;
 import net.minecraft.world.entity.SpawnGroupData;
 import net.minecraft.world.entity.animal.IronGolem;
-import net.minecraft.world.entity.monster.Vex;
-import net.minecraft.world.entity.monster.Zoglin;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.neoforged.neoforge.event.entity.EntityJoinLevelEvent;
@@ -79,13 +77,6 @@ public final class UncannySpawnController {
     }
 
     public static void onEntityJoinLevel(EntityJoinLevelEvent event) {
-        if (event.getEntity() instanceof Vex vex) {
-            vex.setSilent(true);
-        }
-        if (event.getEntity() instanceof Zoglin zoglin) {
-            zoglin.setSilent(true);
-        }
-
         if (!(event.getEntity() instanceof Mob originalMob)) {
             return;
         }

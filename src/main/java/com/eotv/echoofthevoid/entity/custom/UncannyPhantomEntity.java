@@ -40,7 +40,7 @@ public class UncannyPhantomEntity extends Phantom implements UncannyEntityMarker
     @Override
     public void aiStep() {
         super.aiStep();
-        UncannyEntityUtil.forceSilent(this);
+        this.setSilent(false);
         this.setNoGravity(false);
 
         if (level().isClientSide()) {
@@ -159,7 +159,7 @@ public class UncannyPhantomEntity extends Phantom implements UncannyEntityMarker
 
     @Override
     protected void playStepSound(BlockPos pos, BlockState blockState) {
-        UncannyEntityUtil.suppressStepSound(this, pos, blockState);
+        super.playStepSound(pos, blockState);
     }
 
     @Override

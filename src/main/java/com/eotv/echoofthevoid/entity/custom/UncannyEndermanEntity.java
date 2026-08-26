@@ -364,7 +364,7 @@ public class UncannyEndermanEntity extends EnderMan implements UncannyEntityMark
         this.setNoGravity(false);
         teleportInFrontOf(targetPlayer);
         targetPlayer.closeContainer();
-        serverLevel.playSound(null, targetPlayer.blockPosition(), SoundEvents.GLASS_BREAK, this.getSoundSource(), 3.4F, 0.65F);
+        serverLevel.playSound(null, targetPlayer.blockPosition(), SoundEvents.GLASS_BREAK, this.getSoundSource(), 1.15F, 0.65F);
         this.setTarget(targetPlayer);
     }
 
@@ -381,7 +381,7 @@ public class UncannyEndermanEntity extends EnderMan implements UncannyEntityMark
         }
         direction = direction.normalize();
         Vec3 soundPos = to.subtract(direction.scale(15.0D));
-        level.playSound(null, soundPos.x, soundPos.y, soundPos.z, SoundEvents.ENDERMAN_TELEPORT, this.getSoundSource(), 2.1F, 0.86F);
+        level.playSound(null, soundPos.x, soundPos.y, soundPos.z, SoundEvents.ENDERMAN_TELEPORT, this.getSoundSource(), 1.0F, 0.86F);
     }
 
     private boolean teleportToward(Player player) {
@@ -426,7 +426,7 @@ public class UncannyEndermanEntity extends EnderMan implements UncannyEntityMark
         this.teleportTo(px, py, pz);
 
         if (this.level() instanceof ServerLevel serverLevel) {
-            serverLevel.playSound(null, player.blockPosition(), SoundEvents.GLASS_BREAK, this.getSoundSource(), 3.1F, 0.75F);
+            serverLevel.playSound(null, player.blockPosition(), SoundEvents.GLASS_BREAK, this.getSoundSource(), 1.15F, 0.75F);
         }
         player.addEffect(new MobEffectInstance(MobEffects.CONFUSION, 20, 0, false, false, true));
     }

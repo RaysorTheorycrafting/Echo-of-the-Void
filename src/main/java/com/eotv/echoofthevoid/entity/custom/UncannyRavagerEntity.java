@@ -21,7 +21,7 @@ public class UncannyRavagerEntity extends Ravager implements UncannyEntityMarker
     @Override
     public void aiStep() {
         super.aiStep();
-        UncannyEntityUtil.forceSilent(this);
+        this.setSilent(false);
 
         if (!this.level().isClientSide() && this.tickCount >= this.nextJitterTick && this.jitterTicks <= 0) {
             this.jitterTicks = 24 + this.random.nextInt(27);

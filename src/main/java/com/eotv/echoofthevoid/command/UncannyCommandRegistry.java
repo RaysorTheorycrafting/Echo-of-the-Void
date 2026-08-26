@@ -12,6 +12,7 @@ import com.eotv.echoofthevoid.event.UncannyParanoiaEventSystem;
 import com.eotv.echoofthevoid.event.UncannyStructureFeatureSystem;
 import com.eotv.echoofthevoid.event.UncannyWatcherSystem;
 import com.eotv.echoofthevoid.event.UncannyWeatherSystem;
+import com.eotv.echoofthevoid.event.special.ApprovedSpecialSystem;
 import com.eotv.echoofthevoid.item.UncannyItemRegistry;
 import com.eotv.echoofthevoid.lore.UncannyLoreBookLibrary;
 import com.eotv.echoofthevoid.phase.UncannyPhaseManager;
@@ -101,7 +102,6 @@ public final class UncannyCommandRegistry {
     private static final List<String> EVENT_VARIANT_EVENTS = List.of(
             "footsteps",
             "asphyxia",
-            "armor_break",
             "aquatic_steps",
             "door_inversion",
             "phantom_harvest",
@@ -111,7 +111,6 @@ public final class UncannyCommandRegistry {
     private static final Map<String, List<String>> EVENT_VARIANTS = Map.ofEntries(
             Map.entry("footsteps", List.of("basic", "echo", "sprint", "heavy", "ladder_steps")),
             Map.entry("asphyxia", List.of("false_alert", "terrain_drowning", "heavy_lungs")),
-            Map.entry("armor_break", List.of("ghost_sound", "drop_gear", "cracked_defense")),
             Map.entry("aquatic_steps", List.of("follower", "slippery_ambush", "invisible_bite")),
             Map.entry("door_inversion", List.of("poltergeist", "lockdown", "intrusion", "door_trap_cascade")),
             Map.entry("phantom_harvest", List.of("black_harvest", "rotten_soil", "infestation")),
@@ -304,10 +303,6 @@ public final class UncannyCommandRegistry {
                                 .executes(context -> triggerFalseInjury(context, getCallerPlayer(context)))
                                 .then(Commands.argument("target", EntityArgument.player())
                                         .executes(context -> triggerFalseInjury(context, EntityArgument.getPlayer(context, "target")))))
-                        .then(Commands.literal("forceDrop")
-                                .executes(context -> triggerForceDrop(context, getCallerPlayer(context)))
-                                .then(Commands.argument("target", EntityArgument.player())
-                                        .executes(context -> triggerForceDrop(context, EntityArgument.getPlayer(context, "target")))))
                         .then(Commands.literal("corruptMessage")
                                 .executes(context -> triggerCorruptMessage(context, getCallerPlayer(context)))
                                 .then(Commands.argument("target", EntityArgument.player())
@@ -320,10 +315,6 @@ public final class UncannyCommandRegistry {
                                 .executes(context -> triggerAsphyxia(context, getCallerPlayer(context)))
                                 .then(Commands.argument("target", EntityArgument.player())
                                         .executes(context -> triggerAsphyxia(context, EntityArgument.getPlayer(context, "target")))))
-                        .then(Commands.literal("armorBreak")
-                                .executes(context -> triggerArmorBreak(context, getCallerPlayer(context)))
-                                .then(Commands.argument("target", EntityArgument.player())
-                                        .executes(context -> triggerArmorBreak(context, EntityArgument.getPlayer(context, "target")))))
                         .then(Commands.literal("aquaticSteps")
                                 .executes(context -> triggerAquaticSteps(context, getCallerPlayer(context)))
                                 .then(Commands.argument("target", EntityArgument.player())
@@ -344,14 +335,38 @@ public final class UncannyCommandRegistry {
                                 .executes(context -> triggerProjectedShadow(context, getCallerPlayer(context)))
                                 .then(Commands.argument("target", EntityArgument.player())
                                         .executes(context -> triggerProjectedShadow(context, EntityArgument.getPlayer(context, "target")))))
-                        .then(Commands.literal("giantSun")
-                                .executes(context -> triggerGiantSun(context, getCallerPlayer(context)))
-                                .then(Commands.argument("target", EntityArgument.player())
-                                        .executes(context -> triggerGiantSun(context, EntityArgument.getPlayer(context, "target")))))
                         .then(Commands.literal("hunterFog")
                                 .executes(context -> triggerHunterFog(context, getCallerPlayer(context)))
                                 .then(Commands.argument("target", EntityArgument.player())
                                         .executes(context -> triggerHunterFog(context, EntityArgument.getPlayer(context, "target")))))
+                        .then(nativeEventCommand("orphanShadow", "orphan_shadow"))
+                        .then(nativeEventCommand("ghostBreaking", "ghost_breaking"))
+                        .then(nativeEventCommand("coldFurnace", "cold_furnace"))
+                        .then(nativeEventCommand("emptyTeleport", "empty_teleport"))
+                        .then(nativeEventCommand("falseAnimalHurt", "false_animal_hurt"))
+                        .then(nativeEventCommand("stolenPose", "stolen_pose"))
+                        .then(nativeEventCommand("fishingTug", "fishing_tug"))
+                        .then(nativeEventCommand("leafReply", "leaf_reply"))
+                        .then(nativeEventCommand("silentBell", "silent_bell"))
+                        .then(nativeEventCommand("emptyCongregation", "empty_congregation"))
+                        .then(nativeEventCommand("emptyLead", "empty_lead"))
+                        .then(nativeEventCommand("borrowedPainting", "borrowed_painting"))
+                        .then(nativeEventCommand("returnedDrop", "returned_drop"))
+                        .then(nativeEventCommand("ghostCart", "ghost_cart"))
+                        .then(nativeEventCommand("misdirectedEnchantment", "misdirected_enchantment"))
+                        .then(nativeEventCommand("orphanSignal", "orphan_signal"))
+                        .then(nativeEventCommand("cauldronEcho", "cauldron_echo"))
+                        .then(nativeEventCommand("mapIntruder", "map_intruder"))
+                        .then(nativeEventCommand("emptyWake", "empty_wake"))
+                        .then(nativeEventCommand("countercurrentColumn", "countercurrent_column"))
+                        .then(nativeEventCommand("falseSculkVibration", "false_sculk_vibration"))
+                        .then(nativeEventCommand("watchingArrow", "watching_arrow"))
+                        .then(nativeEventCommand("suspendedFall", "suspended_fall"))
+                        .then(nativeEventCommand("beaconFragment", "beacon_fragment"))
+                        .then(nativeEventCommand("strayExperience", "stray_experience"))
+                        .then(nativeEventCommand("extraInTheHerd", "extra_in_the_herd"))
+                        .then(nativeEventCommand("lavaWake", "lava_wake"))
+                        .then(nativeEventCommand("falseLid", "false_lid"))
                         .then(Commands.literal("grandEvent")
                                 .executes(context -> triggerGrandEvent(context, getCallerPlayer(context)))
                                 .then(Commands.argument("target", EntityArgument.player())
@@ -558,7 +573,7 @@ public final class UncannyCommandRegistry {
         if (!started) {
             context.getSource().sendFailure(Component.literal(
                     "Unknown or unavailable weather type: " + type
-                            + " (valid: rain_silent, rain_dry_storm, rain_ash, rain_sobbing, thunder_silent, thunder_artificial, thunder_target_strike, thunder_stroboscopic, fog_breathing, fog_black, fog_static_wall, sky_fake_morning, sky_empty, sky_pressure)"));
+                            + " (valid: rain_silent, rain_dry_storm, rain_ash, rain_sobbing, rain_front, suspended_rain, dry_eye, clear_downpour, wrong_snowline, light_avoiding_rain, converging_rain, leaking_sky, thunder_silent, thunder_artificial, thunder_target_strike, thunder_stroboscopic, fog_breathing, fog_black, fog_static_wall, sky_fake_morning, sky_empty, sky_pressure)"));
             return 0;
         }
         context.getSource().sendSuccess(() -> Component.literal("Triggered weather event: " + type), true);
@@ -603,6 +618,30 @@ public final class UncannyCommandRegistry {
         if (entityType == UncannyEntityRegistry.UNCANNY_PULSE.get()) {
             boolean spawned = UncannyParanoiaEventSystem.spawnPulseForCommand(target);
             return completeSpecialSpawn(context, spawned, "Presence?", target);
+        }
+        if (entityType == UncannyEntityRegistry.UNCANNY_USHER.get()) {
+            boolean spawned = UncannyParanoiaEventSystem.spawnUsherForCommand(target);
+            return completeSpecialSpawn(context, spawned, "Usher?", target);
+        }
+        if (entityType == UncannyEntityRegistry.UNCANNY_KEEPER.get()) {
+            boolean spawned = UncannyParanoiaEventSystem.spawnKeeperForCommand(target);
+            return completeSpecialSpawn(context, spawned, "Keeper?", target);
+        }
+        if (entityType == UncannyEntityRegistry.UNCANNY_TENANT.get()) {
+            boolean spawned = UncannyParanoiaEventSystem.spawnTenantForCommand(target);
+            return completeSpecialSpawn(context, spawned, "Tenant?", target);
+        }
+        if (entityType == UncannyEntityRegistry.UNCANNY_FOLLOWER.get()) {
+            boolean spawned = UncannyParanoiaEventSystem.spawnFollowerForCommand(target);
+            return completeSpecialSpawn(context, spawned, "Follower?", target);
+        }
+
+        String approvedSpecialId = normalizedType.startsWith("uncanny_")
+                ? normalizedType.substring("uncanny_".length())
+                : normalizedType;
+        if (UncannyEntityRegistry.approvedSpecialById(approvedSpecialId) == entityType) {
+            boolean spawned = ApprovedSpecialSystem.spawnForDebug(target, approvedSpecialId);
+            return completeSpecialSpawn(context, spawned, entityType.getDescription().getString(), target);
         }
 
         Mob entity = entityType.create(target.serverLevel());
@@ -872,7 +911,7 @@ public final class UncannyCommandRegistry {
     }
 
     private static int triggerGhostMiner(CommandContext<CommandSourceStack> context, ServerPlayer target) {
-        boolean triggered = UncannyParanoiaEventSystem.triggerGhostMiner(target);
+        boolean triggered = UncannyParanoiaEventSystem.triggerGhostMinerForDebug(target);
         if (!triggered) {
             context.getSource().sendFailure(Component.literal("Failed to trigger Ghost Miner for " + target.getName().getString()));
             return 0;
@@ -898,16 +937,6 @@ public final class UncannyCommandRegistry {
             return 0;
         }
         context.getSource().sendSuccess(() -> Component.literal("Triggered False Injury for " + target.getName().getString()), true);
-        return 1;
-    }
-
-    private static int triggerForceDrop(CommandContext<CommandSourceStack> context, ServerPlayer target) {
-        boolean triggered = UncannyParanoiaEventSystem.triggerForcedDrop(target);
-        if (!triggered) {
-            context.getSource().sendFailure(Component.literal("Failed to trigger Forced Drop for " + target.getName().getString()));
-            return 0;
-        }
-        context.getSource().sendSuccess(() -> Component.literal("Triggered Forced Drop for " + target.getName().getString()), true);
         return 1;
     }
 
@@ -941,16 +970,6 @@ public final class UncannyCommandRegistry {
             return 0;
         }
         context.getSource().sendSuccess(() -> Component.literal("Triggered Asphyxia for " + target.getName().getString()), true);
-        return 1;
-    }
-
-    private static int triggerArmorBreak(CommandContext<CommandSourceStack> context, ServerPlayer target) {
-        boolean triggered = UncannyParanoiaEventSystem.triggerArmorBreak(target);
-        if (!triggered) {
-            context.getSource().sendFailure(Component.literal("Failed to trigger Armor Break for " + target.getName().getString()));
-            return 0;
-        }
-        context.getSource().sendSuccess(() -> Component.literal("Triggered Armor Break for " + target.getName().getString()), true);
         return 1;
     }
 
@@ -1004,16 +1023,6 @@ public final class UncannyCommandRegistry {
         return 1;
     }
 
-    private static int triggerGiantSun(CommandContext<CommandSourceStack> context, ServerPlayer target) {
-        boolean triggered = UncannyParanoiaEventSystem.triggerGiantSun(target);
-        if (!triggered) {
-            context.getSource().sendFailure(Component.literal("Failed to trigger Giant Sun for " + target.getName().getString()));
-            return 0;
-        }
-        context.getSource().sendSuccess(() -> Component.literal("Triggered Giant Sun for " + target.getName().getString()), true);
-        return 1;
-    }
-
     private static int triggerHunterFog(CommandContext<CommandSourceStack> context, ServerPlayer target) {
         boolean triggered = UncannyParanoiaEventSystem.triggerHunterFog(target);
         if (!triggered) {
@@ -1021,6 +1030,34 @@ public final class UncannyCommandRegistry {
             return 0;
         }
         context.getSource().sendSuccess(() -> Component.literal("Triggered Hunter Fog for " + target.getName().getString()), true);
+        return 1;
+    }
+
+    private static com.mojang.brigadier.builder.LiteralArgumentBuilder<CommandSourceStack> nativeEventCommand(
+            String literal,
+            String eventId) {
+        return Commands.literal(literal)
+                .executes(context -> triggerNativeAnomaly(context, getCallerPlayer(context), eventId))
+                .then(Commands.argument("target", EntityArgument.player())
+                        .executes(context -> triggerNativeAnomaly(
+                                context,
+                                EntityArgument.getPlayer(context, "target"),
+                                eventId)));
+    }
+
+    private static int triggerNativeAnomaly(
+            CommandContext<CommandSourceStack> context,
+            ServerPlayer target,
+            String eventId) {
+        boolean triggered = UncannyParanoiaEventSystem.triggerMinecraftNativeAnomalyForDebug(target, eventId);
+        if (!triggered) {
+            context.getSource().sendFailure(Component.literal(
+                    "Failed to trigger " + eventId + " for " + target.getName().getString()
+                            + " (phase or context unavailable)."));
+            return 0;
+        }
+        context.getSource().sendSuccess(() -> Component.literal(
+                "Triggered " + eventId + " for " + target.getName().getString()), false);
         return 1;
     }
 

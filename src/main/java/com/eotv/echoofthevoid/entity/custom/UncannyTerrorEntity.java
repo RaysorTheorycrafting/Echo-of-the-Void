@@ -2,6 +2,7 @@ package com.eotv.echoofthevoid.entity.custom;
 
 import com.eotv.echoofthevoid.entity.UncannyEntityMarker;
 import com.eotv.echoofthevoid.entity.UncannyEntityUtil;
+import com.eotv.echoofthevoid.sound.UncannySoundDelivery;
 import com.eotv.echoofthevoid.sound.UncannySoundRegistry;
 import java.util.Optional;
 import java.util.UUID;
@@ -35,14 +36,12 @@ public class UncannyTerrorEntity extends Monster implements UncannyEntityMarker 
     private static final EntityDataAccessor<Optional<UUID>> TARGET_PLAYER =
             SynchedEntityData.defineId(UncannyTerrorEntity.class, EntityDataSerializers.OPTIONAL_UUID);
     private static final int ENGAGED_DURATION_TICKS = 20 * 5;
-    private static final int PROXIMITY_SOUND_INTERVAL = 8;
     private static final double NORMAL_APPROACH_SPEED = 0.28D;
     private static final double FLOAT_CHASE_SPEED = 0.16D;
     private static final double TOUCH_DISTANCE_SQR = 1.35D * 1.35D;
     private static final double TARGET_ACQUIRE_RANGE = 28.0D;
 
     private int engagedTicks;
-    private int soundCooldownTicks;
     private boolean touchedPlayer;
     private float shakeBaseYaw;
     private float shakeBasePitch;
@@ -81,6 +80,9 @@ public class UncannyTerrorEntity extends Monster implements UncannyEntityMarker 
 
         ServerPlayer target = resolveTargetPlayer(serverLevel);
         if (target == null || !target.isAlive()) {
+            // A personal scene must never jump to another nearby player after a death,
+            // disconnect or dimension change, nor remain orphaned in the world.
+            this.discard();
             return;
         }
 
@@ -107,7 +109,6 @@ public class UncannyTerrorEntity extends Monster implements UncannyEntityMarker 
         immobilizePlayer(target);
 
         double distanceSqr = this.distanceToSqr(target);
-        playProximitySound(target, distanceSqr);
 
         if (!this.touchedPlayer) {
             Vec3 destination = new Vec3(target.getX(), target.getY(), target.getZ());
@@ -194,7 +195,6 @@ public class UncannyTerrorEntity extends Monster implements UncannyEntityMarker 
         super.addAdditionalSaveData(tag);
         this.entityData.get(TARGET_PLAYER).ifPresent(uuid -> tag.putUUID("TargetPlayer", uuid));
         tag.putInt("EngagedTicks", this.engagedTicks);
-        tag.putInt("SoundCooldownTicks", this.soundCooldownTicks);
         tag.putBoolean("TouchedPlayer", this.touchedPlayer);
         tag.putFloat("ShakeBaseYaw", this.shakeBaseYaw);
         tag.putFloat("ShakeBasePitch", this.shakeBasePitch);
@@ -210,7 +210,6 @@ public class UncannyTerrorEntity extends Monster implements UncannyEntityMarker 
             this.entityData.set(TARGET_PLAYER, Optional.of(tag.getUUID("TargetPlayer")));
         }
         this.engagedTicks = Math.max(0, tag.getInt("EngagedTicks"));
-        this.soundCooldownTicks = Math.max(0, tag.getInt("SoundCooldownTicks"));
         this.touchedPlayer = tag.getBoolean("TouchedPlayer");
         this.shakeBaseYaw = tag.getFloat("ShakeBaseYaw");
         this.shakeBasePitch = tag.getFloat("ShakeBasePitch");
@@ -226,30 +225,14 @@ public class UncannyTerrorEntity extends Monster implements UncannyEntityMarker 
         this.entityData.set(TARGET_PLAYER, Optional.of(player.getUUID()));
         this.engagedTicks = ENGAGED_DURATION_TICKS;
         this.touchedPlayer = false;
-        this.soundCooldownTicks = 0;
         this.shakeBaseYaw = this.getYRot();
         this.shakeBasePitch = this.getXRot();
         this.lockedPlayerX = player.getX();
         this.lockedPlayerY = player.getY();
         this.lockedPlayerZ = player.getZ();
-        this.level().playSound(null, player, UncannySoundRegistry.UNCANNY_TINNITUS.get(), SoundSource.HOSTILE, 1.95F, 0.48F);
-    }
-
-    private void playProximitySound(ServerPlayer player, double distanceSqr) {
-        if (this.soundCooldownTicks-- > 0) {
-            return;
-        }
-        double distance = Math.sqrt(distanceSqr);
-        float volume = computeProximityVolume(distance);
-        float pitch = (float) Mth.clamp(0.56D + (1.0D - Math.min(distance, 22.0D) / 22.0D) * 0.22D, 0.52D, 0.84D);
-        this.level().playSound(null, player, UncannySoundRegistry.UNCANNY_TINNITUS.get(), SoundSource.HOSTILE, volume, pitch);
-        this.soundCooldownTicks = PROXIMITY_SOUND_INTERVAL;
-    }
-
-    private float computeProximityVolume(double distance) {
-        double clamped = Mth.clamp(distance, 1.0D, 26.0D);
-        double factor = 1.0D - ((clamped - 1.0D) / 25.0D);
-        return (float) (0.28D + factor * 1.68D);
+        UncannySoundDelivery.playMental(
+                player, UncannySoundRegistry.UNCANNY_TERROR_LOCK.get(), SoundSource.HOSTILE,
+                1.10F, 1.0F, ENGAGED_DURATION_TICKS);
     }
 
     private void freezePosition() {
@@ -258,15 +241,21 @@ public class UncannyTerrorEntity extends Monster implements UncannyEntityMarker 
     }
 
     private ServerPlayer resolveTargetPlayer(ServerLevel level) {
-        ServerPlayer bound = this.entityData.get(TARGET_PLAYER)
-                .map(uuid -> level.getServer().getPlayerList().getPlayer(uuid))
-                .orElse(null);
-        if (bound != null && bound.isAlive()) {
-            return bound;
+        Optional<UUID> targetId = this.entityData.get(TARGET_PLAYER);
+        if (targetId.isPresent()) {
+            ServerPlayer bound = level.getServer().getPlayerList().getPlayer(targetId.get());
+            return bound != null
+                            && bound.isAlive()
+                            && !bound.isSpectator()
+                            && bound.serverLevel() == level
+                    ? bound
+                    : null;
         }
 
-        ServerPlayer nearest = level.getNearestPlayer(this, TARGET_ACQUIRE_RANGE) instanceof ServerPlayer serverPlayer ? serverPlayer : null;
-        if (nearest != null && nearest.isAlive()) {
+        ServerPlayer nearest = level.getNearestPlayer(this, TARGET_ACQUIRE_RANGE) instanceof ServerPlayer serverPlayer
+                ? serverPlayer
+                : null;
+        if (nearest != null && nearest.isAlive() && !nearest.isSpectator()) {
             this.entityData.set(TARGET_PLAYER, Optional.of(nearest.getUUID()));
             return nearest;
         }

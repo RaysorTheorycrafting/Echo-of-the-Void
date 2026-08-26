@@ -3,6 +3,7 @@ package com.eotv.echoofthevoid.entity.custom;
 import com.eotv.echoofthevoid.entity.UncannyEntityMarker;
 import com.eotv.echoofthevoid.entity.UncannyEntityUtil;
 import com.eotv.echoofthevoid.event.UncannyParanoiaEventSystem;
+import com.eotv.echoofthevoid.world.UncannyBlockMutationSafety;
 import com.eotv.echoofthevoid.phase.UncannyPhase;
 import com.eotv.echoofthevoid.state.UncannyWorldState;
 import net.minecraft.core.BlockPos;
@@ -93,7 +94,9 @@ public class UncannyCreeperEntity extends Creeper implements UncannyEntityMarker
             return;
         }
 
-        this.setSilent(variant == CreeperVariant.SILHOUETTE);
+        // Every dangerous Creeper? remains audible. Harmless variants may lie with
+        // their fuse result, but danger must never be hidden by entity-wide silence.
+        this.setSilent(false);
 
         switch (variant) {
             case FALSE_ALERT -> tickFalseAlert(serverLevel);
@@ -310,6 +313,15 @@ public class UncannyCreeperEntity extends Creeper implements UncannyEntityMarker
         this.fuseTicks = 0;
 
         if (variant == CreeperVariant.ABSORBER) {
+            serverLevel.playSound(
+                    null,
+                    this.getX(),
+                    this.getY(),
+                    this.getZ(),
+                    SoundEvents.CREEPER_PRIMED,
+                    this.getSoundSource(),
+                    0.86F,
+                    0.72F);
             return;
         }
 
@@ -381,6 +393,9 @@ public class UncannyCreeperEntity extends Creeper implements UncannyEntityMarker
                     }
 
                     if (state.getLightEmission(serverLevel, pos) <= 0) {
+                        continue;
+                    }
+                    if (UncannyBlockMutationSafety.isProtected(serverLevel, pos, state)) {
                         continue;
                     }
                     if (state.getDestroySpeed(serverLevel, pos) < 0.0F) {

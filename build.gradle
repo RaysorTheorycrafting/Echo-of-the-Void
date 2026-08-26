@@ -22,8 +22,12 @@ repositories {
 }
 
 base {
-    archivesName = mod_id
+    archivesName = 'EchoOfTheVoid'
 }
+
+def releaseBuildProvider = providers.gradleProperty('releaseBuild')
+        .map { value -> value.toBoolean() }
+        .orElse(false)
 
 // Mojang ships Java 21 to end users in 1.21.1, so mods should target Java 21.
 java.toolchain.languageVersion = JavaLanguageVersion.of(21)
@@ -52,6 +56,13 @@ neoForge {
 
         server {
             server()
+            programArgument '--nogui'
+            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+        }
+
+        legacyServer {
+            server()
+            gameDirectory = project.file('run-legacy')
             programArgument '--nogui'
             systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
         }
@@ -112,6 +123,10 @@ configurations {
 }
 
 dependencies {
+    testImplementation platform('org.junit:junit-bom:5.11.4')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+
     // Example optional mod dependency with JEI
     // The JEI API is declared for compile time use, while the full JEI artifact is used at runtime
     // compileOnly "mezz.jei:jei-${mc_version}-common-api:${jei_version}"
@@ -156,6 +171,8 @@ var generateModMetadata = tasks.register("generateModMetadata", ProcessResources
 
 tasks.withType(ProcessResources).configureEach {
     includeEmptyDirs = false
+    // Retired filename: its client classes used to sit in the common Mixin list and broke DistCleaner.
+    exclude 'echoofthevoid.client.mixins.json'
 }
 // Include the output of "generateModMetadata" as an input directory for the build
 // this works with both building through Gradle and the IDE.
@@ -179,6 +196,77 @@ publishing {
 
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8' // Use the UTF-8 charset for Java compilation
+}
+
+tasks.named('test', Test).configure {
+    useJUnitPlatform()
+}
+
+// Refactor builds must never be confused with the immutable 1.1.1 reference JAR.
+tasks.named('jar', Jar).configure {
+    archiveClassifier = releaseBuildProvider.map { release -> release ? '' : 'work-refactor' }
+    includeEmptyDirs = false
+
+    // Keep the production artifact free of the in-game QA harness while retaining
+    // it in ordinary work builds used by runGameTestServer.
+    exclude { details ->
+        if (!releaseBuildProvider.get()) {
+            return false
+        }
+
+        details.path.startsWith('com/eotv/echoofthevoid/gametest/')
+                || (details.path.startsWith('com/eotv/echoofthevoid/')
+                        && details.path.contains('GameTests')
+                        && details.path.endsWith('.class'))
+                || details.path == 'data/echoofthevoid/structure/special_test_room.nbt'
+    }
+}
+
+tasks.register('releaseChecksum') {
+    group = 'build'
+    description = 'Writes the SHA-256 sidecar for a -PreleaseBuild=true JAR.'
+    dependsOn tasks.named('jar')
+    onlyIf { releaseBuildProvider.get() }
+
+    // This path is deliberately independent from jar.archiveFile. Gradle 9 forbids
+    // resolving a mapped task output while it is still building the task graph.
+    def releaseJar = layout.buildDirectory.file("libs/EchoOfTheVoid-${mod_version}.jar")
+    inputs.file(releaseJar)
+    outputs.file(releaseJar.map { regularFile ->
+        new File(regularFile.asFile.parentFile, regularFile.asFile.name + '.sha256')
+    })
+
+    doLast {
+        File jarFile = releaseJar.get().asFile
+        byte[] digest = java.security.MessageDigest.getInstance('SHA-256').digest(jarFile.bytes)
+        String hash = java.util.HexFormat.of().withUpperCase().formatHex(digest)
+        File sidecar = new File(jarFile.parentFile, jarFile.name + '.sha256')
+        sidecar.setText("${hash}  ${jarFile.name}${System.lineSeparator()}", 'UTF-8')
+    }
+}
+
+tasks.register('simulateParanoia', JavaExec) {
+    group = 'verification'
+    description = 'Runs the deterministic paranoia scheduler foundation.'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'com.eotv.echoofthevoid.event.paranoia.simulation.ParanoiaSimulationCli'
+    if (project.hasProperty('simulationArgs')) {
+        args project.property('simulationArgs').toString().split(' ')
+    }
+}
+
+tasks.register('simulateCampaignRelease', JavaExec) {
+    group = 'verification'
+    description = 'Runs the deterministic 50/100-day campaign release audit.'
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'com.eotv.echoofthevoid.event.paranoia.simulation.CampaignSimulationCli'
+    if (project.hasProperty('simulationArgs')) {
+        args project.property('simulationArgs').toString().split(' ')
+    }
+}
+
+tasks.matching { task -> task.name == 'runServer' || task.name == 'runLegacyServer' }.configureEach {
+    standardInput = System.in
 }
 
 // IDEA no longer automatically downloads sources/javadoc jars for dependencies, so we need to explicitly enable the behavior.

@@ -6,6 +6,7 @@ import com.eotv.echoofthevoid.entity.UncannyEntityMarker;
 import com.eotv.echoofthevoid.entity.UncannyEntityUtil;
 import com.eotv.echoofthevoid.network.UncannyZombieRalePayload;
 import com.eotv.echoofthevoid.phase.UncannyPhase;
+import com.eotv.echoofthevoid.sound.UncannySoundDelivery;
 import com.eotv.echoofthevoid.sound.UncannySoundRegistry;
 import com.eotv.echoofthevoid.state.UncannyWorldState;
 import net.minecraft.core.BlockPos;
@@ -226,16 +227,14 @@ public class UncannyZombieEntity extends Zombie implements UncannyEntityMarker {
     @Override
     public boolean doHurtTarget(Entity entity) {
         boolean result = super.doHurtTarget(entity);
-        if (result && getZombieVariant() == ZombieVariant.RENDER_GLITCH && entity instanceof Player player) {
-            this.level().playSound(
-                    null,
-                    player.getX(),
-                    player.getEyeY(),
-                    player.getZ(),
+        if (result && getZombieVariant() == ZombieVariant.RENDER_GLITCH && entity instanceof ServerPlayer player) {
+            UncannySoundDelivery.playMental(
+                    player,
                     SoundEvents.ELDER_GUARDIAN_CURSE,
                     SoundSource.HOSTILE,
-                    2.2F,
-                    0.58F + this.random.nextFloat() * 0.2F);
+                    0.68F,
+                    0.58F + this.random.nextFloat() * 0.2F,
+                    36);
         }
         return result;
     }
@@ -559,13 +558,13 @@ public class UncannyZombieEntity extends Zombie implements UncannyEntityMarker {
     }
 
     private void playRaleAtReceiverHead(ServerLevel serverLevel, ServerPlayer receiver, float pitch) {
-        PacketDistributor.sendToPlayer(receiver, new UncannyZombieRalePayload(1.85F, pitch));
+        PacketDistributor.sendToPlayer(receiver, new UncannyZombieRalePayload(0.62F, pitch));
         debugRale(serverLevel,
                 "RALE sent zombie={} -> player={} pos={} volume={} pitch={}",
                 this.getUUID(),
                 receiver.getGameProfile().getName(),
                 receiver.blockPosition(),
-                1.85F,
+                0.62F,
                 pitch);
     }
 

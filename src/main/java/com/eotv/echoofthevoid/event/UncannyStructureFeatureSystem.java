@@ -2,6 +2,8 @@ package com.eotv.echoofthevoid.event;
 
 import com.eotv.echoofthevoid.EchoOfTheVoid;
 import com.eotv.echoofthevoid.block.UncannyBlockRegistry;
+import com.eotv.echoofthevoid.campaign.CampaignDirectorRules;
+import com.eotv.echoofthevoid.campaign.UncannyCampaignDirector;
 import com.eotv.echoofthevoid.config.UncannyConfig;
 import com.eotv.echoofthevoid.entity.UncannyEntityRegistry;
 import com.eotv.echoofthevoid.entity.custom.UncannyStructureVillagerEntity;
@@ -73,11 +75,22 @@ public final class UncannyStructureFeatureSystem {
     private static final String SECRET_CHEST_LORE_GRANTED = "eotv_secret_lore_granted";
     private static final String SECRET_CHEST_BEHIND_TRIGGERED = "eotv_secret_behind_triggered";
     private static final int HISTORY_TOME_COUNT = UncannyLoreBookLibrary.volumeCount();
-    private static final double HISTORY_BOOK_CHANCE = 0.65D;
+    private static final double HISTORY_BOOK_CHANCE = 0.50D;
     private static final double HISTORY_BEHIND_YOU_CHANCE_WHEN_COMPLETE = 0.01D;
     private static final double FALSE_SPIRAL_SECRET_HOUSE_CHANCE = 0.65D;
     private static final int WORLDGEN_MIN_FEATURE_DISTANCE = 18;
     private static final int WORLDGEN_MIN_SAME_FEATURE_DISTANCE = 52;
+    private static final List<String> WRONG_VILLAGE_HOUSE_VARIANTS = List.of(
+            "too_narrow",
+            "too_tall",
+            "too_wide",
+            "long",
+            "flat",
+            "offset",
+            "bent",
+            "split",
+            "gigantic",
+            "tiny");
     private static final Map<UUID, Long> LAST_SECRET_CHEST_ROLL_TICK = new HashMap<>();
     private static final ThreadLocal<Boolean> WORLDGEN_PASS = ThreadLocal.withInitial(() -> false);
     private static final ThreadLocal<String> FORCED_STRUCTURE_VARIANT = new ThreadLocal<>();
@@ -107,6 +120,25 @@ public final class UncannyStructureFeatureSystem {
                 "wrong_road_segment",
                 "false_entrance",
                 "storage_shed");
+    }
+
+    public static List<String> wrongVillageHouseVariantIds() {
+        return WRONG_VILLAGE_HOUSE_VARIANTS;
+    }
+
+    /** Direct generation seam used by headless release tests; production worldgen uses the same method. */
+    public static boolean generateWrongVillageHouseVariantForGameTest(
+            ServerLevel level, BlockPos origin, String variantId) {
+        if (level == null || origin == null || variantId == null
+                || !WRONG_VILLAGE_HOUSE_VARIANTS.contains(variantId)) {
+            return false;
+        }
+        FORCED_STRUCTURE_VARIANT.set(variantId);
+        try {
+            return generateWrongVillageHouse(level, origin);
+        } finally {
+            FORCED_STRUCTURE_VARIANT.remove();
+        }
     }
 
     public static boolean forceGenerateSecretHouseForDebug(ServerPlayer anchor) {
@@ -347,7 +379,7 @@ public final class UncannyStructureFeatureSystem {
         }
 
         double roll = level.random.nextDouble();
-        if (roll > HISTORY_BOOK_CHANCE) {
+        if (roll >= HISTORY_BOOK_CHANCE) {
             debugLog(
                     "FEATURE secret_house chest miss player={} roll={} chance={}",
                     player.getGameProfile().getName(),
@@ -357,12 +389,16 @@ public final class UncannyStructureFeatureSystem {
         }
 
         UncannyWorldState state = UncannyWorldState.get(player.getServer());
-        int nextTome = state.findFirstMissingHistoryTome(player.getUUID(), HISTORY_TOME_COUNT);
+        double logicalStoryDay = CampaignDirectorRules.logicalStoryDay(
+                state.getCampaignElapsedTicks(), UncannyCampaignDirector.campaignLengthDays());
+        int nextTome = state.findWeightedMissingHistoryTome(
+                player.getUUID(), HISTORY_TOME_COUNT, logicalStoryDay, level.random.nextDouble());
         debugLog(
-                "FEATURE secret_house chest roll-hit player={} pos={} roll={} nextTome={}",
+                "FEATURE secret_house chest roll-hit player={} pos={} roll={} storyDay={} nextTome={}",
                 player.getGameProfile().getName(),
                 pos,
                 String.format(java.util.Locale.ROOT, "%.4f", roll),
+                String.format(java.util.Locale.ROOT, "%.2f", logicalStoryDay),
                 nextTome);
         if (nextTome > 0) {
             ItemStack historyPiece = createHistoryPiece(nextTome);
@@ -2570,9 +2606,7 @@ public final class UncannyStructureFeatureSystem {
         if (!hasLoadedArea(level, origin, 18)) {
             return false;
         }
-        String[] variants = {
-                "too_narrow", "too_tall", "too_wide", "long", "flat", "offset", "bent", "split", "gigantic", "tiny"
-        };
+        String[] variants = WRONG_VILLAGE_HOUSE_VARIANTS.toArray(String[]::new);
         int variant = pickVariantIndex(level, "wrong_village_house", variants);
         Direction entrance = randomHorizontal(level);
         BlockPos corner;

@@ -18,11 +18,12 @@ import net.minecraft.world.damagesource.DamageSource;
 import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.ai.goal.FloatGoal;
 import net.minecraft.world.entity.ai.goal.RandomLookAroundGoal;
-import net.minecraft.world.entity.ai.goal.WaterAvoidingRandomStrollGoal;
 import net.minecraft.world.entity.monster.Monster;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.DoorBlock;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.phys.Vec3;
 
 public class UncannyTenantEntity extends Monster implements UncannyEntityMarker {
@@ -30,6 +31,8 @@ public class UncannyTenantEntity extends Monster implements UncannyEntityMarker 
             SynchedEntityData.defineId(UncannyTenantEntity.class, EntityDataSerializers.OPTIONAL_UUID);
 
     private BlockPos homeDoor;
+    private BlockPos homeInterior;
+    private boolean homeDoorInitiallyOpen = true;
     private boolean reachedHome;
     private int lingerTicks;
     private boolean noticedInside;
@@ -49,13 +52,24 @@ public class UncannyTenantEntity extends Monster implements UncannyEntityMarker 
     @Override
     protected void registerGoals() {
         this.goalSelector.addGoal(0, new FloatGoal(this));
-        this.goalSelector.addGoal(1, new WaterAvoidingRandomStrollGoal(this, 0.75D));
         this.goalSelector.addGoal(2, new RandomLookAroundGoal(this));
     }
 
     public void setupTenant(ServerPlayer owner, BlockPos doorPos) {
+        setupTenant(owner, doorPos, null);
+    }
+
+    public void setupTenant(ServerPlayer owner, BlockPos doorPos, BlockPos interiorPos) {
         this.entityData.set(OWNER_PLAYER, Optional.of(owner.getUUID()));
         this.homeDoor = doorPos == null ? null : doorPos.immutable();
+        this.homeInterior = interiorPos == null ? null : interiorPos.immutable();
+        this.homeDoorInitiallyOpen = true;
+        if (this.homeDoor != null) {
+            BlockState doorState = this.level().getBlockState(this.homeDoor);
+            if (doorState.getBlock() instanceof DoorBlock && doorState.hasProperty(BlockStateProperties.OPEN)) {
+                this.homeDoorInitiallyOpen = doorState.getValue(BlockStateProperties.OPEN);
+            }
+        }
         this.reachedHome = false;
         this.lingerTicks = 0;
         this.noticedInside = false;
@@ -66,27 +80,35 @@ public class UncannyTenantEntity extends Monster implements UncannyEntityMarker 
     public void aiStep() {
         super.aiStep();
         UncannyEntityUtil.forceSilent(this);
-        UncannyEntityUtil.enableDoorNavigation(this);
+        if (!this.reachedHome) {
+            UncannyEntityUtil.enableDoorNavigation(this);
+        }
         if (this.level().isClientSide() || !(this.level() instanceof ServerLevel level)) {
             return;
         }
 
         ServerPlayer owner = resolveOwner(level);
         if (owner == null || !owner.isAlive()) {
-            this.discard();
+            discardAndRestoreDoor();
             return;
         }
 
-        if (this.homeDoor != null && !this.reachedHome) {
-            this.getNavigation().moveTo(this.homeDoor.getX() + 0.5D, this.homeDoor.getY(), this.homeDoor.getZ() + 0.5D, 1.55D);
-            if (this.blockPosition().distSqr(this.homeDoor) <= 4) {
+        if (this.homeInterior != null && !this.reachedHome) {
+            this.getNavigation().moveTo(
+                    this.homeInterior.getX() + 0.5D,
+                    this.homeInterior.getY(),
+                    this.homeInterior.getZ() + 0.5D,
+                    1.55D);
+            if (this.position().distanceToSqr(Vec3.atBottomCenterOf(this.homeInterior)) <= 0.85D * 0.85D) {
                 this.reachedHome = true;
                 this.getNavigation().stop();
                 this.lingerTicks = 0;
+                restoreDoorState();
             }
             return;
         }
 
+        this.getNavigation().stop();
         this.lingerTicks++;
         if (this.lingerTicks % 20 == 0) {
             this.lookAt(owner, 40.0F, 40.0F);
@@ -101,14 +123,18 @@ public class UncannyTenantEntity extends Monster implements UncannyEntityMarker 
 
         if (this.noticedInside && now >= this.vanishAfterNoticeTick) {
             level.playSound(null, this.blockPosition(), SoundEvents.AMBIENT_CAVE.value(), SoundSource.HOSTILE, 1.0F, 0.82F);
-            this.discard();
+            discardAndRestoreDoor();
             return;
         }
 
         if (this.lingerTicks > 20 * 80) {
             level.playSound(null, this.blockPosition(), SoundEvents.AMBIENT_CAVE.value(), SoundSource.HOSTILE, 1.0F, 0.82F);
-            this.discard();
+            discardAndRestoreDoor();
         }
+    }
+
+    public boolean hasReachedHome() {
+        return this.reachedHome;
     }
 
     @Override
@@ -132,12 +158,6 @@ public class UncannyTenantEntity extends Monster implements UncannyEntityMarker 
     }
 
     @Override
-    protected void dropCustomDeathLoot(ServerLevel level, DamageSource damageSource, boolean recentlyHit) {
-        super.dropCustomDeathLoot(level, damageSource, recentlyHit);
-        UncannyEntityUtil.dropPulseStyleRewards(level, this, this.random);
-    }
-
-    @Override
     public void addAdditionalSaveData(CompoundTag tag) {
         super.addAdditionalSaveData(tag);
         this.entityData.get(OWNER_PLAYER).ifPresent(uuid -> tag.putUUID("OwnerPlayer", uuid));
@@ -146,6 +166,12 @@ public class UncannyTenantEntity extends Monster implements UncannyEntityMarker 
             tag.putInt("HomeDoorY", this.homeDoor.getY());
             tag.putInt("HomeDoorZ", this.homeDoor.getZ());
         }
+        if (this.homeInterior != null) {
+            tag.putInt("HomeInteriorX", this.homeInterior.getX());
+            tag.putInt("HomeInteriorY", this.homeInterior.getY());
+            tag.putInt("HomeInteriorZ", this.homeInterior.getZ());
+        }
+        tag.putBoolean("HomeDoorInitiallyOpen", this.homeDoorInitiallyOpen);
         tag.putBoolean("ReachedHome", this.reachedHome);
         tag.putInt("LingerTicks", this.lingerTicks);
         tag.putBoolean("NoticedInside", this.noticedInside);
@@ -161,6 +187,14 @@ public class UncannyTenantEntity extends Monster implements UncannyEntityMarker 
         if (tag.contains("HomeDoorX") && tag.contains("HomeDoorY") && tag.contains("HomeDoorZ")) {
             this.homeDoor = new BlockPos(tag.getInt("HomeDoorX"), tag.getInt("HomeDoorY"), tag.getInt("HomeDoorZ"));
         }
+        if (tag.contains("HomeInteriorX") && tag.contains("HomeInteriorY") && tag.contains("HomeInteriorZ")) {
+            this.homeInterior = new BlockPos(
+                    tag.getInt("HomeInteriorX"),
+                    tag.getInt("HomeInteriorY"),
+                    tag.getInt("HomeInteriorZ"));
+        }
+        this.homeDoorInitiallyOpen = !tag.contains("HomeDoorInitiallyOpen")
+                || tag.getBoolean("HomeDoorInitiallyOpen");
         this.reachedHome = tag.getBoolean("ReachedHome");
         this.lingerTicks = Math.max(0, tag.getInt("LingerTicks"));
         this.noticedInside = tag.getBoolean("NoticedInside");
@@ -170,13 +204,16 @@ public class UncannyTenantEntity extends Monster implements UncannyEntityMarker 
     private ServerPlayer resolveOwner(ServerLevel level) {
         Optional<UUID> ownerUuid = this.entityData.get(OWNER_PLAYER);
         if (ownerUuid.isPresent()) {
-            ServerPlayer owner = level.getServer().getPlayerList().getPlayer(ownerUuid.get());
-            if (owner != null) {
-                return owner;
-            }
+            ServerPlayer bound = level.getServer().getPlayerList().getPlayer(ownerUuid.get());
+            return bound != null
+                            && bound.isAlive()
+                            && !bound.isSpectator()
+                            && bound.serverLevel() == level
+                    ? bound
+                    : null;
         }
         Player nearest = level.getNearestPlayer(this, 30.0D);
-        if (nearest instanceof ServerPlayer owner) {
+        if (nearest instanceof ServerPlayer owner && owner.isAlive() && !owner.isSpectator()) {
             this.entityData.set(OWNER_PLAYER, Optional.of(owner.getUUID()));
             return owner;
         }
@@ -190,5 +227,22 @@ public class UncannyTenantEntity extends Monster implements UncannyEntityMarker 
         Vec3 toEntity = this.position().add(0.0D, this.getEyeHeight(), 0.0D).subtract(owner.getEyePosition()).normalize();
         Vec3 look = owner.getViewVector(1.0F).normalize();
         return look.dot(toEntity) > 0.94D;
+    }
+
+    private void discardAndRestoreDoor() {
+        restoreDoorState();
+        this.discard();
+    }
+
+    private void restoreDoorState() {
+        if (this.homeDoorInitiallyOpen || this.homeDoor == null || this.level().isClientSide()) {
+            return;
+        }
+        BlockState doorState = this.level().getBlockState(this.homeDoor);
+        if (doorState.getBlock() instanceof DoorBlock door
+                && doorState.hasProperty(BlockStateProperties.OPEN)
+                && doorState.getValue(BlockStateProperties.OPEN)) {
+            door.setOpen(this, this.level(), doorState, this.homeDoor, false);
+        }
     }
 }

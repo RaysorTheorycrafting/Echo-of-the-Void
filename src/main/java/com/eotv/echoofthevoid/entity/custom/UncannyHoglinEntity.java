@@ -12,13 +12,12 @@ public class UncannyHoglinEntity extends Hoglin implements UncannyEntityMarker {
     public UncannyHoglinEntity(EntityType<? extends Hoglin> entityType, Level level) {
         super(entityType, level);
         UncannyEntityUtil.applyDisplayName(this, "Hoglin?");
-        this.setSilent(true);
     }
 
     @Override
     public void aiStep() {
         super.aiStep();
-        UncannyEntityUtil.forceSilent(this);
+        this.setSilent(false);
     }
 
     @Override
@@ -28,6 +27,6 @@ public class UncannyHoglinEntity extends Hoglin implements UncannyEntityMarker {
 
     @Override
     protected void playStepSound(BlockPos pos, BlockState blockState) {
-        UncannyEntityUtil.suppressStepSound(this, pos, blockState);
+        super.playStepSound(pos, blockState);
     }
 }

@@ -1,9 +1,11 @@
 package com.eotv.echoofthevoid.event;
 
 import com.eotv.echoofthevoid.EchoOfTheVoid;
+import com.eotv.echoofthevoid.campaign.UncannyCampaignDirector;
 import com.eotv.echoofthevoid.config.UncannyConfig;
 import com.eotv.echoofthevoid.entity.UncannyEntityRegistry;
 import com.eotv.echoofthevoid.entity.custom.UncannyWatcherEntity;
+import com.eotv.echoofthevoid.event.special.WatcherObservationRules;
 import com.eotv.echoofthevoid.phase.UncannyPhase;
 import com.eotv.echoofthevoid.state.UncannyWorldState;
 import java.util.UUID;
@@ -100,6 +102,7 @@ public final class UncannyWatcherSystem {
         if (spawnWatcherFor(player)) {
             state.setLastWatcherTick(playerId, now);
             state.setLastGlobalEventTick(now);
+            UncannyCampaignDirector.recordEvent(state, "watcher");
         }
     }
 
@@ -109,7 +112,7 @@ public final class UncannyWatcherSystem {
             return false;
         }
         if (shouldBlockWatcherSpawn(player)) {
-            debugLog("WATCHER force spawn blocked water-or-boat player={}", player.getGameProfile().getName());
+            debugLog("WATCHER force spawn blocked sleep-water-or-boat player={}", player.getGameProfile().getName());
             return false;
         }
 
@@ -134,7 +137,7 @@ public final class UncannyWatcherSystem {
             return false;
         }
         if (shouldBlockWatcherSpawn(player)) {
-            debugLog("WATCHER spawn blocked water-or-boat player={}", player.getGameProfile().getName());
+            debugLog("WATCHER spawn blocked sleep-water-or-boat player={}", player.getGameProfile().getName());
             return false;
         }
 
@@ -408,6 +411,9 @@ public final class UncannyWatcherSystem {
     }
 
     private static boolean shouldBlockWatcherSpawn(ServerPlayer player) {
-        return player.isInWaterOrBubble() || player.getVehicle() instanceof Boat;
+        return WatcherObservationRules.blocksEncounter(
+                player.isSleeping(),
+                player.isInWaterOrBubble(),
+                player.getVehicle() instanceof Boat);
     }
 }
