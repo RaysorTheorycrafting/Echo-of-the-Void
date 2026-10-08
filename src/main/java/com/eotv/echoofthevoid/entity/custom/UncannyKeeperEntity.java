@@ -488,12 +488,13 @@ public class UncannyKeeperEntity extends Monster implements UncannyEntityMarker 
     }
 
     private void tickSinking(ServerLevel level) {
-        this.setDeltaMovement(0.0D, -0.08D, 0.0D);
-        this.setPos(this.getX(), this.getY() - 0.08D, this.getZ());
-        if (this.tickCount >= this.sinkEndTick) {
+        double step = UncannySinkTransition.step(this, 0.08D, 24);
+        this.setDeltaMovement(0.0D, -step, 0.0D);
+        this.setPos(this.getX(), this.getY() - step, this.getZ());
+        if (this.tickCount >= this.sinkEndTick || UncannySinkTransition.breaksIntoOpenSpace(this)) {
             this.sinking = false;
             this.setNoGravity(false);
-            this.discard();
+            UncannySinkTransition.vanish(this);
         }
     }
 

@@ -79,10 +79,12 @@ class ParanoiaPacingRulesTest {
         assertEquals(3140L, ParanoiaPacingRules.specialGlobalCooldownTicks(4, 5, 5));
         assertEquals(14400L, ParanoiaPacingRules.specialPerKeyCooldownTicks(FOLLOWER, 4, 5, 5));
         assertEquals(72000L, ParanoiaPacingRules.specialPerKeyCooldownTicks(USHER, 4, 5, 5));
+        assertEquals(48000L, ParanoiaPacingRules.specialPerKeyCooldownTicks(MINER, 3, 3, 2));
+        assertEquals(144000L, ParanoiaPacingRules.specialPerKeyCooldownTicks(DEVOURER, 4, 3, 2));
     }
 
     @Test
-    void activePhaseTwoTuningIsNarrowAndKeepsHistoricalMethodsFrozen() {
+    void activeFamilyTuningIsNarrowAndKeepsHistoricalMethodsFrozen() {
         assertEquals(11500L, ParanoiaPacingRules.specialGlobalCooldownTicks(2, 3, 3));
         assertEquals(10000L, ParanoiaPacingRules.activeSpecialGlobalCooldownTicks(2, 3, 3));
         assertEquals(
@@ -90,13 +92,19 @@ class ParanoiaPacingRulesTest {
                 ParanoiaPacingRules.activeSpecialGlobalCooldownTicks(3, 3, 3));
 
         assertEquals(15, ParanoiaPacingRules.effectiveWeight(BELL, 14, 3, 3));
-        assertEquals(8, ParanoiaPacingRules.activeEffectiveWeight(BELL, 14, 2, 3, 3));
-        assertEquals(15, ParanoiaPacingRules.activeEffectiveWeight(BELL, 14, 3, 3, 3));
+        assertEquals(6, ParanoiaPacingRules.activeEffectiveWeight(BELL, 14, 2, 3, 3));
+        assertEquals(8, ParanoiaPacingRules.activeEffectiveWeight(BELL, 14, 3, 3, 3));
+        assertEquals(10, ParanoiaPacingRules.activeEffectiveWeight(BELL, 14, 4, 3, 3));
         assertEquals(2, ParanoiaPacingRules.activeEffectiveWeight(HURLER, 12, 2, 3, 3));
         assertEquals(12, ParanoiaPacingRules.activeEffectiveWeight(HURLER, 12, 3, 3, 3));
 
-        assertEquals(14400L, ParanoiaPacingRules.activeEventCooldownTicks(BELL, 2, 900L));
-        assertEquals(900L, ParanoiaPacingRules.activeEventCooldownTicks(BELL, 3, 900L));
+        assertEquals(24000L, ParanoiaPacingRules.activeEventCooldownTicks(BELL, 2, 900L));
+        assertEquals(21600L, ParanoiaPacingRules.activeEventCooldownTicks(BELL, 3, 900L));
+        assertEquals(19200L, ParanoiaPacingRules.activeEventCooldownTicks(BELL, 4, 900L));
+        assertEquals(0.035D, ParanoiaPacingRules.activeBellMonsterWaveChance(2, 3, 3), 1.0E-12D);
+        assertEquals(0.063D, ParanoiaPacingRules.activeBellMonsterWaveChance(3, 3, 3), 1.0E-12D);
+        assertEquals(0.35D, ParanoiaPacingRules.activeBellMonsterWaveChance(4, 3, 3), 1.0E-12D);
+        assertEquals(0.63D, ParanoiaPacingRules.activeBellMonsterWaveChance(4, 5, 5), 1.0E-12D);
         assertEquals(24000L, ParanoiaPacingRules.activeSpecialPerKeyCooldownTicks(HURLER, 2, 3, 3));
     }
 
@@ -115,6 +123,12 @@ class ParanoiaPacingRulesTest {
         assertEquals(0.1365D, ParanoiaPacingRules.sleepDisturbChance(4, 5), 1.0E-12D);
         assertEquals(35000L, ParanoiaPacingRules.sleepDisturbCooldownTicks(1, 1, 960));
         assertEquals(25340L, ParanoiaPacingRules.sleepDisturbCooldownTicks(4, 5, 1680));
+        assertEquals(0.012D, ParanoiaPacingRules.activeSleepDisturbChance(2, 3), 1.0E-12D);
+        assertEquals(0.039D, ParanoiaPacingRules.activeSleepDisturbChance(4, 5), 1.0E-12D);
+        assertEquals(60480L, ParanoiaPacingRules.activeSleepDisturbCooldownTicks(2, 3, 2700));
+        assertEquals(67900L, ParanoiaPacingRules.activeSleepDisturbCooldownTicks(4, 5, 4500));
+        assertThrows(IllegalArgumentException.class,
+                () -> ParanoiaPacingRules.activeSleepDisturbCooldownTicks(4, 3, 2699));
         assertThrows(IllegalArgumentException.class, () -> ParanoiaPacingRules.autoTriggerChance(0, 3, 3));
         assertThrows(IllegalArgumentException.class, () -> ParanoiaPacingRules.autoTriggerChance(1, 0, 3));
         assertThrows(IllegalArgumentException.class, () -> ParanoiaPacingRules.autoTriggerChance(1, 3, 6));

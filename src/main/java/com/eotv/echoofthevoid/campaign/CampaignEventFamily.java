@@ -38,7 +38,8 @@ public enum CampaignEventFamily {
     private static final Set<String> PRESENCES = Set.of(
             "watcher", "pulse", "follower", "knocker", "hurler", "usher", "keeper",
             "tenant", "stalker", "shadow", "surveyor", "mourner", "doubler", "ferryman",
-            "listener", "bystander", "double_dormant");
+            "listener", "bystander", "miner", "devourer", "echoer", "drifter", "ashwalker",
+            "dredger", "flanker", "double_dormant");
 
     public static CampaignEventFamily forEvent(String eventId) {
         if (eventId == null || eventId.isBlank()) {

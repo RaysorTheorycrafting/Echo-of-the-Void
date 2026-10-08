@@ -5,6 +5,7 @@ import static com.eotv.echoofthevoid.event.paranoia.ParanoiaEventIds.*;
 import com.eotv.echoofthevoid.EchoOfTheVoid;
 import com.eotv.echoofthevoid.config.UncannyConfig;
 import com.eotv.echoofthevoid.event.paranoia.ParanoiaEventCatalog;
+import com.eotv.echoofthevoid.event.paranoia.UncannyDimensionPolicy;
 import com.eotv.echoofthevoid.network.UncannyArmorStandPosePayload;
 import com.eotv.echoofthevoid.network.UncannyEmptyLeadPayload;
 import com.eotv.echoofthevoid.network.UncannyFishingTugPayload;
@@ -268,6 +269,9 @@ public final class MinecraftNativeAnomalySystem {
 
     private static boolean trigger(ServerPlayer player, String eventId, boolean debugImmediate) {
         if (!canTrigger(player, eventId)) {
+            return false;
+        }
+        if (!debugImmediate && !UncannyDimensionPolicy.allowsNaturalEvent(player.serverLevel(), eventId)) {
             return false;
         }
         return switch (eventId) {
@@ -2018,5 +2022,28 @@ public final class MinecraftNativeAnomalySystem {
         public EmptyWakeDebugSnapshot {
             points = List.copyOf(points);
         }
+    }
+
+    /** Read-only runtime census used by the local diagnostic recorder. */
+    public static Map<String, Integer> diagnosticStateCounts() {
+        return Map.ofEntries(
+                Map.entry("ghost_breaking_tasks", GHOST_BREAKING_TASKS.size()),
+                Map.entry("orphan_shadow_tasks", ORPHAN_SHADOW_TASKS.size()),
+                Map.entry("cold_furnace_tasks", COLD_FURNACE_TASKS.size()),
+                Map.entry("armor_pose_tasks", ARMOR_POSE_TASKS.size()),
+                Map.entry("leaf_reply_tasks", LEAF_REPLY_TASKS.size()),
+                Map.entry("silent_bell_tasks", SILENT_BELL_TASKS.size()),
+                Map.entry("animal_attention_tasks", ANIMAL_ATTENTION_TASKS.size()),
+                Map.entry("villager_meeting_tasks", VILLAGER_MEETING_TASKS.size()),
+                Map.entry("empty_lead_tasks", EMPTY_LEAD_TASKS.size()),
+                Map.entry("painting_variant_tasks", PAINTING_VARIANT_TASKS.size()),
+                Map.entry("returned_drop_tasks", RETURNED_DROP_TASKS.size()),
+                Map.entry("misdirected_enchantment_tasks", MISDIRECTED_ENCHANTMENT_TASKS.size()),
+                Map.entry("cauldron_echo_tasks", CAULDRON_ECHO_TASKS.size()),
+                Map.entry("empty_wake_tasks", EMPTY_WAKE_TASKS.size()),
+                Map.entry("leaf_context_players", LAST_LEAF_CONTEXTS.size()),
+                Map.entry("pickup_context_players", LAST_PICKUP_CONTEXTS.size()),
+                Map.entry("animal_reuse_cooldowns", ANIMAL_REUSE_COOLDOWNS.size()),
+                Map.entry("armor_stand_reuse_cooldowns", ARMOR_STAND_REUSE_COOLDOWNS.size()));
     }
 }

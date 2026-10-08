@@ -3,6 +3,7 @@ package com.eotv.echoofthevoid.event;
 import com.eotv.echoofthevoid.EchoOfTheVoid;
 import com.eotv.echoofthevoid.campaign.UncannyCampaignDirector;
 import com.eotv.echoofthevoid.config.UncannyConfig;
+import com.eotv.echoofthevoid.diagnostics.UncannyDiagnostics;
 import com.eotv.echoofthevoid.entity.UncannyEntityRegistry;
 import com.eotv.echoofthevoid.entity.custom.UncannyWatcherEntity;
 import com.eotv.echoofthevoid.event.special.WatcherObservationRules;
@@ -211,8 +212,9 @@ public final class UncannyWatcherSystem {
 
         watcher.moveTo(spawnPos.getX() + 0.5D, spawnPos.getY(), spawnPos.getZ() + 0.5D, player.getYRot() + 180.0F, 0.0F);
         watcher.setWatchedPlayer(player);
-        level.addFreshEntity(watcher);
-        return true;
+        boolean added = level.addFreshEntity(watcher);
+        UncannyDiagnostics.specialSpawnResult(player, watcher, added, "watcher_system");
+        return added;
     }
 
     private static BlockPos findWatcherSpawnPos(ServerLevel level, ServerPlayer player) {

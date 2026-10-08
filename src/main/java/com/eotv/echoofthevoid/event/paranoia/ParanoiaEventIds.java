@@ -27,6 +27,13 @@ public final class ParanoiaEventIds {
     public static final String FERRYMAN = "ferryman";
     public static final String LISTENER = "listener";
     public static final String BYSTANDER = "bystander";
+    public static final String MINER = "miner";
+    public static final String DEVOURER = "devourer";
+    public static final String ECHOER = "echoer";
+    public static final String DRIFTER = "drifter";
+    public static final String ASHWALKER = "ashwalker";
+    public static final String DREDGER = "dredger";
+    public static final String FLANKER = "flanker";
     public static final String FLASH_RED = "flash_red";
     public static final String VOID_SILENCE = "void_silence";
     public static final String FALSE_FALL = "false_fall";
@@ -90,6 +97,7 @@ public final class ParanoiaEventIds {
     public static final String FALSE_LID = "false_lid";
     public static final String JUKEBOX_AFTERBEAT = "jukebox_afterbeat";
     public static final String BEACON_FRAGMENT = "beacon_fragment";
+    public static final String DEBUG_BOUNDS = "debug_bounds";
     public static final String GRAND_EVENT = "grand_event";
     public static final String GRAND_EVENT_WARDEN = "grand_event_warden";
     public static final String GRAND_EVENT_STOP = "grand_event_stop";

@@ -1,8 +1,10 @@
 package com.eotv.echoofthevoid.state;
 
+import com.eotv.echoofthevoid.EchoOfTheVoid;
 import com.eotv.echoofthevoid.campaign.CampaignCulminationState;
 import com.eotv.echoofthevoid.lore.UncannyJournalCatalog;
 import com.eotv.echoofthevoid.phase.UncannyPhase;
+import com.eotv.echoofthevoid.event.special.DevourerArenaSession;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -84,10 +86,17 @@ public class UncannyWorldState extends SavedData {
     private final Map<UUID, Integer> firstNightWatcherTriggered = new HashMap<>();
     private final Map<UUID, Long> restartConfirmUntilTick = new HashMap<>();
     private final Map<UUID, Integer> historyTomeMask = new HashMap<>();
+    private final Map<UUID, PendingFerrymanEncounter> pendingFerrymanEncounters = new HashMap<>();
     private final Map<UUID, DeathSite> deathSites = new HashMap<>();
+    private final Map<UUID, DevourerArenaSession> devourerArenaSessions = new HashMap<>();
+    // Insertion-ordered (and saved in that order) so a full table can evict its oldest pair.
+    private final Map<UUID, FlankerPairRewardState> flankerPairRewards = new java.util.LinkedHashMap<>();
+    private long nextDevourerArenaCellIndex;
+    private long devourerGlobalCooldownUntilCampaignTick;
     private final List<StructureMarker> structureMarkers = new ArrayList<>();
     private final List<Long> playerPlacedLights = new ArrayList<>();
     private final List<String> campaignRecentFamilies = new ArrayList<>();
+    private transient boolean sessionRelativeTimersPrepared;
 
     public static UncannyWorldState create() {
         return new UncannyWorldState();
@@ -149,7 +158,8 @@ public class UncannyWorldState extends SavedData {
         data.campaignLastObservedDayTime = tag.contains("campaignLastObservedDayTime")
                 ? tag.getLong("campaignLastObservedDayTime") : Long.MIN_VALUE;
         data.campaignDirectorSeed = tag.getLong("campaignDirectorSeed");
-        data.campaignBeat = tag.getString("campaignBeat");
+        String savedCampaignBeat = tag.getString("campaignBeat");
+        data.campaignBeat = savedCampaignBeat.isBlank() ? data.campaignBeat : savedCampaignBeat;
         data.campaignBeatRemainingTicks = tag.getLong("campaignBeatRemainingTicks");
         data.campaignBeatSequence = Math.max(0, tag.getInt("campaignBeatSequence"));
         data.campaignLastStrongEventTick = tag.contains("campaignLastStrongEventTick")
@@ -170,7 +180,13 @@ public class UncannyWorldState extends SavedData {
         readIntMap(tag, "firstNightWatcherTriggered", data.firstNightWatcherTriggered);
         readLongMap(tag, "restartConfirmUntilTick", data.restartConfirmUntilTick);
         readIntMap(tag, "historyTomeMask", data.historyTomeMask);
+        readPendingFerrymanEncounters(tag, data.pendingFerrymanEncounters);
         readDeathSites(tag, data.deathSites);
+        readDevourerArenaSessions(tag, data.devourerArenaSessions);
+        readFlankerPairRewards(tag, data.flankerPairRewards);
+        data.nextDevourerArenaCellIndex = Math.max(0L, tag.getLong("nextDevourerArenaCellIndex"));
+        data.devourerGlobalCooldownUntilCampaignTick = Math.max(
+                0L, tag.getLong("devourerGlobalCooldownUntilCampaignTick"));
         readStructureMarkers(tag, data.structureMarkers);
         readStringList(tag, "campaignRecentFamilies", data.campaignRecentFamilies, 6);
         for (long packedPos : tag.getLongArray("playerPlacedLights")) {
@@ -183,9 +199,64 @@ public class UncannyWorldState extends SavedData {
     }
 
     public static UncannyWorldState get(MinecraftServer server) {
-        return server.overworld().getDataStorage().computeIfAbsent(new SavedData.Factory<>(
+        UncannyWorldState state = server.overworld().getDataStorage().computeIfAbsent(new SavedData.Factory<>(
                 UncannyWorldState::create,
                 UncannyWorldState::load), DATA_NAME);
+        if (state.prepareForServerSession(server.getTickCount())) {
+            EchoOfTheVoid.LOGGER.warn(
+                    "Cleared an invalid persisted Tension Builder lock while loading an existing world");
+        }
+        return state;
+    }
+
+    /**
+     * Rebase persisted Tension Builder deadlines from the previous server session tick counter.
+     * MinecraftServer#getTickCount() restarts at zero, so raw deadlines cannot be reused directly.
+     *
+     * @return true when an impossible active lock was removed
+     */
+    public boolean prepareForServerSession(long currentSessionTick) {
+        if (sessionRelativeTimersPrepared) {
+            return false;
+        }
+        sessionRelativeTimersPrepared = true;
+
+        PersistedTimerRebaseRules.TensionTimers rebased = PersistedTimerRebaseRules.rebaseTensionTimers(
+                tensionBuilderEndTick,
+                tensionBuilderNextStartTick,
+                tensionBuilderGrandEventBoostUntilTick,
+                tensionBuilderNextGrandEventRollTick,
+                tensionBuilderLastGrandEventTick,
+                tensionBuilderLastUpdateTick,
+                tensionBuilderPendingGrandEventStartTick,
+                tensionBuilderPendingGrandEventWarningTick,
+                currentSessionTick);
+        if (!rebased.changed()) {
+            return false;
+        }
+
+        tensionBuilderEndTick = rebased.tensionEndTick();
+        tensionBuilderNextStartTick = rebased.nextStartTick();
+        tensionBuilderGrandEventBoostUntilTick = rebased.grandBoostUntilTick();
+        tensionBuilderNextGrandEventRollTick = rebased.nextGrandRollTick();
+        tensionBuilderLastGrandEventTick = rebased.lastGrandEventTick();
+        tensionBuilderLastUpdateTick = rebased.lastUpdateTick();
+        tensionBuilderPendingGrandEventStartTick = rebased.pendingGrandStartTick();
+        tensionBuilderPendingGrandEventWarningTick = rebased.pendingGrandWarningTick();
+
+        if (rebased.pendingGrandStartTick() == Long.MIN_VALUE) {
+            tensionBuilderPendingGrandEventDimension = "";
+            tensionBuilderPendingGrandEventForced = false;
+            tensionBuilderPendingGrandEventWarningSent = false;
+            tensionBuilderPendingGrandEventWarningTick = Long.MIN_VALUE;
+            tensionBuilderPendingGrandEventDelayTicks = Long.MIN_VALUE;
+        } else if (rebased.pendingGrandWarningTick() == Long.MIN_VALUE) {
+            tensionBuilderPendingGrandEventWarningSent = false;
+            tensionBuilderPendingGrandEventDelayTicks = Long.MIN_VALUE;
+        }
+
+        this.setDirty();
+        return rebased.activeLockCleared();
     }
 
     @Override
@@ -254,7 +325,12 @@ public class UncannyWorldState extends SavedData {
         writeIntMap(tag, "firstNightWatcherTriggered", firstNightWatcherTriggered);
         writeLongMap(tag, "restartConfirmUntilTick", restartConfirmUntilTick);
         writeIntMap(tag, "historyTomeMask", historyTomeMask);
+        writePendingFerrymanEncounters(tag, pendingFerrymanEncounters);
         writeDeathSites(tag, deathSites);
+        writeDevourerArenaSessions(tag, devourerArenaSessions);
+        writeFlankerPairRewards(tag, flankerPairRewards);
+        tag.putLong("nextDevourerArenaCellIndex", nextDevourerArenaCellIndex);
+        tag.putLong("devourerGlobalCooldownUntilCampaignTick", devourerGlobalCooldownUntilCampaignTick);
         writeStructureMarkers(tag, structureMarkers);
         writeStringList(tag, "campaignRecentFamilies", campaignRecentFamilies);
         tag.putLongArray("playerPlacedLights", playerPlacedLights);
@@ -356,6 +432,8 @@ public class UncannyWorldState extends SavedData {
         campaignCulminationScheduledTick = Long.MIN_VALUE;
         campaignCulminationRetryTick = Long.MIN_VALUE;
         campaignRecentFamilies.clear();
+        pendingFerrymanEncounters.clear();
+        devourerGlobalCooldownUntilCampaignTick = 0L;
         this.setDirty();
     }
 
@@ -372,6 +450,8 @@ public class UncannyWorldState extends SavedData {
         campaignCulminationScheduledTick = Long.MIN_VALUE;
         campaignCulminationRetryTick = Long.MIN_VALUE;
         campaignRecentFamilies.clear();
+        devourerGlobalCooldownUntilCampaignTick = 0L;
+        flankerPairRewards.clear();
         this.setDirty();
     }
 
@@ -1007,6 +1087,152 @@ public class UncannyWorldState extends SavedData {
         }
     }
 
+    public PendingFerrymanEncounter getPendingFerrymanEncounter(UUID playerId) {
+        return playerId == null ? null : pendingFerrymanEncounters.get(playerId);
+    }
+
+    public DevourerArenaSession getDevourerArenaSession(UUID playerId) {
+        return playerId == null ? null : devourerArenaSessions.get(playerId);
+    }
+
+    public List<DevourerArenaSession> getDevourerArenaSessions() {
+        return List.copyOf(devourerArenaSessions.values());
+    }
+
+    public boolean addDevourerArenaSession(DevourerArenaSession session) {
+        if (session == null || devourerArenaSessions.containsKey(session.playerId())) {
+            return false;
+        }
+        devourerArenaSessions.put(session.playerId(), session);
+        this.setDirty();
+        return true;
+    }
+
+    public DevourerArenaSession removeDevourerArenaSession(UUID playerId) {
+        DevourerArenaSession removed = playerId == null ? null : devourerArenaSessions.remove(playerId);
+        if (removed != null) {
+            this.setDirty();
+        }
+        return removed;
+    }
+
+    public long allocateDevourerArenaCell() {
+        long allocated = nextDevourerArenaCellIndex;
+        nextDevourerArenaCellIndex = nextDevourerArenaCellIndex == Long.MAX_VALUE
+                ? 0L
+                : nextDevourerArenaCellIndex + 1L;
+        this.setDirty();
+        return allocated;
+    }
+
+    public void markDevourerArenaSessionsDirty() {
+        this.setDirty();
+    }
+
+    static final int MAX_FLANKER_PAIR_REWARDS = 64;
+
+    public boolean initializeFlankerPair(UUID pairId, UUID firstMemberId, UUID secondMemberId) {
+        if (pairId == null || firstMemberId == null || secondMemberId == null
+                || firstMemberId.equals(secondMemberId)
+                || flankerPairRewards.containsKey(pairId)) {
+            return false;
+        }
+        if (flankerPairRewards.size() >= MAX_FLANKER_PAIR_REWARDS) {
+            flankerPairRewards.entrySet().removeIf(entry -> entry.getValue().resolved());
+            // Pairs removed without death or sink (QA cleanup, Peaceful, discard) never resolve. Forget
+            // the oldest instead of refusing every future pair once the table is full.
+            var oldest = flankerPairRewards.keySet().iterator();
+            while (flankerPairRewards.size() >= MAX_FLANKER_PAIR_REWARDS && oldest.hasNext()) {
+                oldest.next();
+                oldest.remove();
+            }
+        }
+        flankerPairRewards.put(pairId, FlankerPairRewardState.fresh(firstMemberId, secondMemberId));
+        this.setDirty();
+        return true;
+    }
+
+    public FlankerPairRewardState getFlankerPairReward(UUID pairId) {
+        return pairId == null ? null : flankerPairRewards.get(pairId);
+    }
+
+    public FlankerPairRewardState recordFlankerTerminal(
+            UUID pairId,
+            UUID memberId,
+            boolean killedByPlayer) {
+        FlankerPairRewardState current = getFlankerPairReward(pairId);
+        if (current == null || memberId == null || current.resolved()) {
+            return current;
+        }
+        FlankerPairRewardState updated = current.withTerminal(memberId, killedByPlayer);
+        if (!updated.equals(current)) {
+            flankerPairRewards.put(pairId, updated);
+            this.setDirty();
+        }
+        return updated;
+    }
+
+    public boolean claimFlankerPairReward(UUID pairId) {
+        FlankerPairRewardState current = getFlankerPairReward(pairId);
+        if (current == null || !current.rewardEligible() || current.rewardClaimed()) {
+            return false;
+        }
+        flankerPairRewards.put(pairId, current.withRewardClaimed());
+        this.setDirty();
+        return true;
+    }
+
+    public int getActiveFlankerPairRewardCount() {
+        return flankerPairRewards.size();
+    }
+
+    public boolean isDevourerGlobalCooldownActive() {
+        return campaignElapsedTicks < devourerGlobalCooldownUntilCampaignTick;
+    }
+
+    public long getDevourerGlobalCooldownRemainingTicks() {
+        return Math.max(0L, devourerGlobalCooldownUntilCampaignTick - campaignElapsedTicks);
+    }
+
+    public void startDevourerGlobalCooldown(long durationTicks) {
+        devourerGlobalCooldownUntilCampaignTick = saturatingAdd(
+                campaignElapsedTicks, Math.max(0L, durationTicks));
+        this.setDirty();
+    }
+
+    public boolean armPendingFerrymanEncounter(UUID playerId, int requiredNavigationTicks) {
+        if (playerId == null || pendingFerrymanEncounters.containsKey(playerId)) {
+            return false;
+        }
+        pendingFerrymanEncounters.put(
+                playerId, new PendingFerrymanEncounter(requiredNavigationTicks, 0));
+        this.setDirty();
+        return true;
+    }
+
+    public void setPendingFerrymanProgress(UUID playerId, int progressTicks) {
+        PendingFerrymanEncounter current = pendingFerrymanEncounters.get(playerId);
+        if (current == null) {
+            return;
+        }
+        PendingFerrymanEncounter updated = new PendingFerrymanEncounter(
+                current.requiredNavigationTicks(), progressTicks);
+        if (!updated.equals(current)) {
+            pendingFerrymanEncounters.put(playerId, updated);
+            this.setDirty();
+        }
+    }
+
+    public void clearPendingFerrymanEncounter(UUID playerId) {
+        if (playerId != null && pendingFerrymanEncounters.remove(playerId) != null) {
+            this.setDirty();
+        }
+    }
+
+    public int getPendingFerrymanEncounterCount() {
+        return pendingFerrymanEncounters.size();
+    }
+
     public void addProgress(double progressDelta) {
         if (purgeActive || phaseLockActive) {
             return;
@@ -1148,6 +1374,35 @@ public class UncannyWorldState extends SavedData {
         }
     }
 
+    private static void writePendingFerrymanEncounters(
+            CompoundTag parent,
+            Map<UUID, PendingFerrymanEncounter> encounters) {
+        ListTag list = new ListTag();
+        for (Map.Entry<UUID, PendingFerrymanEncounter> entry : encounters.entrySet()) {
+            CompoundTag item = new CompoundTag();
+            item.putUUID("player", entry.getKey());
+            item.putInt("requiredNavigationTicks", entry.getValue().requiredNavigationTicks());
+            item.putInt("progressTicks", entry.getValue().progressTicks());
+            list.add(item);
+        }
+        parent.put("pendingFerrymanEncounters", list);
+    }
+
+    private static void readPendingFerrymanEncounters(
+            CompoundTag parent,
+            Map<UUID, PendingFerrymanEncounter> encounters) {
+        encounters.clear();
+        ListTag list = parent.getList("pendingFerrymanEncounters", Tag.TAG_COMPOUND);
+        for (int i = 0; i < list.size(); i++) {
+            CompoundTag item = list.getCompound(i);
+            if (!item.hasUUID("player")) {
+                continue;
+            }
+            encounters.put(item.getUUID("player"), new PendingFerrymanEncounter(
+                    item.getInt("requiredNavigationTicks"), item.getInt("progressTicks")));
+        }
+    }
+
     private static void writeDeathSites(CompoundTag parent, Map<UUID, DeathSite> sites) {
         ListTag list = new ListTag();
         for (Map.Entry<UUID, DeathSite> entry : sites.entrySet()) {
@@ -1173,6 +1428,69 @@ public class UncannyWorldState extends SavedData {
             sites.put(item.getUUID("player"), new DeathSite(
                     item.getString("dimension"), item.getLong("pos"), item.getLong("tick"),
                     item.getBoolean("mournerUsed")));
+        }
+    }
+
+    private static void writeDevourerArenaSessions(
+            CompoundTag parent,
+            Map<UUID, DevourerArenaSession> sessions) {
+        ListTag list = new ListTag();
+        for (DevourerArenaSession session : sessions.values()) {
+            list.add(session.save());
+        }
+        parent.put("devourerArenaSessions", list);
+    }
+
+    private static void readDevourerArenaSessions(
+            CompoundTag parent,
+            Map<UUID, DevourerArenaSession> sessions) {
+        sessions.clear();
+        ListTag list = parent.getList("devourerArenaSessions", Tag.TAG_COMPOUND);
+        for (int index = 0; index < list.size() && sessions.size() < 8; index++) {
+            DevourerArenaSession session = DevourerArenaSession.load(list.getCompound(index));
+            if (session != null) {
+                sessions.put(session.playerId(), session);
+            }
+        }
+    }
+
+    private static void writeFlankerPairRewards(
+            CompoundTag parent,
+            Map<UUID, FlankerPairRewardState> rewards) {
+        ListTag list = new ListTag();
+        for (Map.Entry<UUID, FlankerPairRewardState> entry : rewards.entrySet()) {
+            CompoundTag item = new CompoundTag();
+            item.putUUID("pair", entry.getKey());
+            item.putUUID("first", entry.getValue().firstMemberId());
+            item.putUUID("second", entry.getValue().secondMemberId());
+            item.putBoolean("firstTerminal", entry.getValue().firstTerminal());
+            item.putBoolean("secondTerminal", entry.getValue().secondTerminal());
+            item.putBoolean("firstPlayerKill", entry.getValue().firstPlayerKill());
+            item.putBoolean("secondPlayerKill", entry.getValue().secondPlayerKill());
+            item.putBoolean("rewardClaimed", entry.getValue().rewardClaimed());
+            list.add(item);
+        }
+        parent.put("flankerPairRewards", list);
+    }
+
+    private static void readFlankerPairRewards(
+            CompoundTag parent,
+            Map<UUID, FlankerPairRewardState> rewards) {
+        rewards.clear();
+        ListTag list = parent.getList("flankerPairRewards", Tag.TAG_COMPOUND);
+        for (int index = 0; index < list.size() && rewards.size() < MAX_FLANKER_PAIR_REWARDS; index++) {
+            CompoundTag item = list.getCompound(index);
+            if (!item.hasUUID("pair") || !item.hasUUID("first") || !item.hasUUID("second")) {
+                continue;
+            }
+            rewards.put(item.getUUID("pair"), new FlankerPairRewardState(
+                    item.getUUID("first"),
+                    item.getUUID("second"),
+                    item.getBoolean("firstTerminal"),
+                    item.getBoolean("secondTerminal"),
+                    item.getBoolean("firstPlayerKill"),
+                    item.getBoolean("secondPlayerKill"),
+                    item.getBoolean("rewardClaimed")));
         }
     }
 
@@ -1208,6 +1526,77 @@ public class UncannyWorldState extends SavedData {
     public record DeathSite(String dimension, long posLong, long tick, boolean mournerUsed) {
         public BlockPos position() {
             return BlockPos.of(posLong);
+        }
+    }
+
+    public record PendingFerrymanEncounter(int requiredNavigationTicks, int progressTicks) {
+        public static final int MIN_REQUIRED_NAVIGATION_TICKS = 20 * 10;
+        public static final int MAX_REQUIRED_NAVIGATION_TICKS = 20 * 15;
+
+        public PendingFerrymanEncounter {
+            requiredNavigationTicks = Math.max(
+                    MIN_REQUIRED_NAVIGATION_TICKS,
+                    Math.min(MAX_REQUIRED_NAVIGATION_TICKS, requiredNavigationTicks));
+            progressTicks = Math.max(0, Math.min(requiredNavigationTicks, progressTicks));
+        }
+    }
+
+    public record FlankerPairRewardState(
+            UUID firstMemberId,
+            UUID secondMemberId,
+            boolean firstTerminal,
+            boolean secondTerminal,
+            boolean firstPlayerKill,
+            boolean secondPlayerKill,
+            boolean rewardClaimed) {
+        public FlankerPairRewardState {
+            if (firstMemberId == null || secondMemberId == null || firstMemberId.equals(secondMemberId)) {
+                throw new IllegalArgumentException("A Flanker pair requires two distinct member ids");
+            }
+            if (!firstTerminal) {
+                firstPlayerKill = false;
+            }
+            if (!secondTerminal) {
+                secondPlayerKill = false;
+            }
+            if (!(firstTerminal && secondTerminal && firstPlayerKill && secondPlayerKill)) {
+                rewardClaimed = false;
+            }
+        }
+
+        public static FlankerPairRewardState fresh(UUID firstMemberId, UUID secondMemberId) {
+            return new FlankerPairRewardState(
+                    firstMemberId, secondMemberId, false, false, false, false, false);
+        }
+
+        public FlankerPairRewardState withTerminal(UUID memberId, boolean killedByPlayer) {
+            if (firstMemberId.equals(memberId) && !firstTerminal) {
+                return new FlankerPairRewardState(
+                        firstMemberId, secondMemberId, true, secondTerminal,
+                        killedByPlayer, secondPlayerKill, rewardClaimed);
+            }
+            if (secondMemberId.equals(memberId) && !secondTerminal) {
+                return new FlankerPairRewardState(
+                        firstMemberId, secondMemberId, firstTerminal, true,
+                        firstPlayerKill, killedByPlayer, rewardClaimed);
+            }
+            return this;
+        }
+
+        public boolean resolved() {
+            return firstTerminal && secondTerminal;
+        }
+
+        public boolean rewardEligible() {
+            return resolved() && firstPlayerKill && secondPlayerKill;
+        }
+
+        public FlankerPairRewardState withRewardClaimed() {
+            return rewardEligible()
+                    ? new FlankerPairRewardState(
+                            firstMemberId, secondMemberId, firstTerminal, secondTerminal,
+                            firstPlayerKill, secondPlayerKill, true)
+                    : this;
         }
     }
 }

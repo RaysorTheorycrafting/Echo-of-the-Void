@@ -5,6 +5,7 @@ import com.eotv.echoofthevoid.config.UncannyConfig;
 import com.eotv.echoofthevoid.event.UncannyClientStateSync;
 import com.eotv.echoofthevoid.event.UncannyParanoiaEventSystem;
 import com.eotv.echoofthevoid.state.UncannyWorldState;
+import com.eotv.echoofthevoid.world.UncannyDimensions;
 import java.util.List;
 import java.util.UUID;
 import net.minecraft.network.chat.Component;
@@ -31,6 +32,7 @@ public final class UncannyPhaseManager {
 
         List<ServerPlayer> activePlayers = server.getPlayerList().getPlayers().stream()
                 .filter(player -> !player.isSpectator())
+                .filter(player -> !UncannyDimensions.isElsewhere(player.level()))
                 .toList();
 
         UncannyCampaignDirector.tick(server, state, !activePlayers.isEmpty());

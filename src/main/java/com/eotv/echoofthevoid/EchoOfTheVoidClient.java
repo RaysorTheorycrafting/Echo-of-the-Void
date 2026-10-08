@@ -1,12 +1,19 @@
 package com.eotv.echoofthevoid;
 
-import com.eotv.echoofthevoid.client.UncannyAttackerRenderer;
 import com.eotv.echoofthevoid.client.UncannyHoglinRenderer;
 import com.eotv.echoofthevoid.client.UncannyMimicRenderer;
 import com.eotv.echoofthevoid.client.UncannyMournerRenderer;
+import com.eotv.echoofthevoid.client.UncannyMinerRenderer;
+import com.eotv.echoofthevoid.client.UncannyDevourerModel;
+import com.eotv.echoofthevoid.client.UncannyDevourerPortalSound;
+import com.eotv.echoofthevoid.client.UncannyDevourerRenderer;
+import com.eotv.echoofthevoid.client.UncannyArenaPursuerRenderer;
+import com.eotv.echoofthevoid.client.UncannyAshwalkerRenderer;
+import com.eotv.echoofthevoid.client.UncannyElsewhereClientEffects;
 import com.eotv.echoofthevoid.client.UncannyNativeAnomalyClientEffects;
 import com.eotv.echoofthevoid.client.UncannyLocalizedWeatherClientEffects;
 import com.eotv.echoofthevoid.client.UncannyVanillaVariantClientEffects;
+import com.eotv.echoofthevoid.client.UncannyVariantProfileClientState;
 import com.eotv.echoofthevoid.client.UncannyPassiveClientEffects;
 import com.eotv.echoofthevoid.client.UncannyPiglinBruteRenderer;
 import com.eotv.echoofthevoid.client.UncannySpiderRenderer;
@@ -19,6 +26,8 @@ import com.eotv.echoofthevoid.client.UncannyAltarScreen;
 import com.eotv.echoofthevoid.client.UncannyAtmosphereClientEffects;
 import com.eotv.echoofthevoid.client.UncannyClientEventEffects;
 import com.eotv.echoofthevoid.client.UncannyClientAudioEffects;
+import com.eotv.echoofthevoid.client.UncannyDebugBoundsClientEffects;
+import com.eotv.echoofthevoid.client.UncannyClientDiagnostics;
 import com.eotv.echoofthevoid.client.UncannyClientUiEffects;
 import com.eotv.echoofthevoid.client.UncannyWardenRenderer;
 import com.eotv.echoofthevoid.client.UncannyWatcherRenderer;
@@ -69,9 +78,12 @@ import net.minecraft.world.entity.EntityType;
 @Mod(value = EchoOfTheVoid.MODID, dist = Dist.CLIENT)
 public class EchoOfTheVoidClient {
     public EchoOfTheVoidClient(IEventBus modEventBus, ModContainer container) {
+        UncannyClientDiagnostics.install();
         container.registerExtensionPoint(IConfigScreenFactory.class, ConfigurationScreen::new);
         modEventBus.addListener(this::onClientSetup);
         modEventBus.addListener(this::onRegisterEntityRenderers);
+        modEventBus.addListener(this::onRegisterLayerDefinitions);
+        modEventBus.addListener(UncannyElsewhereClientEffects::registerDimensionEffects);
         modEventBus.addListener(this::onRegisterMenuScreens);
         NeoForge.EVENT_BUS.addListener(UncannyPassiveClientEffects::onRenderLivingPre);
         NeoForge.EVENT_BUS.addListener(UncannyPassiveClientEffects::onRenderLivingPost);
@@ -82,15 +94,25 @@ public class EchoOfTheVoidClient {
         NeoForge.EVENT_BUS.addListener(UncannyClientUiEffects::onRenderGuiLayerPost);
         NeoForge.EVENT_BUS.addListener(UncannyClientUiEffects::onClientTick);
         NeoForge.EVENT_BUS.addListener(UncannyClientAudioEffects::onClientTick);
+        NeoForge.EVENT_BUS.addListener(com.eotv.echoofthevoid.client.UncannyModMusic::onClientTick);
+        NeoForge.EVENT_BUS.addListener(UncannyClientDiagnostics::onClientTick);
+        NeoForge.EVENT_BUS.addListener(UncannyClientDiagnostics::onRenderLivingPost);
+        NeoForge.EVENT_BUS.addListener(UncannyDebugBoundsClientEffects::onClientTick);
+        NeoForge.EVENT_BUS.addListener(UncannyDebugBoundsClientEffects::onRenderLevelStage);
         NeoForge.EVENT_BUS.addListener(UncannyNativeAnomalyClientEffects::onClientTick);
         NeoForge.EVENT_BUS.addListener(UncannyNativeAnomalyClientEffects::onRenderLevelStage);
         NeoForge.EVENT_BUS.addListener(UncannyLocalizedWeatherClientEffects::onClientTick);
         NeoForge.EVENT_BUS.addListener(UncannyLocalizedWeatherClientEffects::onRenderLevelStage);
         NeoForge.EVENT_BUS.addListener(UncannyVanillaVariantClientEffects::onClientTick);
         NeoForge.EVENT_BUS.addListener(UncannyVanillaVariantClientEffects::onRenderLevelStage);
+        NeoForge.EVENT_BUS.addListener(UncannyVariantProfileClientState::onClientTick);
         NeoForge.EVENT_BUS.addListener(UncannyAtmosphereClientEffects::onRenderGuiPost);
         NeoForge.EVENT_BUS.addListener(UncannyAtmosphereClientEffects::onRenderFog);
         NeoForge.EVENT_BUS.addListener(UncannyAtmosphereClientEffects::onComputeFogColor);
+        NeoForge.EVENT_BUS.addListener(UncannyElsewhereClientEffects::onRenderFog);
+        NeoForge.EVENT_BUS.addListener(UncannyElsewhereClientEffects::onComputeFogColor);
+        NeoForge.EVENT_BUS.addListener(UncannyElsewhereClientEffects::onSelectMusic);
+        NeoForge.EVENT_BUS.addListener(UncannyDevourerPortalSound::onEntityJoinLevel);
     }
 
     private void onClientSetup(FMLClientSetupEvent event) {
@@ -130,7 +152,7 @@ public class EchoOfTheVoidClient {
         event.registerEntityRenderer(UncannyEntityRegistry.UNCANNY_SLIME.get(), SlimeRenderer::new);
         event.registerEntityRenderer(UncannyEntityRegistry.UNCANNY_MAGMA_CUBE.get(), MagmaCubeRenderer::new);
         event.registerEntityRenderer(UncannyEntityRegistry.UNCANNY_WATCHER.get(), UncannyWatcherRenderer::new);
-        event.registerEntityRenderer(UncannyEntityRegistry.UNCANNY_STALKER.get(), UncannyAttackerRenderer::new);
+        event.registerEntityRenderer(UncannyEntityRegistry.UNCANNY_STALKER.get(), context -> new UncannySilhouetteRenderer<>(context));
         event.registerEntityRenderer(UncannyEntityRegistry.UNCANNY_HURLER.get(), context -> new UncannySilhouetteRenderer<>(context));
         event.registerEntityRenderer(UncannyEntityRegistry.UNCANNY_SHADOW.get(), context -> new UncannySilhouetteRenderer<>(context));
         event.registerEntityRenderer(UncannyEntityRegistry.UNCANNY_KNOCKER.get(), context -> new UncannySilhouetteRenderer<>(context));
@@ -146,11 +168,24 @@ public class EchoOfTheVoidClient {
         event.registerEntityRenderer(UncannyEntityRegistry.UNCANNY_FERRYMAN.get(), context -> new UncannySilhouetteRenderer<>(context));
         event.registerEntityRenderer(UncannyEntityRegistry.UNCANNY_LISTENER.get(), context -> new UncannySilhouetteRenderer<>(context));
         event.registerEntityRenderer(UncannyEntityRegistry.UNCANNY_BYSTANDER.get(), context -> new UncannySilhouetteRenderer<>(context));
+        event.registerEntityRenderer(UncannyEntityRegistry.UNCANNY_AMBUSHER.get(), context -> new UncannySilhouetteRenderer<>(context));
+        event.registerEntityRenderer(UncannyEntityRegistry.UNCANNY_MINER.get(), UncannyMinerRenderer::new);
+        event.registerEntityRenderer(UncannyEntityRegistry.UNCANNY_DEVOURER.get(), UncannyDevourerRenderer::new);
+        event.registerEntityRenderer(UncannyEntityRegistry.UNCANNY_ARENA_PURSUER.get(), UncannyArenaPursuerRenderer::new);
+        event.registerEntityRenderer(UncannyEntityRegistry.UNCANNY_ECHOER.get(), context -> new UncannySilhouetteRenderer<>(context));
+        event.registerEntityRenderer(UncannyEntityRegistry.UNCANNY_DRIFTER.get(), context -> new UncannySilhouetteRenderer<>(context));
+        event.registerEntityRenderer(UncannyEntityRegistry.UNCANNY_ASHWALKER.get(), UncannyAshwalkerRenderer::new);
+        event.registerEntityRenderer(UncannyEntityRegistry.UNCANNY_DREDGER.get(), context -> new UncannySilhouetteRenderer<>(context));
+        event.registerEntityRenderer(UncannyEntityRegistry.UNCANNY_FLANKER.get(), context -> new UncannySilhouetteRenderer<>(context));
         event.registerEntityRenderer(UncannyEntityRegistry.UNCANNY_STRUCTURE_VILLAGER.get(), VillagerRenderer::new);
         event.registerEntityRenderer(EntityType.LLAMA, UncannyLlamaRenderer::new);
         event.registerEntityRenderer(EntityType.WOLF, UncannyWolfRenderer::new);
         event.registerEntityRenderer(EntityType.CAT, UncannyCatRenderer::new);
         event.registerEntityRenderer(EntityType.WARDEN, UncannyWardenRenderer::new);
+    }
+
+    private void onRegisterLayerDefinitions(EntityRenderersEvent.RegisterLayerDefinitions event) {
+        event.registerLayerDefinition(UncannyDevourerModel.LAYER, UncannyDevourerModel::createBodyLayer);
     }
 
     private void onRegisterMenuScreens(RegisterMenuScreensEvent event) {

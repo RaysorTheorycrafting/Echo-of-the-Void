@@ -1,5 +1,6 @@
 package com.eotv.echoofthevoid.sound;
 
+import com.eotv.echoofthevoid.diagnostics.UncannyDiagnostics;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.sounds.SoundEvent;
 import net.minecraft.sounds.SoundSource;
@@ -32,6 +33,12 @@ public final class UncannyPhysicalSoundDelivery {
                 sourceEntity.getZ(),
                 sound,
                 source,
+                volume,
+                pitch);
+        UncannyDiagnostics.physicalSoundPlayed(
+                sourceEntity,
+                sound.getLocation().toString(),
+                source.getName(),
                 volume,
                 pitch);
     }

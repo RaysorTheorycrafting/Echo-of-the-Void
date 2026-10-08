@@ -2,6 +2,7 @@ package com.eotv.echoofthevoid.event;
 
 import com.eotv.echoofthevoid.campaign.UncannyCampaignDirector;
 import com.eotv.echoofthevoid.config.UncannyConfig;
+import com.eotv.echoofthevoid.diagnostics.UncannyDiagnostics;
 import com.eotv.echoofthevoid.entity.UncannyEntityRegistry;
 import com.eotv.echoofthevoid.entity.custom.UncannyDoubleDormantEntity;
 import com.eotv.echoofthevoid.phase.UncannyPhase;
@@ -14,6 +15,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.tags.BlockTags;
 import net.minecraft.world.level.Level;
+import com.eotv.echoofthevoid.world.UncannyDimensions;
 import net.neoforged.neoforge.event.tick.PlayerTickEvent;
 
 public final class UncannyDoubleDormantSystem {
@@ -35,7 +37,7 @@ public final class UncannyDoubleDormantSystem {
         }
 
         ServerLevel level = player.serverLevel();
-        if (level.dimension() == Level.END) {
+        if (level.dimension() == Level.END || UncannyDimensions.isElsewhere(level)) {
             return;
         }
         if (UncannyParanoiaEventSystem.isGrandEventAutoPauseActive(level)) {
@@ -109,27 +111,36 @@ public final class UncannyDoubleDormantSystem {
             return;
         }
 
-        spawnMimic(player, baseContext.baseCenter, level);
+        if (!spawnMimic(player, baseContext.baseCenter, level)) {
+            return;
+        }
         state.setLastDoubleDormantTick(playerId, now);
         state.setLastGlobalEventTick(now);
         UncannyCampaignDirector.recordEvent(state, "double_dormant");
     }
 
     public static void forceMimic(ServerPlayer player) {
+        forceMimicChecked(player);
+    }
+
+    public static boolean forceMimicChecked(ServerPlayer player) {
         if (player.getServer() == null) {
-            return;
+            return false;
         }
 
         if (!UncannyWorldState.get(player.getServer()).isSystemEnabled()) {
-            return;
+            return false;
         }
         BaseContext context = resolveBaseContext(player, player.getServer());
-        spawnMimic(player, context.baseCenter, player.serverLevel());
+        if (!spawnMimic(player, context.baseCenter, player.serverLevel())) {
+            return false;
+        }
 
         UncannyWorldState state = UncannyWorldState.get(player.getServer());
         long now = player.getServer().getTickCount();
         state.setLastDoubleDormantTick(player.getUUID(), now);
         state.setLastGlobalEventTick(now);
+        return true;
     }
 
     public static String getMimicDebugReport(ServerPlayer player) {
@@ -196,15 +207,17 @@ public final class UncannyDoubleDormantSystem {
         return isCooldownActive(lastRespawn, now, respawnGraceTicks);
     }
 
-    private static void spawnMimic(ServerPlayer player, BlockPos baseCenter, ServerLevel level) {
+    private static boolean spawnMimic(ServerPlayer player, BlockPos baseCenter, ServerLevel level) {
         UncannyDoubleDormantEntity doubleDormant = UncannyEntityRegistry.UNCANNY_DOUBLE_DORMANT.get().create(level);
         if (doubleDormant == null) {
-            return;
+            return false;
         }
 
         doubleDormant.moveTo(baseCenter.getX() + 0.5D, baseCenter.getY() + 1.0D, baseCenter.getZ() + 0.5D, player.getYRot(), 0.0F);
         doubleDormant.copyTarget(player, baseCenter, baseCenter);
-        level.addFreshEntity(doubleDormant);
+        boolean added = level.addFreshEntity(doubleDormant);
+        UncannyDiagnostics.specialSpawnResult(player, doubleDormant, added, "dormant_base_return");
+        return added;
     }
 
     private static BaseContext resolveBaseContext(ServerPlayer player, MinecraftServer server) {

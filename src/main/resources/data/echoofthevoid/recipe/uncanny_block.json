@@ -1,0 +1,17 @@
+{
+  "type": "minecraft:crafting_shaped",
+  "category": "building",
+  "pattern": [
+    "SS",
+    "SS"
+  ],
+  "key": {
+    "S": {
+      "item": "echoofthevoid:uncanny_reality_shard"
+    }
+  },
+  "result": {
+    "id": "echoofthevoid:uncanny_block",
+    "count": 1
+  }
+}

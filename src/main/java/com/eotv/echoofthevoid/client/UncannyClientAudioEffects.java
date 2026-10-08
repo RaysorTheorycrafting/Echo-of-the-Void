@@ -39,6 +39,11 @@ public final class UncannyClientAudioEffects {
         Minecraft minecraft = Minecraft.getInstance();
         LocalPlayer player = minecraft.player;
         if (player == null || !player.isAlive()) {
+            UncannyClientDiagnostics.enqueue(
+                    "WARNING",
+                    "mental_sound_not_played",
+                    "Mental sound was received without a living local player",
+                    "sound_id=" + rawSoundId);
             return;
         }
         if (minecraft.level != trackedLevel) {
@@ -47,11 +52,30 @@ public final class UncannyClientAudioEffects {
         }
         ResourceLocation soundId = ResourceLocation.tryParse(rawSoundId);
         if (soundId == null) {
+            UncannyClientDiagnostics.enqueue(
+                    "ERROR",
+                    "mental_sound_invalid_id",
+                    "Mental sound payload contained an invalid resource location",
+                    "sound_id=" + rawSoundId);
             return;
         }
         SoundSource source = parseSource(rawSourceName);
         float safeVolume = Mth.clamp(volume, 0.0F, 2.0F);
         float safePitch = Mth.clamp(pitch, 0.2F, 2.0F);
+        if (com.eotv.echoofthevoid.sound.ModMusicVolume.isScore(soundId.getNamespace(), soundId.getPath())) {
+            // A score (Blackout) follows the average of all sound sliders, not its own category.
+            SoundInstance score = UncannyModMusic.play(soundId, false);
+            if (maximumDurationTicks > 0) {
+                TIMED_MENTAL_SOUNDS.add(new TimedMentalSound(score, player.level().getGameTime() + maximumDurationTicks));
+            }
+            UncannyClientDiagnostics.enqueue(
+                    "INFO",
+                    "mental_sound_played",
+                    "Client started a mod score at the averaged sound volume",
+                    "sound_id=" + soundId + ";volume=" + UncannyModMusic.currentVolume()
+                            + ";maximum_duration_ticks=" + maximumDurationTicks);
+            return;
+        }
         SimpleSoundInstance sound = new SimpleSoundInstance(
                 soundId,
                 source,
@@ -66,6 +90,15 @@ public final class UncannyClientAudioEffects {
                 0.0D,
                 true);
         minecraft.getSoundManager().play(sound);
+        UncannyClientDiagnostics.enqueue(
+                "INFO",
+                "mental_sound_played",
+                "Client accepted a non-positional mental sound",
+                "sound_id=" + soundId
+                        + ";source=" + source.getName()
+                        + ";volume=" + safeVolume
+                        + ";pitch=" + safePitch
+                        + ";maximum_duration_ticks=" + maximumDurationTicks);
         if (maximumDurationTicks > 0) {
             TIMED_MENTAL_SOUNDS.add(new TimedMentalSound(
                     sound,
@@ -95,6 +128,10 @@ public final class UncannyClientAudioEffects {
         }
     }
 
+    public static String diagnosticState() {
+        return "timed_mental_sounds=" + TIMED_MENTAL_SOUNDS.size();
+    }
+
     private static SoundSource parseSource(String rawName) {
         for (SoundSource source : SoundSource.values()) {
             if (source.getName().equalsIgnoreCase(rawName)) {
@@ -111,6 +148,6 @@ public final class UncannyClientAudioEffects {
         TIMED_MENTAL_SOUNDS.clear();
     }
 
-    private record TimedMentalSound(SimpleSoundInstance sound, long endTick) {
+    private record TimedMentalSound(SoundInstance sound, long endTick) {
     }
 }

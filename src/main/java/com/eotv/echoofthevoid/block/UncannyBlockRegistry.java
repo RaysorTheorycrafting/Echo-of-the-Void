@@ -6,6 +6,7 @@ import com.eotv.echoofthevoid.block.custom.UncannyAltarBlock;
 import com.eotv.echoofthevoid.block.custom.UncannyAltarPartBlock;
 import com.eotv.echoofthevoid.block.custom.UncannyEggBlock;
 import com.eotv.echoofthevoid.block.custom.UncannyVoidDoorBlock;
+import com.eotv.echoofthevoid.block.custom.UncannyRestorationPlaceholderBlock;
 import net.minecraft.world.level.block.Block;
 import net.minecraft.world.level.block.SoundType;
 import net.minecraft.world.level.block.state.BlockBehaviour;
@@ -20,8 +21,9 @@ public final class UncannyBlockRegistry {
     public static final DeferredBlock<Block> UNCANNY_BLOCK = BLOCKS.register("uncanny_block",
             () -> new Block(BlockBehaviour.Properties.of()
                     .mapColor(MapColor.COLOR_BLACK)
-                    .strength(1.8F, 6.0F)
-                    .sound(SoundType.STONE)));
+                    .strength(50.0F, 1200.0F)
+                    .requiresCorrectToolForDrops()
+                    .sound(SoundType.EMPTY)));
 
     public static final DeferredBlock<Block> UNCANNY_EGG = BLOCKS.register("uncanny_egg",
             () -> new UncannyEggBlock(BlockBehaviour.Properties.of()
@@ -60,6 +62,16 @@ public final class UncannyBlockRegistry {
                     .strength(1.5F, 1200.0F)
                     .sound(SoundType.EMPTY)
                     .noOcclusion()));
+
+    public static final DeferredBlock<Block> UNCANNY_RESTORATION_PLACEHOLDER = BLOCKS.register(
+            "uncanny_restoration_placeholder",
+            () -> new UncannyRestorationPlaceholderBlock(BlockBehaviour.Properties.of()
+                    .mapColor(MapColor.NONE)
+                    .strength(-1.0F, 3600000.0F)
+                    .noCollission()
+                    .noOcclusion()
+                    .noLootTable()
+                    .sound(SoundType.EMPTY)));
 
     private UncannyBlockRegistry() {
     }

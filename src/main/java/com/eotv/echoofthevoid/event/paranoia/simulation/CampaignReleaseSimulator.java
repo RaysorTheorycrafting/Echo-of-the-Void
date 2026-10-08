@@ -135,7 +135,7 @@ public final class CampaignReleaseSimulator {
                     random,
                     TensionPacingRules.GRAND_ROLL_MIN_SECONDS,
                     TensionPacingRules.GRAND_ROLL_MAX_SECONDS));
-            while (nextRoll <= boostEnd && nextRoll < durationTicks) {
+            if (nextRoll <= boostEnd && nextRoll < durationTicks) {
                 boolean cooldownReady = lastGrandStart == Long.MIN_VALUE
                         || nextRoll - lastGrandStart >= secondsToTicks(TensionPacingRules.GRAND_COOLDOWN_SECONDS);
                 double roll = random.nextDouble();
@@ -152,12 +152,7 @@ public final class CampaignReleaseSimulator {
                                 MajorKind.GRAND_WARDEN, grandStart, grandEnd, sequence, true));
                         lastGrandStart = grandStart;
                     }
-                    break;
                 }
-                nextRoll += secondsToTicks(sampleInclusive(
-                        random,
-                        TensionPacingRules.GRAND_ROLL_MIN_SECONDS,
-                        TensionPacingRules.GRAND_ROLL_MAX_SECONDS));
             }
 
             int breakSeconds = sampleInclusive(

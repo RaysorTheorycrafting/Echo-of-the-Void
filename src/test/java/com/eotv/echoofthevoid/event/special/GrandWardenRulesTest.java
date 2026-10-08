@@ -32,9 +32,11 @@ class GrandWardenRulesTest {
         String source = Files.readString(Path.of(
                 "src", "main", "java", "com", "eotv", "echoofthevoid", "event",
                 "UncannyParanoiaEventSystem.java"), StandardCharsets.UTF_8);
-        String runtimeCall = "rollGrandWardenPreSpawnDelayTicks(level)";
+        String runtimeCall = "rollGrandWardenPreSpawnDelayTicks(";
 
         assertEquals(3, occurrences(source, runtimeCall));
+        assertTrue(source.contains("rollGrandWardenPreSpawnDelayTicks(level)"));
+        assertTrue(source.contains("rollGrandWardenPreSpawnDelayTicks(pendingLevel)"));
         assertTrue(source.contains("GrandWardenRules.preSpawnDelaySeconds(level.random.nextInt(size))"));
         assertFalse(source.contains(
                 "rollRangeInclusive(level, GRAND_EVENT_PRESPAWN_DELAY_MIN_SECONDS, GRAND_EVENT_PRESPAWN_DELAY_MAX_SECONDS)"));

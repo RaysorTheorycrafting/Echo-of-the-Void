@@ -22,6 +22,9 @@ config="${mod_id}.weather.mixins.json"
 [[mixins]]
 config="${mod_id}.variant.mixins.json"
 
+[[mixins]]
+config="${mod_id}.worldgen.mixins.json"
+
 [[dependencies.${mod_id}]]
 modId="neoforge"
 type="required"

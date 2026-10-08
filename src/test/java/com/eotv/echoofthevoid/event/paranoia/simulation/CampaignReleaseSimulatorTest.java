@@ -31,7 +31,7 @@ class CampaignReleaseSimulatorTest {
         assertEquals(0L, report.unjustifiedMajorBurstCount());
         assertEquals(0L, report.strongEventBurstCount());
         assertTrue(report.tensionBuilderCount() > 0L);
-        assertTrue(report.grandWardenCount() > 0L);
+        assertTrue(report.grandWardenCount() <= report.tensionBuilderCount());
         assertTrue(report.weather().totalEvents() > 0L);
     }
 
@@ -101,7 +101,8 @@ class CampaignReleaseSimulatorTest {
         assertEquals(600, TensionPacingRules.TENSION_MAX_SECONDS);
         assertEquals(1_500, TensionPacingRules.BREAK_MIN_SECONDS);
         assertEquals(3_000, TensionPacingRules.BREAK_MAX_SECONDS);
-        assertEquals(0.22D, TensionPacingRules.GRAND_POST_TENSION_CHANCE);
+        assertEquals(0.08D, TensionPacingRules.GRAND_POST_TENSION_CHANCE);
+        assertEquals(9_000, TensionPacingRules.GRAND_COOLDOWN_SECONDS);
 
         UncannyWeatherPacingRules.IntRange phaseOne =
                 UncannyWeatherPacingRules.nextCheckSecondsRange(1, 3);

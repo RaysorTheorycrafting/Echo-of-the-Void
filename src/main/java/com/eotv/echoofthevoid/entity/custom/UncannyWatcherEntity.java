@@ -206,9 +206,10 @@ public class UncannyWatcherEntity extends Monster implements UncannyEntityMarker
         this.setNoGravity(true);
         this.noPhysics = true;
         this.setDeltaMovement(Vec3.ZERO);
-        this.setPos(this.getX(), this.getY() - 0.09D, this.getZ());
-        if (--this.sinkTicks <= 0 || this.getY() < watched.getY() - 6.5D) {
-            this.discard();
+        this.setPos(this.getX(), this.getY() - UncannySinkTransition.step(this, 0.09D, 36), this.getZ());
+        if (--this.sinkTicks <= 0 || this.getY() < watched.getY() - 6.5D
+                || UncannySinkTransition.breaksIntoOpenSpace(this)) {
+            UncannySinkTransition.vanish(this);
         }
     }
 
@@ -288,22 +289,34 @@ public class UncannyWatcherEntity extends Monster implements UncannyEntityMarker
 
     @Override
     public boolean hurt(DamageSource source, float amount) {
-        return false;
+        // Reachable but never killed: a blow or an arrow makes it sink away (user, 2026-10-08).
+        if (this.level().isClientSide() || this.sinking || !(source.getEntity() instanceof ServerPlayer player)) {
+            return false;
+        }
+        boolean hurt = super.hurt(source, Math.min(amount, Math.max(0.0F, this.getHealth() - 1.0F)));
+        startSinking(player, true);
+        return hurt;
     }
 
     @Override
     public boolean isInvulnerableTo(DamageSource source) {
-        return true;
+        return this.sinking || !(source.getEntity() instanceof net.minecraft.world.entity.player.Player)
+                || super.isInvulnerableTo(source);
     }
 
     @Override
     public boolean isAttackable() {
+        return !this.sinking;
+    }
+
+    @Override
+    public boolean canBeSeenAsEnemy() {
         return false;
     }
 
     @Override
     public boolean canBeHitByProjectile() {
-        return false;
+        return !this.sinking;
     }
 
     @Override

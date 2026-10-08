@@ -7,9 +7,13 @@ import com.eotv.echoofthevoid.client.UncannyDevMenuClientState;
 import com.eotv.echoofthevoid.client.UncannyClientUiEffects;
 import com.eotv.echoofthevoid.client.UncannyPassiveClientEffects;
 import com.eotv.echoofthevoid.client.UncannyVanillaVariantClientEffects;
+import com.eotv.echoofthevoid.client.UncannyVariantProfileClientState;
+import com.eotv.echoofthevoid.client.UncannyDebugBoundsClientEffects;
 import com.eotv.echoofthevoid.dev.UncannyDevQaStateService;
+import com.eotv.echoofthevoid.diagnostics.UncannyDiagnostics;
 import net.minecraft.server.level.ServerPlayer;
 import com.eotv.echoofthevoid.event.UncannyClientStateSync;
+import com.eotv.echoofthevoid.event.UncannyDebugBoundsEventSystem;
 import net.neoforged.neoforge.network.event.RegisterPayloadHandlersEvent;
 import net.neoforged.neoforge.network.handling.IPayloadContext;
 import net.neoforged.neoforge.network.registration.PayloadRegistrar;
@@ -107,6 +111,10 @@ public final class UncannyNetwork {
                 UncannyVanillaVariantVisualPayload.STREAM_CODEC,
                 UncannyNetwork::handleVanillaVariantVisual);
         registrar.playToClient(
+                UncannyVariantProfilePayload.TYPE,
+                UncannyVariantProfilePayload.STREAM_CODEC,
+                UncannyNetwork::handleVariantProfile);
+        registrar.playToClient(
                 UncannyHotbarWrongCountPayload.TYPE,
                 UncannyHotbarWrongCountPayload.STREAM_CODEC,
                 UncannyNetwork::handleHotbarWrongCount);
@@ -118,6 +126,10 @@ public final class UncannyNetwork {
                 UncannyPetRefusalVisualPayload.TYPE,
                 UncannyPetRefusalVisualPayload.STREAM_CODEC,
                 UncannyNetwork::handlePetRefusalVisual);
+        registrar.playToClient(
+                UncannyDebugBoundsPayload.TYPE,
+                UncannyDebugBoundsPayload.STREAM_CODEC,
+                UncannyNetwork::handleDebugBounds);
         registrar.playToServer(
                 UncannyDevMenuActionPayload.TYPE,
                 UncannyDevMenuActionPayload.STREAM_CODEC,
@@ -130,6 +142,14 @@ public final class UncannyNetwork {
                 UncannyDevMenuQaStatusPayload.TYPE,
                 UncannyDevMenuQaStatusPayload.STREAM_CODEC,
                 UncannyNetwork::handleDevMenuQaStatus);
+        registrar.playToServer(
+                UncannyClientDiagnosticPayload.TYPE,
+                UncannyClientDiagnosticPayload.STREAM_CODEC,
+                UncannyNetwork::handleClientDiagnostic);
+        registrar.playToServer(
+                UncannyDebugHitboxStatePayload.TYPE,
+                UncannyDebugHitboxStatePayload.STREAM_CODEC,
+                UncannyNetwork::handleDebugHitboxState);
     }
 
     private static void handlePhaseSync(final UncannyPhaseSyncPayload payload, final IPayloadContext context) {
@@ -227,6 +247,12 @@ public final class UncannyNetwork {
         context.enqueueWork(() -> UncannyVanillaVariantClientEffects.apply(payload));
     }
 
+    private static void handleVariantProfile(
+            final UncannyVariantProfilePayload payload,
+            final IPayloadContext context) {
+        context.enqueueWork(() -> UncannyVariantProfileClientState.apply(payload));
+    }
+
     private static void handleHotbarWrongCount(final UncannyHotbarWrongCountPayload payload, final IPayloadContext context) {
         context.enqueueWork(() -> UncannyClientUiEffects.showHotbarWrongCount(payload.slot(), payload.fakeCount(), payload.durationTicks()));
     }
@@ -237,6 +263,10 @@ public final class UncannyNetwork {
 
     private static void handlePetRefusalVisual(final UncannyPetRefusalVisualPayload payload, final IPayloadContext context) {
         context.enqueueWork(() -> UncannyPassiveClientEffects.applyPetRefusalVisual(payload.entityId(), payload.active(), payload.durationTicks()));
+    }
+
+    private static void handleDebugBounds(final UncannyDebugBoundsPayload payload, final IPayloadContext context) {
+        context.enqueueWork(() -> UncannyDebugBoundsClientEffects.apply(payload));
     }
 
     private static void handleDevMenuAction(final UncannyDevMenuActionPayload payload, final IPayloadContext context) {
@@ -267,6 +297,31 @@ public final class UncannyNetwork {
                 return;
             }
             UncannyDevQaStateService.updateStatus(player, payload.entryId(), payload.validatedGreen());
+        });
+    }
+
+    private static void handleClientDiagnostic(
+            final UncannyClientDiagnosticPayload payload,
+            final IPayloadContext context) {
+        context.enqueueWork(() -> {
+            if (context.player() instanceof ServerPlayer player) {
+                UncannyDiagnostics.clientReport(
+                        player,
+                        payload.severity(),
+                        payload.code(),
+                        payload.message(),
+                        payload.context());
+            }
+        });
+    }
+
+    private static void handleDebugHitboxState(
+            final UncannyDebugHitboxStatePayload payload,
+            final IPayloadContext context) {
+        context.enqueueWork(() -> {
+            if (context.player() instanceof ServerPlayer player) {
+                UncannyDebugBoundsEventSystem.onClientHitboxState(player, payload.enabled());
+            }
         });
     }
 }

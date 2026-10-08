@@ -392,6 +392,20 @@ public final class UncannyNativeAnomalyClientEffects {
         }
     }
 
+    public static String diagnosticState() {
+        return "orphan_shadows=" + ORPHAN_SHADOWS.size()
+                + ",armor_poses=" + ARMOR_POSES.size()
+                + ",empty_leads=" + EMPTY_LEADS.size()
+                + ",painting_variants=" + PAINTING_VARIANTS.size()
+                + ",returned_items=" + RETURNED_ITEMS.size()
+                + ",arrow_gazes=" + ARROW_GAZES.size()
+                + ",suspended_falls=" + SUSPENDED_FALLS.size()
+                + ",beacon_fragments=" + BEACON_FRAGMENTS.size()
+                + ",stray_experience=" + STRAY_EXPERIENCE.size()
+                + ",extra_herd_animals=" + EXTRA_HERD_ANIMALS.size()
+                + ",map_intruder=" + (mapIntruder != null);
+    }
+
     public static void onRenderLevelStage(RenderLevelStageEvent event) {
         if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_ENTITIES
                 || (ORPHAN_SHADOWS.isEmpty() && EMPTY_LEADS.isEmpty()

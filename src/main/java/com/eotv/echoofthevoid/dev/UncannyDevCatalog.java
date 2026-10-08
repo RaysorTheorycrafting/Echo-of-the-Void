@@ -3,6 +3,7 @@ package com.eotv.echoofthevoid.dev;
 import com.eotv.echoofthevoid.event.passive.AdditionalPassiveVariantCatalog;
 import com.eotv.echoofthevoid.event.passive.ApprovedVanillaVariantCatalog;
 import com.eotv.echoofthevoid.event.special.ApprovedSpecialCatalog;
+import com.eotv.echoofthevoid.entity.variant.ReplacementVariantExpansionCatalog;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -20,8 +21,6 @@ public final class UncannyDevCatalog {
         addGrouped(Category.ENTITIES, "shadow", "Shadow?", "entity_shadow_spawn", "Spawn", ActionKind.SPAWN_SPECIAL, "shadow");
         addGrouped(Category.ENTITIES, "hurler", "Hurler?", "entity_hurler_spawn", "Spawn", ActionKind.SPAWN_SPECIAL, "hurler");
         addGrouped(Category.ENTITIES, "attacker", "Attacker?", "entity_attacker_spawn", "Spawn", ActionKind.SPAWN_SPECIAL, "attacker");
-        addGrouped(Category.ENTITIES, "attacker", "Attacker?", "entity_attacker_crawl", "Animation Test - All Fours", ActionKind.SPAWN_SPECIAL, "attacker_crawl");
-        addGrouped(Category.ENTITIES, "attacker", "Attacker?", "entity_attacker_outstretched", "Animation Test - Arms Forward", ActionKind.SPAWN_SPECIAL, "attacker_outstretched");
         addGrouped(Category.ENTITIES, "knocker", "Knocker?", "entity_knocker_spawn", "Spawn", ActionKind.SPAWN_SPECIAL, "knocker");
         addGrouped(Category.ENTITIES, "presence", "Presence?", "entity_presence_spawn", "Spawn", ActionKind.SPAWN_SPECIAL, "pulse");
         addGrouped(Category.ENTITIES, "terror", "Terror?", "entity_terror_spawn", "Spawn", ActionKind.SPAWN_SPECIAL, "terror");
@@ -29,12 +28,42 @@ public final class UncannyDevCatalog {
         addGrouped(Category.ENTITIES, "keeper", "Keeper?", "entity_keeper_spawn", "Spawn", ActionKind.SPAWN_SPECIAL, "keeper");
         addGrouped(Category.ENTITIES, "tenant", "Tenant?", "entity_tenant_spawn", "Spawn", ActionKind.SPAWN_SPECIAL, "tenant");
         addGrouped(Category.ENTITIES, "follower", "Follower?", "entity_follower_spawn", "Spawn", ActionKind.SPAWN_SPECIAL, "follower");
+        addGrouped(Category.ENTITIES, "ambusher", "Ambusher?", "entity_ambusher_spawn", "Spawn False Fall Follow-up", ActionKind.SPAWN_SPECIAL, "ambusher");
         for (ApprovedSpecialCatalog.Definition definition : ApprovedSpecialCatalog.definitions()) {
             addGrouped(Category.ENTITIES, definition.id(), definition.displayName(),
                     "entity_" + definition.id() + "_spawn",
                     definition.status() == ApprovedSpecialCatalog.Status.PROTOTYPE ? "Spawn Prototype" : "Spawn",
                     ActionKind.SPAWN_SPECIAL, definition.id());
+            if ("ferryman".equals(definition.id())) {
+                addGrouped(Category.ENTITIES, definition.id(), definition.displayName(),
+                        "entity_ferryman_arm_deferred", "Arm Deferred Encounter",
+                        ActionKind.SPAWN_SPECIAL, "ferryman_deferred");
+            }
         }
+        addGrouped(Category.ENTITIES, "miner", "Miner?", "entity_miner_emerged",
+                "Spawn Already Emerged", ActionKind.SPAWN_SPECIAL, "miner_emerged");
+        addGrouped(Category.ENTITIES, "devourer", "Devourer?", "entity_devourer_arena",
+                "Enter Arena Directly", ActionKind.SPAWN_SPECIAL, "devourer_arena");
+        addGrouped(Category.TOOLS, "devourer_arena", "Devourer? arena", "tool_devourer_arena_abandon",
+                "Abandon and Clean Current Arena", ActionKind.SPAWN_SPECIAL, "devourer_arena_abandon");
+        addGrouped(Category.ENTITIES, "echoer", "Echoer?", "entity_echoer_stealth",
+                "QA - Stealth Hunt", ActionKind.SPAWN_SPECIAL, "echoer|normal");
+        addGrouped(Category.ENTITIES, "echoer", "Echoer?", "entity_echoer_aggro",
+                "QA - Permanent Aggro", ActionKind.SPAWN_SPECIAL, "echoer|aggro");
+        addGrouped(Category.ENTITIES, "drifter", "Drifter?", "entity_drifter_aquatic",
+                "QA - Aquatic Hunt", ActionKind.SPAWN_SPECIAL, "drifter|normal");
+        addGrouped(Category.ENTITIES, "drifter", "Drifter?", "entity_drifter_dry",
+                "QA - Ashore / Air Reserve", ActionKind.SPAWN_SPECIAL, "drifter|dry");
+        addGrouped(Category.ENTITIES, "ashwalker", "Ashwalker?", "entity_ashwalker_surface",
+                "QA - Lava Surface", ActionKind.SPAWN_SPECIAL, "ashwalker|normal");
+        addGrouped(Category.ENTITIES, "ashwalker", "Ashwalker?", "entity_ashwalker_submerged",
+                "QA - Projectile Submerge", ActionKind.SPAWN_SPECIAL, "ashwalker|submerged");
+        addGrouped(Category.ENTITIES, "dredger", "Dredger?", "entity_dredger_chase",
+                "QA - Seabed Chase", ActionKind.SPAWN_SPECIAL, "dredger|normal");
+        addGrouped(Category.ENTITIES, "dredger", "Dredger?", "entity_dredger_grab",
+                "QA - Telegraph and Grab", ActionKind.SPAWN_SPECIAL, "dredger|grab");
+        addGrouped(Category.ENTITIES, "flanker", "Flanker?", "entity_flanker_pair",
+                "QA - Complete Linked Pair", ActionKind.SPAWN_SPECIAL, "flanker|normal");
 
         addGrouped(Category.ENTITIES, "mimic", "Mimic", "entity_mimic_force_event", "Force Event", ActionKind.FORCE_MIMIC, "");
         addGrouped(Category.ENTITIES, "mimic", "Mimic", "entity_mimic_spawn", "Spawn Direct", ActionKind.SPAWN_UNCANNY, "uncanny_mimic");
@@ -76,8 +105,8 @@ public final class UncannyDevCatalog {
         addGrouped(Category.ENTITIES, "enderman", "Enderman?", "entity_enderman_v5", "Variant 5 - Spatial Anomaly", ActionKind.SPAWN_UNCANNY_FORCED, "uncanny_enderman|UncannyEndermanVariant|5");
 
         addGrouped(Category.ENTITIES, "wither_skeleton", "Wither Skeleton?", "entity_wither_skeleton_spawn", "Spawn (Random)", ActionKind.SPAWN_UNCANNY, "uncanny_wither_skeleton");
-        addGrouped(Category.ENTITIES, "wither_skeleton", "Wither Skeleton?", "entity_wither_skeleton_archer", "Variant - Archer", ActionKind.SPAWN_UNCANNY_FORCED, "uncanny_wither_skeleton|ArcherVariant|true|bool");
-        addGrouped(Category.ENTITIES, "wither_skeleton", "Wither Skeleton?", "entity_wither_skeleton_melee", "Variant - Melee", ActionKind.SPAWN_UNCANNY_FORCED, "uncanny_wither_skeleton|ArcherVariant|false|bool");
+        addGrouped(Category.ENTITIES, "wither_skeleton", "Wither Skeleton?", "entity_wither_skeleton_archer", "Variant 1 - Archer", ActionKind.SPAWN_UNCANNY_FORCED, "uncanny_wither_skeleton|UncannyReplacementVariant|1|replacement");
+        addGrouped(Category.ENTITIES, "wither_skeleton", "Wither Skeleton?", "entity_wither_skeleton_melee", "Variant 2 - Retreating Blade", ActionKind.SPAWN_UNCANNY_FORCED, "uncanny_wither_skeleton|UncannyReplacementVariant|2|replacement");
 
         addGrouped(Category.ENTITIES, "husk", "Husk?", "entity_husk_spawn", "Spawn", ActionKind.SPAWN_UNCANNY, "uncanny_husk");
         addGrouped(Category.ENTITIES, "drowned", "Drowned?", "entity_drowned_spawn", "Spawn", ActionKind.SPAWN_UNCANNY, "uncanny_drowned");
@@ -104,6 +133,19 @@ public final class UncannyDevCatalog {
         addGrouped(Category.ENTITIES, "slime", "Slime?", "entity_slime_spawn", "Spawn", ActionKind.SPAWN_UNCANNY, "uncanny_slime");
         addGrouped(Category.ENTITIES, "magma_cube", "Magma Cube?", "entity_magma_cube_spawn", "Spawn", ActionKind.SPAWN_UNCANNY, "uncanny_magma_cube");
 
+        for (ReplacementVariantExpansionCatalog.Species species : ReplacementVariantExpansionCatalog.species()) {
+            for (ReplacementVariantExpansionCatalog.Variant variant : species.variants()) {
+                if ("uncanny_wither_skeleton".equals(species.entityTypePath()) && variant.index() <= 2) {
+                    continue;
+                }
+                addGrouped(Category.ENTITIES, species.vanillaTypeKey(), species.displayName(),
+                        "entity_" + species.vanillaTypeKey() + "_v" + variant.index(),
+                        "Variant " + variant.index() + " - " + variant.label(),
+                        ActionKind.SPAWN_UNCANNY_FORCED,
+                        species.entityTypePath() + "|UncannyReplacementVariant|" + variant.index() + "|replacement");
+            }
+        }
+
         // Entity: passive uncanny variants
         for (AdditionalPassiveVariantCatalog.Species species : AdditionalPassiveVariantCatalog.species()) {
             addGrouped(Category.ENTITIES, species.key(), species.displayName(),
@@ -117,10 +159,15 @@ public final class UncannyDevCatalog {
             }
         }
 
-        for (ApprovedVanillaVariantCatalog.Variant variant : ApprovedVanillaVariantCatalog.variants()) {
-            addGrouped(Category.ENTITIES, "vv_" + variant.typeKey(), variant.displayName(),
-                    "entity_vv_" + variant.id(), variant.behavior(),
-                    ActionKind.SPAWN_PASSIVE_FORCED, "approved|" + variant.id());
+        for (ApprovedVanillaVariantCatalog.Species species : ApprovedVanillaVariantCatalog.species()) {
+            addGrouped(Category.ENTITIES, "vv_" + species.typeKey(), species.displayName(),
+                    "entity_vv_" + species.typeKey() + "_spawn", "Spawn (Random Variant)",
+                    ActionKind.SPAWN_PASSIVE_FORCED, "approved_random|" + species.typeKey());
+            for (ApprovedVanillaVariantCatalog.Variant variant : species.variants()) {
+                addGrouped(Category.ENTITIES, "vv_" + variant.typeKey(), variant.displayName(),
+                        "entity_vv_" + variant.id(), "Variant " + variant.index() + " - " + variant.behavior(),
+                        ActionKind.SPAWN_PASSIVE_FORCED, "approved|" + variant.id());
+            }
         }
 
         addGrouped(Category.ENTITIES, "pig", "Pig?", "entity_pig_spawn", "Spawn (Random Variant)", ActionKind.SPAWN_PASSIVE_FORCED, "pig|0");
@@ -327,6 +374,7 @@ public final class UncannyDevCatalog {
         addGrouped(Category.EVENTS, "extra_in_the_herd", "Extra in the Herd", "event_extra_in_the_herd", "Trigger", ActionKind.TRIGGER_EVENT, "extra_in_the_herd");
         addGrouped(Category.EVENTS, "lava_wake", "Lava Wake", "event_lava_wake", "Trigger", ActionKind.TRIGGER_EVENT, "lava_wake");
         addGrouped(Category.EVENTS, "false_lid", "False Lid", "event_false_lid", "Trigger", ActionKind.TRIGGER_EVENT, "false_lid");
+        addGrouped(Category.EVENTS, "debug_bounds", "Debug Bounds", "event_debug_bounds", "Trigger F3+B Encounter", ActionKind.TRIGGER_EVENT, "debug_bounds");
         addGrouped(Category.EVENTS, "grand_event", "Grand Event", "event_grand_event_warden", "Trigger - Warden", ActionKind.TRIGGER_EVENT, "grand_event_warden");
         addGrouped(Category.EVENTS, "grand_event", "Grand Event", "event_grand_event_stop", "Force Stop", ActionKind.TRIGGER_EVENT, "grand_event_stop");
         addGrouped(Category.EVENTS, "tension_builder", "Tension Builder", "event_tension_builder_start", "Start Cycle Window", ActionKind.TRIGGER_EVENT, "tension_builder_start");
@@ -478,6 +526,12 @@ public final class UncannyDevCatalog {
         addAudio("physical", "Physical / spatial", "uncanny_attacker_scream", "Attacker aggressive scream", false);
         addAudio("physical", "Physical / spatial", "uncanny_attacker_hurt", "Attacker hurt", false);
         addAudio("physical", "Physical / spatial", "uncanny_attacker_death", "Attacker death", false);
+        addAudio("physical", "Physical / spatial", "uncanny_echoer_cry", "Echoer attack transition", false);
+        addAudio("physical", "Physical / spatial", "uncanny_drifter_cry", "Drifter offensive rise", false);
+        addAudio("physical", "Physical / spatial", "uncanny_ashwalker_cry", "Ashwalker first bite", false);
+        addAudio("physical", "Physical / spatial", "uncanny_dredger_cry", "Dredger grab telegraph", false);
+        addAudio("physical", "Physical / spatial", "uncanny_flanker_call", "Flanker first call", false);
+        addAudio("physical", "Physical / spatial", "uncanny_flanker_response", "Flanker response", false);
         addAudio("physical", "Physical / spatial", "uncanny_fox_scream", "Fox scream", false);
         addAudio("physical", "Physical / spatial", "uncanny_heartbeat", "Heartbeat", false);
         addAudio("physical", "Physical / spatial", "uncanny_monster_breath", "Monster breath", false);

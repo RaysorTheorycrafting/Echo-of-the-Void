@@ -1,14 +1,21 @@
 package com.eotv.echoofthevoid.dev;
 
 import com.eotv.echoofthevoid.EchoOfTheVoid;
+import com.eotv.echoofthevoid.diagnostics.UncannyDiagnostics;
 import com.eotv.echoofthevoid.entity.UncannyEntityRegistry;
 import com.eotv.echoofthevoid.entity.custom.UncannyDoubleDormantEntity;
-import com.eotv.echoofthevoid.entity.custom.UncannyStalkerEntity;
+import com.eotv.echoofthevoid.entity.variant.ReplacementVariantExpansionCatalog;
+import com.eotv.echoofthevoid.entity.variant.ReplacementVariantExpansionSystem;
 import com.eotv.echoofthevoid.event.UncannyDoubleDormantSystem;
+import com.eotv.echoofthevoid.event.UncannyDebugBoundsEventSystem;
 import com.eotv.echoofthevoid.event.UncannyParanoiaEventSystem;
 import com.eotv.echoofthevoid.event.UncannyPassiveVariantSystem;
 import com.eotv.echoofthevoid.event.passive.ApprovedVanillaVariantSystem;
 import com.eotv.echoofthevoid.event.special.ApprovedSpecialSystem;
+import com.eotv.echoofthevoid.event.special.DevourerArenaSystem;
+import com.eotv.echoofthevoid.event.special.UncannyDevourerSystem;
+import com.eotv.echoofthevoid.event.special.UncannyHuntingSpecialSystem;
+import com.eotv.echoofthevoid.event.special.UncannyMinerSystem;
 import com.eotv.echoofthevoid.event.UncannyStructureFeatureSystem;
 import com.eotv.echoofthevoid.event.UncannyWatcherSystem;
 import com.eotv.echoofthevoid.event.UncannyWeatherSystem;
@@ -65,10 +72,10 @@ public final class UncannyDevActionExecutor {
                     "Passive variant spawned.",
                     "Passive type or variant is invalid, or its required environment was not found.");
             case SPAWN_SPECIAL -> spawnSpecialDetailed(target, entry.actionArg());
-            case FORCE_MIMIC -> {
-                UncannyDoubleDormantSystem.forceMimic(target);
-                yield ExecutionResult.success("Mimic event requested.");
-            }
+            case FORCE_MIMIC -> result(
+                    UncannyDoubleDormantSystem.forceMimicChecked(target),
+                    "Mimic event started.",
+                    "Mimic? could not be added to the target level.");
             case TRIGGER_EVENT -> result(
                     triggerEvent(target, entry.actionArg()),
                     "Event accepted by its runtime trigger.",
@@ -151,11 +158,14 @@ public final class UncannyDevActionExecutor {
         UncannyWeatherSystem.forceStop(target.getServer());
         UncannyParanoiaEventSystem.triggerGrandEventStop(target);
         UncannyParanoiaEventSystem.triggerTensionBuilderStop(target);
+        int miners = UncannyMinerSystem.abortForTarget(target);
+        boolean arena = DevourerArenaSystem.abandonSession(target);
         return ExecutionResult.success(
-                "Transient weather, Grand Warden, Tension Builder and "
+                "Transient weather, Grand Warden, Tension Builder, " + miners + " Miner? tunnel(s), "
+                        + (arena ? "one Devourer? arena" : "no Devourer? arena") + " and "
                         + cleanup.affectedEntities()
                         + " dev entity/entities were cleared.",
-                cleanup.affectedEntities());
+                cleanup.affectedEntities() + miners);
     }
 
     private static ExecutionResult setPhase(ServerPlayer target, String rawPhase) {
@@ -184,21 +194,33 @@ public final class UncannyDevActionExecutor {
     }
 
     private static boolean spawnSpecial(ServerPlayer target, String specialId) {
+        String[] requested = specialId.split("\\|", 2);
+        String requestedId = requested[0];
+        String requestedState = requested.length == 2 ? requested[1] : "normal";
+        if (switch (requestedId) {
+            case "echoer", "drifter", "ashwalker", "dredger", "flanker" -> true;
+            default -> false;
+        }) {
+            return UncannyHuntingSpecialSystem.spawnForDebug(target, requestedId, requestedState);
+        }
         return switch (specialId) {
             case "watcher" -> UncannyWatcherSystem.forceSpawnWatcher(target);
             case "shadow" -> UncannyParanoiaEventSystem.spawnShadowForCommand(target);
             case "hurler" -> UncannyParanoiaEventSystem.spawnHurlerForCommand(target);
             case "attacker" -> UncannyParanoiaEventSystem.spawnStalkerForCommand(target);
-            case "attacker_crawl" -> UncannyParanoiaEventSystem.spawnStalkerForCommand(
-                    target, UncannyStalkerEntity.AnimationStyle.CRAWL);
-            case "attacker_outstretched" -> UncannyParanoiaEventSystem.spawnStalkerForCommand(
-                    target, UncannyStalkerEntity.AnimationStyle.OUTSTRETCHED);
             case "knocker" -> UncannyParanoiaEventSystem.spawnKnockerForCommand(target);
             case "pulse" -> UncannyParanoiaEventSystem.spawnPulseForCommand(target);
             case "usher" -> UncannyParanoiaEventSystem.spawnUsherForCommand(target);
             case "keeper" -> UncannyParanoiaEventSystem.spawnKeeperForCommand(target);
             case "tenant" -> UncannyParanoiaEventSystem.spawnTenantForCommand(target);
             case "follower" -> UncannyParanoiaEventSystem.spawnFollowerForCommand(target);
+            case "ambusher" -> ApprovedSpecialSystem.spawnAmbusher(target, true);
+            case "miner" -> UncannyMinerSystem.spawnDebugTunnel(target);
+            case "miner_emerged" -> UncannyMinerSystem.spawnDebugEmerged(target);
+            case "devourer" -> UncannyDevourerSystem.spawnDebug(target);
+            case "devourer_arena" -> DevourerArenaSystem.enterDebugArena(target);
+            case "devourer_arena_abandon" -> DevourerArenaSystem.abandonSession(target);
+            case "ferryman_deferred" -> ApprovedSpecialSystem.armFerrymanEncounter(target);
             case "surveyor", "mourner", "doubler", "ferryman", "listener", "bystander" ->
                     ApprovedSpecialSystem.spawnForDebug(target, specialId);
             case "terror" -> spawnUncanny(target, "uncanny_terror");
@@ -207,6 +229,54 @@ public final class UncannyDevActionExecutor {
     }
 
     private static ExecutionResult spawnSpecialDetailed(ServerPlayer target, String specialId) {
+        String[] requested = specialId.split("\\|", 2);
+        String requestedId = requested[0];
+        String requestedState = requested.length == 2 ? requested[1] : "normal";
+        if (switch (requestedId) {
+            case "echoer", "drifter", "ashwalker", "dredger", "flanker" -> true;
+            default -> false;
+        }) {
+            return result(
+                    UncannyHuntingSpecialSystem.spawnForDebug(target, requestedId, requestedState),
+                    "Hunting Special spawned through its production context and requested QA state.",
+                    "The requested Special requires compatible loaded terrain and no active copy for this target.");
+        }
+        if ("miner".equals(specialId)) {
+            return result(
+                    UncannyMinerSystem.spawnDebugTunnel(target),
+                    "Miner? tunnel started through the production planner.",
+                    "Miner? requires loaded safe terrain, mobGriefing and no active Ghost Miner for this target.");
+        }
+        if ("miner_emerged".equals(specialId)) {
+            return result(
+                    UncannyMinerSystem.spawnDebugEmerged(target),
+                    "Miner? spawned after emergence with Attacker? combat behavior.",
+                    "No collision-free emerged position was found, or Miner? conflicts with an active tunnel.");
+        }
+        if ("devourer".equals(specialId)) {
+            return result(
+                    UncannyDevourerSystem.spawnDebug(target),
+                    "Devourer? spawned on a checked, reachable path.",
+                    "Devourer? requires a loaded safe path in a Vanilla dimension.");
+        }
+        if ("devourer_arena".equals(specialId)) {
+            return result(
+                    DevourerArenaSystem.enterDebugArena(target),
+                    "Devourer? arena session created and persisted before teleportation.",
+                    "The elsewhere dimension is unavailable or this player already owns an arena session.");
+        }
+        if ("devourer_arena_abandon".equals(specialId)) {
+            return result(
+                    DevourerArenaSystem.abandonSession(target),
+                    "Devourer? arena abandoned, cleaned and returned safely.",
+                    "This player has no Devourer? arena session to abandon.");
+        }
+        if ("ferryman_deferred".equals(specialId)) {
+            return result(
+                    ApprovedSpecialSystem.armFerrymanEncounter(target),
+                    "Ferryman? encounter reserved; navigate the same boat over deep water for 10-15 seconds.",
+                    "Ferryman? already has a pending or active encounter for this player.");
+        }
         if (switch (specialId) {
             case "surveyor", "mourner", "doubler", "ferryman", "listener", "bystander" -> true;
             default -> false;
@@ -276,6 +346,7 @@ public final class UncannyDevActionExecutor {
             case "living_ore" -> UncannyParanoiaEventSystem.triggerLivingOre(target);
             case "projected_shadow" -> UncannyParanoiaEventSystem.triggerProjectedShadow(target);
             case "hunter_fog" -> UncannyParanoiaEventSystem.triggerHunterFog(target);
+            case "debug_bounds" -> UncannyDebugBoundsEventSystem.triggerForDebug(target);
             case "orphan_shadow", "ghost_breaking", "cold_furnace", "empty_teleport",
                     "false_animal_hurt", "stolen_pose", "fishing_tug", "leaf_reply",
                     "silent_bell", "empty_congregation", "empty_lead", "borrowed_painting",
@@ -319,7 +390,24 @@ public final class UncannyDevActionExecutor {
         String valueRaw = parts[2];
         String valueType = parts.length >= 4 ? parts[3] : "int";
 
+        if ("replacement".equalsIgnoreCase(valueType)) {
+            int variantIndex;
+            try {
+                variantIndex = Integer.parseInt(valueRaw);
+            } catch (NumberFormatException exception) {
+                return false;
+            }
+            if (ReplacementVariantExpansionCatalog.variant(typeId, variantIndex) == null) {
+                return false;
+            }
+        }
+
         return spawnUncannyInternal(target, typeId, entity -> {
+            if ("replacement".equalsIgnoreCase(valueType)) {
+                ReplacementVariantExpansionSystem.applyForcedVariant(
+                        entity, Integer.parseInt(valueRaw), target.serverLevel().getGameTime());
+                return;
+            }
             CompoundTag tag = new CompoundTag();
             entity.addAdditionalSaveData(tag);
             if ("bool".equalsIgnoreCase(valueType)) {
@@ -343,6 +431,9 @@ public final class UncannyDevActionExecutor {
 
         if ("approved".equals(parts[0])) {
             return ApprovedVanillaVariantSystem.forceSpawn(target, parts[1]);
+        }
+        if ("approved_random".equals(parts[0])) {
+            return ApprovedVanillaVariantSystem.forceSpawnRandom(target, parts[1]);
         }
 
         int variant;
@@ -412,7 +503,9 @@ public final class UncannyDevActionExecutor {
             monster.setTarget(target);
         }
         entity.addTag(DEV_SPAWNED_TAG);
-        return target.serverLevel().addFreshEntity(entity);
+        boolean added = target.serverLevel().addFreshEntity(entity);
+        UncannyDiagnostics.specialSpawnResult(target, entity, added, "dev_menu_generic");
+        return added;
     }
 
     private static Vec3 findSafeSpawnPosition(

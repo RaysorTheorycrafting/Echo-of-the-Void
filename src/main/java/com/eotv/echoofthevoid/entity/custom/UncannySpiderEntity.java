@@ -292,6 +292,10 @@ public class UncannySpiderEntity extends Spider implements UncannyEntityMarker {
             this.webPlaceCooldown--;
             return;
         }
+        if (!isWebAmbushRange(target)) {
+            // Webs are spun onto a prey within reach, never thrown across the field.
+            return;
+        }
         this.webPlaceCooldown = 100 + level.random.nextInt(61);
 
         BlockPos targetPos = target.blockPosition();
@@ -438,6 +442,11 @@ public class UncannySpiderEntity extends Spider implements UncannyEntityMarker {
             return candidate;
         }
         return null;
+    }
+
+    /** Ghost Weaver spins only when its prey is in melee reach and in sight. */
+    boolean isWebAmbushRange(LivingEntity target) {
+        return target != null && this.isWithinMeleeAttackRange(target) && this.hasLineOfSight(target);
     }
 
     @Nullable

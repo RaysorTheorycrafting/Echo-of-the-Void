@@ -1,6 +1,9 @@
 package com.eotv.echoofthevoid.event.paranoia.message;
 
-/** The concrete situation which is allowed to justify a player-facing uncanny message. */
+/**
+ * Cooldown family of a player-facing uncanny message. Only OBSERVATION, CAVE, BASE, SLEEP and
+ * WEATHER also own a pool for the standalone Corrupt Message; the others are event-only.
+ */
 public enum ParanoiaMessageContext {
     OBSERVATION,
     CAVE,
@@ -8,6 +11,5 @@ public enum ParanoiaMessageContext {
     CONTAINER,
     SLEEP,
     WEATHER,
-    ANIMAL,
-    REPETITION
+    ANIMAL
 }

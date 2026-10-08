@@ -19,7 +19,26 @@ public final class ApprovedSpecialCatalog {
             special("listener", "Listener?", 2, 0, 3, Status.WORKING,
                     "Moves only between recent physical sound sources and leaves after sustained silence."),
             special("bystander", "Bystander?", 2, 0, 4, Status.WORKING,
-                    "Observes a real fight, looking toward each current blow without helping either side."));
+                    "Observes a real fight, looking toward each current blow without helping either side."),
+            special("miner", "Miner?", 3, 2, 2, Status.WORKING,
+                    "Physically tunnels through a strictly safe temporary route, then emerges as an adaptive Attacker?."),
+            special("devourer", "Devourer?", 4, 2, 1, Status.WORKING,
+                    "A slow contact threat whose mouth opens an isolated one-minute survival trial."),
+            special("echoer", "Echoer?", HuntingSpecialRules.ECHOER_MINIMUM_PHASE,
+                    HuntingSpecialRules.ECHOER_MINIMUM_DANGER, HuntingSpecialRules.ECHOER_WEIGHT, Status.WORKING,
+                    "Replays safe remembered sounds away from its real route, then hunts from behind."),
+            special("drifter", "Drifter?", HuntingSpecialRules.DRIFTER_MINIMUM_PHASE,
+                    HuntingSpecialRules.DRIFTER_MINIMUM_DANGER, HuntingSpecialRules.DRIFTER_WEIGHT, Status.WORKING,
+                    "Stalks from deep water and risks a short pursuit ashore before its own air runs out."),
+            special("ashwalker", "Ashwalker?", HuntingSpecialRules.ASHWALKER_MINIMUM_PHASE,
+                    HuntingSpecialRules.ASHWALKER_MINIMUM_DANGER, HuntingSpecialRules.ASHWALKER_WEIGHT, Status.WORKING,
+                    "Follows from connected Nether lava with only its head visible above the surface."),
+            special("dredger", "Dredger?", HuntingSpecialRules.DREDGER_MINIMUM_PHASE,
+                    HuntingSpecialRules.DREDGER_MINIMUM_DANGER, HuntingSpecialRules.DREDGER_WEIGHT, Status.WORKING,
+                    "Telegraphs a grab, then drags swimmers toward the ocean floor until struck three times."),
+            special("flanker", "Flanker?", HuntingSpecialRules.FLANKER_MINIMUM_PHASE,
+                    HuntingSpecialRules.FLANKER_MINIMUM_DANGER, HuntingSpecialRules.FLANKER_WEIGHT, Status.WORKING,
+                    "A linked pair alternates pressure from opposite sides and attacks only after a readable enclosure."));
     private static final Map<String, Definition> BY_ID;
 
     static {

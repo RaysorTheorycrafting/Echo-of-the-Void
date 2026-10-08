@@ -1,5 +1,6 @@
 package com.eotv.echoofthevoid.sound;
 
+import com.eotv.echoofthevoid.diagnostics.UncannyDiagnostics;
 import com.eotv.echoofthevoid.network.UncannyMentalSoundPayload;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvent;
@@ -21,11 +22,19 @@ public final class UncannySoundDelivery {
         if (player == null || sound == null || source == null || !player.isAlive()) {
             return;
         }
+        int boundedDuration = Math.max(0, Math.min(maximumDurationTicks, 20 * 30));
         PacketDistributor.sendToPlayer(player, new UncannyMentalSoundPayload(
                 sound.getLocation().toString(),
                 source.getName(),
                 volume,
                 pitch,
-                Math.max(0, Math.min(maximumDurationTicks, 20 * 30))));
+                boundedDuration));
+        UncannyDiagnostics.mentalSoundSent(
+                player,
+                sound.getLocation().toString(),
+                source.getName(),
+                volume,
+                pitch,
+                boundedDuration);
     }
 }

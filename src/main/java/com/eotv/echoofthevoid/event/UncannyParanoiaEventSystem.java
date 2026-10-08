@@ -6,6 +6,8 @@ import com.eotv.echoofthevoid.campaign.CampaignCulminationAction;
 import com.eotv.echoofthevoid.campaign.CampaignPlayerContextGrace;
 import com.eotv.echoofthevoid.campaign.UncannyCampaignDirector;
 import com.eotv.echoofthevoid.config.UncannyConfig;
+import com.eotv.echoofthevoid.diagnostics.DiagnosticSeverity;
+import com.eotv.echoofthevoid.diagnostics.UncannyDiagnostics;
 import com.eotv.echoofthevoid.entity.UncannyEntityRegistry;
 import com.eotv.echoofthevoid.entity.custom.UncannyFollowerEntity;
 import com.eotv.echoofthevoid.entity.custom.UncannyHurlerEntity;
@@ -18,8 +20,10 @@ import com.eotv.echoofthevoid.entity.custom.UncannyStalkerEntity;
 import com.eotv.echoofthevoid.entity.custom.UncannyTenantEntity;
 import com.eotv.echoofthevoid.entity.custom.UncannyUsherEntity;
 import com.eotv.echoofthevoid.entity.custom.UncannyWatcherEntity;
+import com.eotv.echoofthevoid.entity.variant.ReplacementVariantExpansionSystem;
 import com.eotv.echoofthevoid.event.paranoia.GhostMinerBlockPolicy;
 import com.eotv.echoofthevoid.event.paranoia.GhostMinerRules;
+import com.eotv.echoofthevoid.event.paranoia.FalseFallFollowupRules;
 import com.eotv.echoofthevoid.event.paranoia.ParanoiaEventCatalog;
 import com.eotv.echoofthevoid.event.paranoia.ParanoiaEventDescriptor;
 import com.eotv.echoofthevoid.event.paranoia.ParanoiaEventIds;
@@ -28,11 +32,17 @@ import com.eotv.echoofthevoid.event.paranoia.ParanoiaEventSeverity;
 import com.eotv.echoofthevoid.event.paranoia.ParanoiaPacingRules;
 import com.eotv.echoofthevoid.event.paranoia.WeightedSelector;
 import com.eotv.echoofthevoid.event.paranoia.TensionPacingRules;
+import com.eotv.echoofthevoid.event.paranoia.UncannyDimensionPolicy;
 import com.eotv.echoofthevoid.event.paranoia.message.ParanoiaMessageContext;
 import com.eotv.echoofthevoid.event.paranoia.message.ParanoiaMessageService;
+import com.eotv.echoofthevoid.event.paranoia.message.SleepDisturbanceMessageCatalog;
 import com.eotv.echoofthevoid.event.paranoia.nativeevent.MinecraftNativeAnomalySystem;
 import com.eotv.echoofthevoid.event.special.ApprovedSpecialSystem;
+import com.eotv.echoofthevoid.event.special.HuntingSpecialSoundMemory;
+import com.eotv.echoofthevoid.event.special.UncannyHuntingSpecialSystem;
 import com.eotv.echoofthevoid.event.special.GrandWardenRules;
+import com.eotv.echoofthevoid.event.special.UncannyMinerSystem;
+import com.eotv.echoofthevoid.event.special.UncannyDevourerSystem;
 import com.eotv.echoofthevoid.item.UncannyItemRegistry;
 import com.eotv.echoofthevoid.network.UncannyFalseRecipeToastPayload;
 import com.eotv.echoofthevoid.network.UncannyHotbarWrongCountPayload;
@@ -42,6 +52,7 @@ import com.eotv.echoofthevoid.sound.UncannySoundRegistry;
 import com.eotv.echoofthevoid.sound.UncannySoundDelivery;
 import com.eotv.echoofthevoid.state.UncannyWorldState;
 import com.eotv.echoofthevoid.world.UncannyBlockMutationSafety;
+import com.eotv.echoofthevoid.world.UncannyDimensions;
 import java.io.InputStream;
 import java.lang.reflect.Method;
 import java.security.CodeSource;
@@ -163,7 +174,6 @@ import net.neoforged.fml.ModList;
 import net.neoforged.neoforge.network.PacketDistributor;
 
 public final class UncannyParanoiaEventSystem {
-    private static final double[] PROFILE_BELL_WAVE_CHANCE = {0.70D, 0.78D, 0.86D, 0.92D, 0.96D};
     private static final double[] PROFILE_BLACKOUT_SPECIAL_CHANCE = {0.13D, 0.18D, 0.24D, 0.32D, 0.42D};
     private static final double[] DANGER_FLASH_MONSTER_CHANCE = {0.00D, 0.15D, 0.30D, 0.50D, 0.70D, 0.90D};
     private static final int[] DANGER_HURLER_ATTACK_PERCENT = {0, 3, 6, 10, 18, 28};
@@ -175,8 +185,8 @@ public final class UncannyParanoiaEventSystem {
     private static final int FLASH_RED_MARKER_AMPLIFIER = 7;
     private static final String DONT_TURN_AROUND_MESSAGE = "Don't turn around.";
     private static final int DOOR_LOCK_SECONDS = 5;
-    private static final int SLEEP_DISTURB_COOLDOWN_MIN_SECONDS = 16 * 60;
-    private static final int SLEEP_DISTURB_COOLDOWN_MAX_SECONDS = 28 * 60;
+    private static final int SLEEP_DISTURB_COOLDOWN_MIN_SECONDS = 45 * 60;
+    private static final int SLEEP_DISTURB_COOLDOWN_MAX_SECONDS = 75 * 60;
     private static final int SLEEP_DISTURB_REQUIRED_CLICKS = 3;
     private static final long SLEEP_DISTURB_CLICK_DEBOUNCE_TICKS = 12L;
     private static final long FIRST_NIGHT_WATCHER_WINDOW_START_TICK = 12000L;
@@ -380,7 +390,6 @@ public final class UncannyParanoiaEventSystem {
     private static MemoryModuleType<?> WARDEN_SONIC_COOLDOWN_MEMORY;
     private static boolean WARDEN_SONIC_COOLDOWN_LOOKUP_DONE;
     private static boolean WARDEN_SONIC_COOLDOWN_LOOKUP_LOGGED;
-    private static final Component SLEEP_DISTURB_MESSAGE = Component.literal("There is something in your bed.");
     private static final Component WORKBENCH_REJECT_MESSAGE = Component.literal("Not this one.");
     private static final Component COMPASS_LIAR_MESSAGE =
             Component.literal("You feel like your compass is pointing towards an anomaly for now.");
@@ -741,6 +750,8 @@ public final class UncannyParanoiaEventSystem {
     private static final List<String> CORRUPT_MESSAGE_EN_POOL = CORRUPT_MESSAGE_PHASE1_POOL;
 
     private static final Map<UUID, BlackoutState> ACTIVE_BLACKOUTS = new HashMap<>();
+    /** No natural Blackout during the first 30 minutes of a session. */
+    private static final long BLACKOUT_JOIN_GRACE_TICKS = 30L * 60L * 20L;
     private static final Map<UUID, FootstepsState> ACTIVE_FOOTSTEPS = new HashMap<>();
     private static final Map<UUID, FlashErrorState> ACTIVE_FLASH_EVENTS = new HashMap<>();
     private static final Map<UUID, Long> ACTIVE_DEAFNESS = new HashMap<>();
@@ -765,7 +776,7 @@ public final class UncannyParanoiaEventSystem {
     private static final Map<UUID, Long> FLASH_RED_OVERLAY_END_TICKS = new HashMap<>();
     private static final Map<UUID, SleepDisturbanceState> ACTIVE_SLEEP_DISTURBANCES = new HashMap<>();
     private static final Map<UUID, Long> LAST_SLEEP_DISTURB_ATTEMPT_TICKS = new HashMap<>();
-    private static final Map<UUID, Long> PENDING_SLEEP_MESSAGE_TICKS = new HashMap<>();
+    private static final Map<UUID, PendingSleepMessage> PENDING_SLEEP_MESSAGES = new HashMap<>();
     private static final Set<UUID> SKIP_NEXT_SLEEP_DISTURB = new HashSet<>();
     private static final Set<UUID> REQUIRE_NORMAL_SLEEP_BEFORE_NEXT_DISTURB = new HashSet<>();
     private static final Map<UUID, Long> NEXT_SLEEP_DISTURB_ALLOWED_TICKS = new HashMap<>();
@@ -782,6 +793,7 @@ public final class UncannyParanoiaEventSystem {
     private static final Map<UUID, Long> GRAND_EVENT_RECENT_AUDIBLE_ACTION_TICKS = new HashMap<>();
     private static final Map<UUID, BlockPos> GRAND_EVENT_RECENT_AUDIBLE_ACTION_POSITIONS = new HashMap<>();
     private static final Map<ResourceKey<Level>, GrandEventState> ACTIVE_GRAND_EVENTS = new HashMap<>();
+    private static final Map<ResourceKey<Level>, GrandEventSpawnPlan> PENDING_GRAND_EVENT_SPAWN_PLANS = new HashMap<>();
     private static final Map<ResourceKey<Level>, Map<UUID, PausedLivingSnapshot>> ACTIVE_GRAND_PAUSED_LIVINGS = new HashMap<>();
     private static final List<ChestCloseTask> CHEST_CLOSE_TASKS = new ArrayList<>();
     private static final List<ChestPanicTask> CHEST_PANIC_TASKS = new ArrayList<>();
@@ -948,6 +960,12 @@ public final class UncannyParanoiaEventSystem {
         if (server == null || player.isSpectator()) {
             return;
         }
+        if (UncannyDimensions.isElsewhere(player.level())) {
+            // Dimension-bound effects are removed by the transition hook. Do not call the full
+            // logout/reset path here: it would erase per-player cooldowns on every arena tick and
+            // make an ordinary event immediately eligible after the trial.
+            return;
+        }
 
         long now = server.getTickCount();
         CAMPAIGN_CULMINATION_CONTEXT.observe(player.getUUID(), now);
@@ -963,13 +981,14 @@ public final class UncannyParanoiaEventSystem {
         }
         int profile = getIntensityProfile();
         ServerLevel level = player.serverLevel();
-        tickTensionBuilder(level, worldState, now, phase);
-        tickActiveGrandEvent(level, now);
-        if (isGrandEventAutoPauseActive(level)) {
+        ServerLevel majorEventLevel = server.overworld();
+        tickTensionBuilder(majorEventLevel, worldState, now, phase);
+        tickActiveGrandEvent(majorEventLevel, now);
+        if (isGrandEventAutoPauseActive(majorEventLevel)) {
             suppressNonGrandEventEffectsDuringGrandPause(player);
             return;
         }
-        if (isTensionBuilderEventPauseActive(level, worldState, now)) {
+        if (isTensionBuilderEventPauseActive(majorEventLevel, worldState, now)) {
             if ((now % 20L) == 0L) {
                 debugLog(
                         "TENSION pause_all_events=true source=on_player_tick remaining={}s",
@@ -979,6 +998,8 @@ public final class UncannyParanoiaEventSystem {
             return;
         }
 
+        ApprovedSpecialSystem.tickPendingFerrymanEncounter(player);
+
         UUID playerId = player.getUUID();
         if (!NEXT_AUTO_CHECK_TICKS.containsKey(playerId) || !NEXT_SPECIAL_ENTITY_CHECK_TICKS.containsKey(playerId)) {
             clearPlayerEventState(player);
@@ -986,6 +1007,9 @@ public final class UncannyParanoiaEventSystem {
             long nextSpecial = now + INITIAL_SPECIAL_JOIN_GRACE_TICKS + rollSpecialEntityCheckIntervalTicks(phase, profile, player.serverLevel());
             NEXT_AUTO_CHECK_TICKS.put(playerId, nextAuto);
             NEXT_SPECIAL_ENTITY_CHECK_TICKS.put(playerId, nextSpecial);
+            // Reconnecting must not make a natural Blackout immediately available again.
+            EVENT_COOLDOWNS.computeIfAbsent(playerId, uuid -> new HashMap<>())
+                    .merge("blackout", now + BLACKOUT_JOIN_GRACE_TICKS, Math::max);
             debugLog(
                     "EVENT init-session player={} phase={} nextAuto={}t nextSpecial={}t",
                     playerLabel(player),
@@ -1004,6 +1028,8 @@ public final class UncannyParanoiaEventSystem {
         tickFlashRedOverlay(player, now);
         tickPendingSleepMessage(player, now);
         tickBlackout(player, now);
+        ParanoiaMessageService.tickPending(player, now)
+                .ifPresent(text -> maybeArmTurnAroundTrap(player, text, now));
         tickFootsteps(player, now);
         tickFlashError(player, now);
         tickDeafness(player, now);
@@ -1031,7 +1057,7 @@ public final class UncannyParanoiaEventSystem {
         if (player.isSleeping()) {
             ACTIVE_SLEEP_DISTURBANCES.remove(playerId);
             LAST_SLEEP_DISTURB_ATTEMPT_TICKS.remove(playerId);
-            PENDING_SLEEP_MESSAGE_TICKS.remove(playerId);
+            PENDING_SLEEP_MESSAGES.remove(playerId);
             REQUIRE_NORMAL_SLEEP_BEFORE_NEXT_DISTURB.remove(playerId);
         }
 
@@ -1103,11 +1129,14 @@ public final class UncannyParanoiaEventSystem {
                 return;
             }
 
-            state = new SleepDisturbanceState(event.getPos(), 1);
+            state = new SleepDisturbanceState(
+                    event.getPos(),
+                    1,
+                    player.getRandom().nextInt(SleepDisturbanceMessageCatalog.variantCount()));
             ACTIVE_SLEEP_DISTURBANCES.put(playerId, state);
             LAST_SLEEP_DISTURB_ATTEMPT_TICKS.put(playerId, now);
             NEXT_SLEEP_DISTURB_ALLOWED_TICKS.put(playerId, now + rollSleepDisturbCooldownTicks(player.serverLevel(), phase, getIntensityProfile()));
-            queueSleepDisturbMessage(player, now);
+            queueSleepDisturbMessage(player, state, now);
             event.setProblem(BedSleepingProblem.OTHER_PROBLEM);
             return;
         }
@@ -1127,14 +1156,13 @@ public final class UncannyParanoiaEventSystem {
         LAST_SLEEP_DISTURB_ATTEMPT_TICKS.put(playerId, now);
         state.setBedPos(event.getPos());
         state.incrementAttempts();
-        queueSleepDisturbMessage(player, now);
+        queueSleepDisturbMessage(player, state, now);
         event.setProblem(BedSleepingProblem.OTHER_PROBLEM);
 
         if (state.attempts() >= SLEEP_DISTURB_REQUIRED_CLICKS) {
             spawnPulseInBed(player, state.bedPos());
             ACTIVE_SLEEP_DISTURBANCES.remove(playerId);
             LAST_SLEEP_DISTURB_ATTEMPT_TICKS.remove(playerId);
-            PENDING_SLEEP_MESSAGE_TICKS.remove(playerId);
             SKIP_NEXT_SLEEP_DISTURB.add(playerId);
             REQUIRE_NORMAL_SLEEP_BEFORE_NEXT_DISTURB.add(playerId);
             UncannyPhase phase = UncannyWorldState.get(server).getPhase();
@@ -1151,7 +1179,12 @@ public final class UncannyParanoiaEventSystem {
             return false;
         }
 
-        ACTIVE_SLEEP_DISTURBANCES.put(player.getUUID(), new SleepDisturbanceState(player.blockPosition(), 0));
+        ACTIVE_SLEEP_DISTURBANCES.put(
+                player.getUUID(),
+                new SleepDisturbanceState(
+                        player.blockPosition(),
+                        0,
+                        player.getRandom().nextInt(SleepDisturbanceMessageCatalog.variantCount())));
         return true;
     }
 
@@ -2438,7 +2471,8 @@ public final class UncannyParanoiaEventSystem {
         int duration = 260 + player.getRandom().nextInt(121);
         ACTIVE_BLACKOUTS.put(player.getUUID(), new BlackoutState(now, duration));
 
-        playMentalSound(player, SoundEvents.MUSIC_DISC_11.value(), SoundSource.RECORDS, 0.32F, 1.0F, 50);
+        // One original score for the whole blindness; the client cuts it when sight returns.
+        playMentalSound(player, UncannySoundRegistry.BLACKOUT_SCORE.get(), SoundSource.AMBIENT, 0.85F, 1.0F, duration);
         markGlobalCooldown(player, now, EventSeverity.HIGH);
         return true;
     }
@@ -2634,22 +2668,8 @@ public final class UncannyParanoiaEventSystem {
             playMentalSound(player, SoundEvents.BELL_BLOCK, SoundSource.HOSTILE, 0.52F, 0.88F, 36);
         }
 
-        double waveChance = PROFILE_BELL_WAVE_CHANCE[profile - 1];
-        if (danger <= 1) {
-            waveChance *= danger == 0 ? 0.12D : 0.32D;
-        } else if (danger == 2) {
-            waveChance *= 0.65D;
-        } else if (danger == 4) {
-            waveChance *= 1.20D;
-        } else if (danger == 5) {
-            waveChance *= 1.40D;
-        }
-        if (phase == UncannyPhase.PHASE_2) {
-            waveChance *= 0.10D;
-        } else if (phase == UncannyPhase.PHASE_3) {
-            waveChance *= 0.18D;
-        }
-        waveChance = Mth.clamp(waveChance, 0.0D, 0.98D);
+        double waveChance = ParanoiaPacingRules.activeBellMonsterWaveChance(
+                phase.index(), profile, danger);
 
         boolean spawnWave = level.random.nextDouble() < waveChance;
         if (spawnWave) {
@@ -2735,6 +2755,7 @@ public final class UncannyParanoiaEventSystem {
 
         long now = player.getServer().getTickCount();
         playMentalSound(player, SoundEvents.PLAYER_SMALL_FALL, SoundSource.PLAYERS, 0.70F, 0.8F, 18);
+        tryTriggerFalseFallFollowup(player);
         markGlobalCooldown(player, now, EventSeverity.MEDIUM);
         return true;
     }
@@ -2753,6 +2774,37 @@ public final class UncannyParanoiaEventSystem {
         playMentalSound(player, SoundEvents.PLAYER_HURT, SoundSource.PLAYERS, 0.72F, 0.9F, 18);
         markGlobalCooldown(player, now, EventSeverity.HIGH);
         return true;
+    }
+
+    private static void tryTriggerFalseFallFollowup(ServerPlayer player) {
+        MinecraftServer server = player.getServer();
+        if (server == null) {
+            return;
+        }
+        UncannyWorldState state = UncannyWorldState.get(server);
+        boolean stableGroundContext = player.onGround()
+                && !player.isSleeping()
+                && !player.isPassenger()
+                && !player.isInWaterOrBubble()
+                && !player.isInLava()
+                && player.fallDistance <= 0.0F;
+        int roll = player.getRandom().nextInt(FalseFallFollowupRules.AMBUSH_ROLL_BOUND);
+        if (!FalseFallFollowupRules.shouldAttemptAmbusher(
+                state.getCurrentPhaseIndex(), getDangerLevel(), stableGroundContext, roll)) {
+            return;
+        }
+        boolean spawned = ApprovedSpecialSystem.spawnAmbusher(player, false);
+        UncannyDiagnostics.recordEventOutcome(
+                player,
+                "special",
+                "ambusher",
+                spawned ? "started_from_false_fall" : "context_failed",
+                UncannyDiagnostics.fields(
+                        "source_event", "false_fall",
+                        "roll", roll,
+                        "chance_denominator", FalseFallFollowupRules.AMBUSH_ROLL_BOUND,
+                        "phase", state.getCurrentPhaseIndex(),
+                        "danger", getDangerLevel()));
     }
 
     public static boolean triggerCorruptedMessage(ServerPlayer player) {
@@ -2782,11 +2834,25 @@ public final class UncannyParanoiaEventSystem {
         return triggerGhostMiner(player, true);
     }
 
+    public static boolean hasActiveGhostMiner(UUID playerId) {
+        return playerId != null && ACTIVE_GHOST_MINERS.containsKey(playerId);
+    }
+
+    public static void cancelGhostMiner(UUID playerId) {
+        if (playerId != null) {
+            ACTIVE_GHOST_MINERS.remove(playerId);
+        }
+    }
+
     private static boolean triggerGhostMiner(ServerPlayer player, boolean debug) {
         if (player.getServer() == null) {
             return false;
         }
         if (!UncannyWorldState.get(player.getServer()).isSystemEnabled()) {
+            return false;
+        }
+        if (ACTIVE_GHOST_MINERS.containsKey(player.getUUID())
+                || UncannyMinerSystem.hasActiveForTarget(player)) {
             return false;
         }
         if (!debug && player.serverLevel().canSeeSky(player.blockPosition())) {
@@ -3260,6 +3326,12 @@ public final class UncannyParanoiaEventSystem {
             return false;
         }
         ServerLevel level = player.serverLevel();
+        if (!UncannyDimensionPolicy.allowsMajorEvent(level)) {
+            UncannyDiagnostics.recordForPlayer(
+                    player, DiagnosticSeverity.WARNING, "major", "grand_warden_wrong_dimension",
+                    UncannyDiagnostics.fields("required_dimension", Level.OVERWORLD.location()));
+            return false;
+        }
         ResourceKey<Level> dimension = level.dimension();
         GrandEventState existing = ACTIVE_GRAND_EVENTS.get(dimension);
         if (existing != null && !existing.ended()) {
@@ -3267,7 +3339,19 @@ public final class UncannyParanoiaEventSystem {
         }
         long now = player.getServer().getTickCount();
         long spawnDelayTicks = rollGrandWardenPreSpawnDelayTicks(level);
+        GrandEventSpawnPlan plan = prepareGrandEventSpawnPlan(level, true, player);
+        if (plan == null) {
+            UncannyDiagnostics.recordForPlayer(
+                    player,
+                    DiagnosticSeverity.WARNING,
+                    "major",
+                    "grand_warden_preflight_failed",
+                    UncannyDiagnostics.fields("forced", true, "reason", "no_spawn_position"));
+            return false;
+        }
+        PENDING_GRAND_EVENT_SPAWN_PLANS.put(dimension, plan);
         if (!sendGrandEventPreSpawnWarning(level, now, spawnDelayTicks)) {
+            PENDING_GRAND_EVENT_SPAWN_PLANS.remove(dimension);
             return false;
         }
         UncannyWorldState state = UncannyWorldState.get(player.getServer());
@@ -3306,6 +3390,9 @@ public final class UncannyParanoiaEventSystem {
         if (player.getServer() == null || !UncannyWorldState.get(player.getServer()).isSystemEnabled()) {
             return false;
         }
+        if (!UncannyDimensionPolicy.allowsMajorEvent(player.serverLevel())) {
+            return false;
+        }
         return startTensionBuilder(
                 player.serverLevel(), UncannyWorldState.get(player.getServer()), TensionStartCause.QA, player);
     }
@@ -3315,7 +3402,7 @@ public final class UncannyParanoiaEventSystem {
             UncannyWorldState state,
             TensionStartCause cause,
             @Nullable ServerPlayer initiatedBy) {
-        if (level == null || state == null || !state.isSystemEnabled()
+        if (level == null || state == null || !UncannyDimensionPolicy.allowsMajorEvent(level) || !state.isSystemEnabled()
                 || state.getPhase().index() < UncannyPhase.PHASE_2.index()) {
             return false;
         }
@@ -3332,6 +3419,7 @@ public final class UncannyParanoiaEventSystem {
             state.setTensionBuilderPendingGrandEventWarningSent(false);
             state.setTensionBuilderPendingGrandEventWarningTick(Long.MIN_VALUE);
             state.setTensionBuilderPendingGrandEventDelayTicks(Long.MIN_VALUE);
+            PENDING_GRAND_EVENT_SPAWN_PLANS.clear();
         } else {
             UncannyCampaignDirector.recordNaturalMajorEventStarted(state);
         }
@@ -3340,6 +3428,15 @@ public final class UncannyParanoiaEventSystem {
                 cause.name().toLowerCase(Locale.ROOT),
                 initiatedBy == null ? "scheduler" : playerLabel(initiatedBy),
                 durationSeconds);
+        UncannyDiagnostics.recordForPlayer(
+                initiatedBy,
+                DiagnosticSeverity.INFO,
+                "major",
+                "tension_builder_started",
+                UncannyDiagnostics.fields(
+                        "cause", cause.name().toLowerCase(Locale.ROOT),
+                        "duration_ticks", durationSeconds * 20L,
+                        "dimension", level.dimension().location()));
         return true;
     }
 
@@ -3365,11 +3462,16 @@ public final class UncannyParanoiaEventSystem {
         state.setTensionBuilderPendingGrandEventWarningSent(false);
         state.setTensionBuilderPendingGrandEventWarningTick(Long.MIN_VALUE);
         state.setTensionBuilderPendingGrandEventDelayTicks(Long.MIN_VALUE);
+        PENDING_GRAND_EVENT_SPAWN_PLANS.clear();
         debugLog(
                 "TENSION command-stop by={} nextStartIn={}s grandBoost={}s",
                 playerLabel(player),
                 breakSeconds,
                 boostSeconds);
+        UncannyDiagnostics.recordForPlayer(player, DiagnosticSeverity.INFO, "major", "tension_builder_stopped", UncannyDiagnostics.fields(
+                "reason", "command",
+                "next_start_ticks", breakSeconds * 20L,
+                "grand_boost_ticks", boostSeconds * 20L));
         return true;
     }
 
@@ -3819,7 +3921,12 @@ public final class UncannyParanoiaEventSystem {
         }
 
         shadow.moveTo(pos.getX() + 0.5D, pos.getY(), pos.getZ() + 0.5D, level.random.nextFloat() * 360.0F, 0.0F);
-        level.addFreshEntity(shadow);
+        boolean added = level.addFreshEntity(shadow);
+        UncannyDiagnostics.specialSpawnResult(player, shadow, added, preferCloseBehind ? "command_close" : "natural");
+        if (!added) {
+            debugLog("SPECIAL spawn-shadow rejected player={} at={}", playerLabel(player), pos);
+            return false;
+        }
         debugLog("SPECIAL spawn-shadow success player={} at={}", playerLabel(player), pos);
         return true;
     }
@@ -3882,7 +3989,12 @@ public final class UncannyParanoiaEventSystem {
         int danger = getDangerLevel();
         int attackChance = forceAggression ? 10 : DANGER_HURLER_ATTACK_PERCENT[danger];
         hurler.setAttackChancePercent(attackChance);
-        level.addFreshEntity(hurler);
+        boolean added = level.addFreshEntity(hurler);
+        UncannyDiagnostics.specialSpawnResult(player, hurler, added, preferCloseBehind ? "command_close" : "natural");
+        if (!added) {
+            debugLog("SPECIAL spawn-hurler rejected player={} at={}", playerLabel(player), pos);
+            return false;
+        }
         debugLog("SPECIAL spawn-hurler success player={} at={} attackChance={}", playerLabel(player), pos, attackChance);
         return true;
     }
@@ -3944,8 +4056,11 @@ public final class UncannyParanoiaEventSystem {
                             manual.moveTo(fallback.getX() + 0.5D, fallback.getY(), fallback.getZ() + 0.5D, player.getYRot() + 180.0F, 0.0F);
                             manual.setHuntTarget(player);
                             manual.setAnimationStyle(animationStyle);
-                            level.addFreshEntity(manual);
-                            spawned = manual;
+                            boolean added = level.addFreshEntity(manual);
+                            UncannyDiagnostics.specialSpawnResult(player, manual, added, "command_fallback");
+                            if (added) {
+                                spawned = manual;
+                            }
                         }
                     }
                 }
@@ -4039,7 +4154,12 @@ public final class UncannyParanoiaEventSystem {
         boolean canAttack = forceAggression || danger > 0;
         knocker.setCanAttack(canAttack);
         knocker.setOpenDoorAttackChancePercent(forceAggression ? 20 : DANGER_KNOCKER_OPEN_ATTACK_PERCENT[danger]);
-        level.addFreshEntity(knocker);
+        boolean added = level.addFreshEntity(knocker);
+        UncannyDiagnostics.specialSpawnResult(player, knocker, added, preferCloseBehind ? "command_close" : "natural");
+        if (!added) {
+            debugLog("SPECIAL spawn-knocker rejected player={} at={}", playerLabel(player), spawnPos);
+            return false;
+        }
         debugLog("SPECIAL spawn-knocker success player={} at={} door={} canAttack={}", playerLabel(player), spawnPos, doorPos, canAttack);
         return true;
     }
@@ -4105,7 +4225,12 @@ public final class UncannyParanoiaEventSystem {
 
         pulse.moveTo(pos.getX() + 0.5D, pos.getY(), pos.getZ() + 0.5D, level.random.nextFloat() * 360.0F, 0.0F);
         pulse.setTarget(player);
-        level.addFreshEntity(pulse);
+        boolean added = level.addFreshEntity(pulse);
+        UncannyDiagnostics.specialSpawnResult(player, pulse, added, preferCloseBehind ? "command_close" : "natural");
+        if (!added) {
+            debugLog("SPECIAL spawn-pulse rejected player={} at={}", playerLabel(player), pos);
+            return false;
+        }
 
         if (preferCloseBehind) {
             level.sendParticles(ParticleTypes.SMOKE, pos.getX() + 0.5D, pos.getY() + 0.3D, pos.getZ() + 0.5D,
@@ -4191,7 +4316,12 @@ public final class UncannyParanoiaEventSystem {
         }
         usher.moveTo(spawnPos.getX() + 0.5D, spawnPos.getY(), spawnPos.getZ() + 0.5D, player.getYRot() + 180.0F, 0.0F);
         usher.setupUsher(player, target);
-        level.addFreshEntity(usher);
+        boolean added = level.addFreshEntity(usher);
+        UncannyDiagnostics.specialSpawnResult(player, usher, added, preferCloseBehind ? "command_close" : "natural");
+        if (!added) {
+            debugLog("SPECIAL spawn-usher rejected player={} at={}", playerLabel(player), spawnPos);
+            return false;
+        }
         debugLog("SPECIAL spawn-usher success player={} at={} target={}", playerLabel(player), spawnPos, target);
         return true;
     }
@@ -4265,7 +4395,12 @@ public final class UncannyParanoiaEventSystem {
         }
         keeper.moveTo(spawnPos.getX() + 0.5D, spawnPos.getY(), spawnPos.getZ() + 0.5D, player.getYRot() + 180.0F, 0.0F);
         keeper.setupKeeper(player, container);
-        level.addFreshEntity(keeper);
+        boolean added = level.addFreshEntity(keeper);
+        UncannyDiagnostics.specialSpawnResult(player, keeper, added, preferCloseBehind ? "command_close" : "natural");
+        if (!added) {
+            debugLog("SPECIAL spawn-keeper rejected player={} at={}", playerLabel(player), spawnPos);
+            return false;
+        }
         debugLog("SPECIAL spawn-keeper success player={} at={} container={}", playerLabel(player), spawnPos, container);
         return true;
     }
@@ -4379,7 +4514,12 @@ public final class UncannyParanoiaEventSystem {
         }
         tenant.moveTo(spawnPos.getX() + 0.5D, spawnPos.getY(), spawnPos.getZ() + 0.5D, player.getYRot() + 180.0F, 0.0F);
         tenant.setupTenant(player, doorPos, route.inside());
-        level.addFreshEntity(tenant);
+        boolean added = level.addFreshEntity(tenant);
+        UncannyDiagnostics.specialSpawnResult(player, tenant, added, preferCloseBehind ? "command_close" : "natural");
+        if (!added) {
+            debugLog("SPECIAL spawn-tenant rejected player={} at={}", playerLabel(player), spawnPos);
+            return false;
+        }
         TENANT_AWAY_SINCE.remove(playerId);
         debugLog(
                 "SPECIAL spawn-tenant success player={} at={} door={} interior={}",
@@ -4432,7 +4572,22 @@ public final class UncannyParanoiaEventSystem {
         long durationTicks = (5L + level.random.nextInt(6)) * 60L * 20L;
         follower.moveTo(spawnPos.getX() + 0.5D, spawnPos.getY(), spawnPos.getZ() + 0.5D, player.getYRot() + 180.0F, 0.0F);
         follower.setupFollower(player, durationTicks);
-        level.addFreshEntity(follower);
+        boolean added = level.addFreshEntity(follower);
+        UncannyDiagnostics.recordSpecialLifecycle(
+                player,
+                follower,
+                "follower",
+                added ? "spawned" : "spawn_failed",
+                preferCloseBehind ? "close_qa_or_fallback" : "natural_distance",
+                added ? DiagnosticSeverity.INFO : DiagnosticSeverity.ERROR,
+                UncannyDiagnostics.fields(
+                        "duration_ticks", durationTicks,
+                        "spawn_distance", String.format(Locale.ROOT, "%.3f", follower.distanceTo(player)),
+                        "direct_line_of_sight", player.hasLineOfSight(follower)));
+        if (!added) {
+            debugLog("SPECIAL spawn-follower rejected player={} at={}", playerLabel(player), spawnPos);
+            return false;
+        }
         debugLog("SPECIAL spawn-follower success player={} at={} duration={}s", playerLabel(player), spawnPos, durationTicks / 20L);
         return true;
     }
@@ -4452,7 +4607,7 @@ public final class UncannyParanoiaEventSystem {
         }
         phantom.moveTo(spawnPos.getX() + 0.5D, spawnPos.getY() + 0.8D, spawnPos.getZ() + 0.5D, player.getYRot() + 180.0F, 0.0F);
         phantom.setTarget(player);
-        phantom.setLanternEaterMode(true);
+        ReplacementVariantExpansionSystem.applyForcedVariant(phantom, 2, level.getGameTime());
         level.addFreshEntity(phantom);
         debugLog("SPECIAL spawn-phantom-lantern-eater success player={} at={}", playerLabel(player), spawnPos);
         return true;
@@ -4504,6 +4659,14 @@ public final class UncannyParanoiaEventSystem {
         String mainPoolCooldowns = summarizeCooldownPool(EVENT_COOLDOWNS.get(player.getUUID()), now, 5);
         String ambientPoolCooldowns = summarizeCooldownPool(AMBIENT_EVENT_COOLDOWNS.get(player.getUUID()), now, 5);
         String specialPoolCooldowns = summarizeCooldownPool(SPECIAL_ENTITY_COOLDOWNS.get(player.getUUID()), now, 5);
+        UncannyWorldState.PendingFerrymanEncounter pendingFerryman =
+                state.getPendingFerrymanEncounter(player.getUUID());
+        String pendingFerrymanSummary = pendingFerryman == null
+                ? "none"
+                : pendingFerryman.progressTicks() + "/" + pendingFerryman.requiredNavigationTicks() + "t"
+                        + "(boat=" + (player.getVehicle() instanceof Boat)
+                        + ",deep=" + (player.getVehicle() instanceof Boat boat
+                                && ApprovedSpecialSystem.isEligibleFerrymanBoat(player.serverLevel(), boat)) + ")";
 
         boolean forcedBySilence = isForcedBySilence(state, phase, profile, danger, now);
         double autoChance = UncannyCampaignDirector.adjustedTriggerChance(
@@ -4539,6 +4702,7 @@ public final class UncannyParanoiaEventSystem {
                 + " | mainPoolCdKeys=" + mainPoolCooldowns
                 + " | ambientPoolCdKeys=" + ambientPoolCooldowns
                 + " | specialPoolCdKeys=" + specialPoolCooldowns
+                + " | pendingFerryman=" + pendingFerrymanSummary
                 + " | forcedBySilence=" + forcedBySilence
                 + " | activeBlackout=" + ACTIVE_BLACKOUTS.containsKey(player.getUUID())
                 + " | activeFootsteps=" + ACTIVE_FOOTSTEPS.containsKey(player.getUUID())
@@ -4668,6 +4832,10 @@ public final class UncannyParanoiaEventSystem {
                     || state.getTensionBuilderGrandEventBoostUntilTick() != Long.MIN_VALUE
                     || state.getTensionBuilderNextGrandEventRollTick() != Long.MIN_VALUE
                     || state.getTensionBuilderPendingGrandEventStartTick() != Long.MIN_VALUE) {
+                UncannyDiagnostics.record(DiagnosticSeverity.INFO, "major", "tension_builder_state_reset", UncannyDiagnostics.fields(
+                        "reason", "phase_below_two",
+                        "phase", phase.index(),
+                        "dimension", level.dimension().location()));
                 state.setTensionBuilderEndTick(Long.MIN_VALUE);
                 state.setTensionBuilderNextStartTick(Long.MIN_VALUE);
                 state.setTensionBuilderGrandEventBoostUntilTick(Long.MIN_VALUE);
@@ -4678,6 +4846,7 @@ public final class UncannyParanoiaEventSystem {
                 state.setTensionBuilderPendingGrandEventWarningSent(false);
                 state.setTensionBuilderPendingGrandEventWarningTick(Long.MIN_VALUE);
                 state.setTensionBuilderPendingGrandEventDelayTicks(Long.MIN_VALUE);
+                PENDING_GRAND_EVENT_SPAWN_PLANS.clear();
             }
             return;
         }
@@ -4696,11 +4865,17 @@ public final class UncannyParanoiaEventSystem {
             state.setTensionBuilderPendingGrandEventWarningSent(false);
             state.setTensionBuilderPendingGrandEventWarningTick(Long.MIN_VALUE);
             state.setTensionBuilderPendingGrandEventDelayTicks(Long.MIN_VALUE);
+            PENDING_GRAND_EVENT_SPAWN_PLANS.clear();
             debugLog(
                     "TENSION end now={} nextStartIn={}s grandBoostIn={}s",
                     now,
                     breakSeconds,
                     boostSeconds);
+            UncannyDiagnostics.record(DiagnosticSeverity.INFO, "major", "tension_builder_stopped", UncannyDiagnostics.fields(
+                    "reason", "duration_complete",
+                    "next_start_ticks", breakSeconds * 20L,
+                    "grand_boost_ticks", boostSeconds * 20L,
+                    "dimension", level.dimension().location()));
         }
 
         if (!isTensionBuilderActive(state, now)) {
@@ -4784,6 +4959,46 @@ public final class UncannyParanoiaEventSystem {
         CAMPAIGN_CULMINATION_CONTEXT.clear();
     }
 
+    /** Read-only runtime census used by the local diagnostic recorder. */
+    public static Map<String, Integer> diagnosticStateCounts() {
+        return Map.ofEntries(
+                Map.entry("active_blackouts", ACTIVE_BLACKOUTS.size()),
+                Map.entry("active_footsteps", ACTIVE_FOOTSTEPS.size()),
+                Map.entry("active_flash_events", ACTIVE_FLASH_EVENTS.size()),
+                Map.entry("active_deafness", ACTIVE_DEAFNESS.size()),
+                Map.entry("active_void_silence", ACTIVE_VOID_SILENCE.size()),
+                Map.entry("active_ghost_miners", ACTIVE_GHOST_MINERS.size()),
+                Map.entry("active_asphyxia", ACTIVE_ASPHYXIA.size()),
+                Map.entry("active_hunter_fog", ACTIVE_HUNTER_FOG.size()),
+                Map.entry("active_compass_liars", ACTIVE_COMPASS_LIARS.size()),
+                Map.entry("active_animal_stare_locks", ACTIVE_ANIMAL_STARE_LOCKS.size()),
+                Map.entry("active_furnace_breaths", ACTIVE_FURNACE_BREATHS.size()),
+                Map.entry("active_misplaced_lights", ACTIVE_MISPLACED_LIGHTS.size()),
+                Map.entry("active_pet_refusals", ACTIVE_PET_REFUSALS.size()),
+                Map.entry("active_hotbar_wrong_counts", ACTIVE_HOTBAR_WRONG_COUNTS.size()),
+                Map.entry("active_turn_around_traps", ACTIVE_TURN_AROUND_TRAPS.size()),
+                Map.entry("living_ore_primed", LIVING_ORE_PRIMED.size()),
+                Map.entry("active_aquatic_bites", ACTIVE_AQUATIC_BITE.size()),
+                Map.entry("active_sleep_disturbances", ACTIVE_SLEEP_DISTURBANCES.size()),
+                Map.entry("active_grand_events", ACTIVE_GRAND_EVENTS.size()),
+                Map.entry("pending_grand_spawn_plans", PENDING_GRAND_EVENT_SPAWN_PLANS.size()),
+                Map.entry("grand_paused_dimensions", ACTIVE_GRAND_PAUSED_LIVINGS.size()),
+                Map.entry("ordinary_scheduler_players", NEXT_AUTO_CHECK_TICKS.size()),
+                Map.entry("special_scheduler_players", NEXT_SPECIAL_ENTITY_CHECK_TICKS.size()),
+                Map.entry("ordinary_cooldown_players", EVENT_COOLDOWNS.size()),
+                Map.entry("ambient_cooldown_players", AMBIENT_EVENT_COOLDOWNS.size()),
+                Map.entry("special_cooldown_players", SPECIAL_ENTITY_COOLDOWNS.size()),
+                Map.entry("chest_close_tasks", CHEST_CLOSE_TASKS.size()),
+                Map.entry("chest_panic_tasks", CHEST_PANIC_TASKS.size()),
+                Map.entry("furnace_reset_tasks", FURNACE_RESET_TASKS.size()),
+                Map.entry("water_restore_tasks", WATER_RESTORE_TASKS.size()),
+                Map.entry("lever_reply_tasks", LEVER_REPLY_TASKS.size()),
+                Map.entry("door_cascade_tasks", DOOR_CASCADE_TASKS.size()),
+                Map.entry("pressure_plate_reply_tasks", PRESSURE_PLATE_REPLY_TASKS.size()),
+                Map.entry("tool_answer_echo_tasks", TOOL_ANSWER_ECHO_TASKS.size()),
+                Map.entry("locked_door_dimensions", LOCKED_DOORS.size()));
+    }
+
     private static void maybeRollGrandEvent(ServerLevel level, UncannyWorldState state, long now, UncannyPhase phase) {
         if (phase.index() < UncannyPhase.PHASE_4.index() || isTensionBuilderActive(state, now) || isGrandEventAutoPauseActive(level)) {
             return;
@@ -4795,10 +5010,37 @@ public final class UncannyParanoiaEventSystem {
                 return;
             }
             if (!state.isTensionBuilderPendingGrandEventWarningSent()) {
-                long spawnDelayTicks = rollGrandWardenPreSpawnDelayTicks(level);
-                if (!sendGrandEventPreSpawnWarning(level, now, spawnDelayTicks)) {
+                ServerLevel pendingLevel = resolvePendingGrandEventLevel(
+                        level.getServer(),
+                        state.getTensionBuilderPendingGrandEventDimension());
+                if (pendingLevel == null) {
+                    pendingLevel = level;
+                }
+                GrandEventSpawnPlan plan = prepareGrandEventSpawnPlan(
+                        pendingLevel,
+                        state.isTensionBuilderPendingGrandEventForced(),
+                        null);
+                if (plan == null) {
+                    long retryDelay = 30L * 20L;
+                    state.setTensionBuilderPendingGrandEventStartTick(now + retryDelay);
+                    PENDING_GRAND_EVENT_SPAWN_PLANS.remove(pendingLevel.dimension());
+                    UncannyDiagnostics.record(
+                            DiagnosticSeverity.INFO,
+                            "major",
+                            "grand_warden_preflight_failed",
+                            UncannyDiagnostics.fields(
+                                    "forced", state.isTensionBuilderPendingGrandEventForced(),
+                                    "reason", "no_spawn_position",
+                                    "retry_ticks", retryDelay,
+                                    "dimension", pendingLevel.dimension().location()));
+                    return;
+                }
+                long spawnDelayTicks = rollGrandWardenPreSpawnDelayTicks(pendingLevel);
+                PENDING_GRAND_EVENT_SPAWN_PLANS.put(pendingLevel.dimension(), plan);
+                if (!sendGrandEventPreSpawnWarning(pendingLevel, now, spawnDelayTicks)) {
+                    PENDING_GRAND_EVENT_SPAWN_PLANS.remove(pendingLevel.dimension());
                     state.setTensionBuilderPendingGrandEventStartTick(now + 20L);
-                    debugLog("GRAND_EVENT pre_spawn_warning pending-no-recipients retryIn=1s dim={}", level.dimension().location());
+                    debugLog("GRAND_EVENT pre_spawn_warning pending-no-recipients retryIn=1s dim={}", pendingLevel.dimension().location());
                     return;
                 }
                 state.setTensionBuilderPendingGrandEventWarningSent(true);
@@ -4843,16 +5085,29 @@ public final class UncannyParanoiaEventSystem {
                         pendingLevel.dimension().location(),
                         ticksToSeconds(cooldownTicks));
             } else {
-                long retryDelay = 30L * 20L;
-                state.setTensionBuilderPendingGrandEventStartTick(now + retryDelay);
+                long cooldownTicks = GRAND_EVENT_BASE_COOLDOWN_SECONDS * 20L;
+                state.setTensionBuilderLastGrandEventTick(now);
+                state.setTensionBuilderGrandEventBoostUntilTick(Long.MIN_VALUE);
+                state.setTensionBuilderNextGrandEventRollTick(Long.MIN_VALUE);
+                state.setTensionBuilderPendingGrandEventStartTick(Long.MIN_VALUE);
+                state.setTensionBuilderPendingGrandEventDimension("");
+                state.setTensionBuilderPendingGrandEventForced(false);
                 state.setTensionBuilderPendingGrandEventWarningSent(false);
                 state.setTensionBuilderPendingGrandEventWarningTick(Long.MIN_VALUE);
                 state.setTensionBuilderPendingGrandEventDelayTicks(Long.MIN_VALUE);
+                PENDING_GRAND_EVENT_SPAWN_PLANS.remove(pendingLevel.dimension());
                 debugLog(
-                        "GRAND_EVENT delayed-start retry now={} dim={} nextAttemptIn={}s",
+                        "GRAND_EVENT delayed-start cancelled-after-warning now={} dim={} cooldown={}s",
                         now,
                         pendingLevel.dimension().location(),
-                        ticksToSeconds(retryDelay));
+                        ticksToSeconds(cooldownTicks));
+                UncannyDiagnostics.record(
+                        DiagnosticSeverity.ERROR,
+                        "major",
+                        "grand_warden_start_cancelled_after_warning",
+                        UncannyDiagnostics.fields(
+                                "dimension", pendingLevel.dimension().location(),
+                                "cooldown_ticks", cooldownTicks));
             }
             return;
         }
@@ -4861,11 +5116,15 @@ public final class UncannyParanoiaEventSystem {
         boolean boosted = boostUntil != Long.MIN_VALUE && now <= boostUntil;
         if (boostUntil != Long.MIN_VALUE && now > boostUntil) {
             state.setTensionBuilderGrandEventBoostUntilTick(Long.MIN_VALUE);
+            state.setTensionBuilderNextGrandEventRollTick(Long.MIN_VALUE);
+            return;
         }
 
         long nextRoll = state.getTensionBuilderNextGrandEventRollTick();
         if (nextRoll == Long.MIN_VALUE) {
-            state.setTensionBuilderNextGrandEventRollTick(now + rollGrandEventRollDelayTicks(level));
+            if (boosted) {
+                state.setTensionBuilderNextGrandEventRollTick(now + rollGrandEventRollDelayTicks(level));
+            }
             return;
         }
         if (now < nextRoll) {
@@ -4875,71 +5134,74 @@ public final class UncannyParanoiaEventSystem {
         long cooldownTicks = GRAND_EVENT_BASE_COOLDOWN_SECONDS * 20L;
         long lastGrandEvent = state.getTensionBuilderLastGrandEventTick();
         if (lastGrandEvent != Long.MIN_VALUE && now < lastGrandEvent + cooldownTicks) {
-            long nextDelay = rollGrandEventRollDelayTicks(level);
-            state.setTensionBuilderNextGrandEventRollTick(now + nextDelay);
+            state.setTensionBuilderGrandEventBoostUntilTick(Long.MIN_VALUE);
+            state.setTensionBuilderNextGrandEventRollTick(Long.MIN_VALUE);
+            debugLog(
+                    "GRAND_EVENT post-tension attempt consumed reason=cooldown remaining={}s",
+                    ticksToSeconds(lastGrandEvent + cooldownTicks - now));
             return;
         }
 
         double chance = boosted ? GRAND_EVENT_POST_TENSION_CHANCE : GRAND_EVENT_BASE_CHANCE;
         double roll = level.random.nextDouble();
+        state.setTensionBuilderGrandEventBoostUntilTick(Long.MIN_VALUE);
+        state.setTensionBuilderNextGrandEventRollTick(Long.MIN_VALUE);
         if (roll <= chance) {
-            long spawnDelayTicks = rollGrandWardenPreSpawnDelayTicks(level);
-            state.setTensionBuilderPendingGrandEventStartTick(now + spawnDelayTicks);
+            state.setTensionBuilderPendingGrandEventStartTick(now);
             state.setTensionBuilderPendingGrandEventDimension(level.dimension().location().toString());
             state.setTensionBuilderPendingGrandEventForced(false);
             state.setTensionBuilderPendingGrandEventWarningSent(false);
             state.setTensionBuilderPendingGrandEventWarningTick(Long.MIN_VALUE);
             state.setTensionBuilderPendingGrandEventDelayTicks(Long.MIN_VALUE);
-            state.setTensionBuilderNextGrandEventRollTick(now + spawnDelayTicks);
             debugLog(
-                    "GRAND_EVENT delayed-start scheduled now={} boosted={} roll={} chance={} spawnIn={}s dim={}",
+                    "GRAND_EVENT preflight scheduled now={} boosted={} roll={} chance={} dim={}",
                     now,
                     boosted,
                     String.format(Locale.ROOT, "%.5f", roll),
                     String.format(Locale.ROOT, "%.5f", chance),
-                    ticksToSeconds(spawnDelayTicks),
                     level.dimension().location());
             return;
         }
 
-        long nextDelay = rollGrandEventRollDelayTicks(level);
-        state.setTensionBuilderNextGrandEventRollTick(now + nextDelay);
         debugLog(
-                "GRAND_EVENT roll boosted={} chance={} roll={} nextRollIn={}s",
+                "GRAND_EVENT single post-tension roll consumed boosted={} chance={} roll={}",
                 boosted,
                 String.format(Locale.ROOT, "%.5f", chance),
-                String.format(Locale.ROOT, "%.5f", roll),
-                ticksToSeconds(nextDelay));
+                String.format(Locale.ROOT, "%.5f", roll));
     }
 
     private static boolean startGrandEventWarden(ServerLevel level, long now, boolean forcedByCommand, boolean firstWarningAlreadySent) {
         ResourceKey<Level> dimension = level.dimension();
         GrandEventState existing = ACTIVE_GRAND_EVENTS.get(dimension);
         if (existing != null && !existing.ended()) {
+            PENDING_GRAND_EVENT_SPAWN_PLANS.remove(dimension);
             return false;
         }
 
-        List<ServerPlayer> eligiblePlayers = new ArrayList<>();
-        for (ServerPlayer candidate : level.players()) {
-            if (!candidate.isSpectator() && candidate.isAlive()) {
-                eligiblePlayers.add(candidate);
-            }
+        GrandEventSpawnPlan spawnPlan = PENDING_GRAND_EVENT_SPAWN_PLANS.remove(dimension);
+        if (!isGrandEventSpawnPlanStillValid(level, spawnPlan, forcedByCommand)) {
+            spawnPlan = prepareGrandEventSpawnPlan(level, forcedByCommand, null);
         }
-        if (eligiblePlayers.isEmpty()) {
-            debugLog("GRAND_EVENT start-fail reason=no-eligible-players dim={}", dimension.location());
+        if (spawnPlan == null) {
+            debugLog("GRAND_EVENT start-fail reason=no-valid-preflight-plan dim={}", dimension.location());
+            UncannyDiagnostics.record(DiagnosticSeverity.WARNING, "major", "grand_warden_start_failed", UncannyDiagnostics.fields(
+                    "reason", "no_valid_preflight_plan",
+                    "dimension", dimension.location(),
+                    "forced", forcedByCommand));
             return false;
         }
-
-        ServerPlayer anchor = eligiblePlayers.get(level.random.nextInt(eligiblePlayers.size()));
-        BlockPos spawnPos = findGrandWardenSpawnPos(level, anchor, forcedByCommand);
-        if (spawnPos == null) {
-            debugLog("GRAND_EVENT start-fail reason=no-spawn-pos anchor={}", playerLabel(anchor));
+        ServerPlayer anchor = level.getServer().getPlayerList().getPlayer(spawnPlan.anchorId());
+        if (anchor == null || anchor.serverLevel() != level || !anchor.isAlive() || anchor.isSpectator()) {
             return false;
         }
+        BlockPos spawnPos = spawnPlan.spawnPos();
 
         Warden warden = EntityType.WARDEN.create(level);
         if (warden == null) {
             debugLog("GRAND_EVENT start-fail reason=warden-create-null anchor={}", playerLabel(anchor));
+            UncannyDiagnostics.recordForPlayer(anchor, DiagnosticSeverity.ERROR, "major", "grand_warden_start_failed", UncannyDiagnostics.fields(
+                    "reason", "entity_creation_returned_null",
+                    "forced", forcedByCommand));
             return false;
         }
 
@@ -4957,6 +5219,10 @@ public final class UncannyParanoiaEventSystem {
         BlockPos anchorPos = anchor.blockPosition().immutable();
         if (!level.addFreshEntity(warden)) {
             debugLog("GRAND_EVENT start-fail reason=add-entity-failed anchor={} pos={}", playerLabel(anchor), spawnPos);
+            UncannyDiagnostics.recordForPlayer(anchor, DiagnosticSeverity.ERROR, "major", "grand_warden_start_failed", UncannyDiagnostics.fields(
+                    "reason", "world_rejected_entity",
+                    "spawn_position", spawnPos,
+                    "forced", forcedByCommand));
             return false;
         }
         // Root fix: prime vanilla DIG cooldown immediately on spawn to prevent
@@ -5017,6 +5283,13 @@ public final class UncannyParanoiaEventSystem {
                 spawnPos,
                 trackedPlayers.size(),
                 coveredAtStart);
+        UncannyDiagnostics.recordForPlayer(anchor, DiagnosticSeverity.INFO, "major", "grand_warden_started", UncannyDiagnostics.fields(
+                "dimension", dimension.location(),
+                "spawn_position", spawnPos,
+                "tracked_players", trackedPlayers.size(),
+                "covered_at_start", coveredAtStart,
+                "forced", forcedByCommand,
+                "runtime_id", state.runtimeId()));
         if (level.getServer() != null) {
             UncannyWorldState worldState = UncannyWorldState.get(level.getServer());
             if (worldState.getTensionBuilderPendingGrandEventStartTick() != Long.MIN_VALUE) {
@@ -5029,6 +5302,65 @@ public final class UncannyParanoiaEventSystem {
             }
         }
         return true;
+    }
+
+    private static GrandEventSpawnPlan prepareGrandEventSpawnPlan(
+            ServerLevel level,
+            boolean forcedByCommand,
+            @Nullable ServerPlayer preferredAnchor) {
+        List<ServerPlayer> eligiblePlayers = new ArrayList<>();
+        if (preferredAnchor != null
+                && preferredAnchor.serverLevel() == level
+                && preferredAnchor.isAlive()
+                && !preferredAnchor.isSpectator()) {
+            eligiblePlayers.add(preferredAnchor);
+        }
+        for (ServerPlayer candidate : level.players()) {
+            if (!candidate.isAlive()
+                    || candidate.isSpectator()
+                    || (preferredAnchor != null && candidate.getUUID().equals(preferredAnchor.getUUID()))) {
+                continue;
+            }
+            eligiblePlayers.add(candidate);
+        }
+        if (eligiblePlayers.isEmpty()) {
+            return null;
+        }
+
+        int firstIndex = preferredAnchor == null ? level.random.nextInt(eligiblePlayers.size()) : 0;
+        for (int offset = 0; offset < eligiblePlayers.size(); offset++) {
+            ServerPlayer anchor = eligiblePlayers.get((firstIndex + offset) % eligiblePlayers.size());
+            BlockPos spawnPos = findGrandWardenSpawnPos(level, anchor, forcedByCommand);
+            if (spawnPos != null) {
+                return new GrandEventSpawnPlan(
+                        anchor.getUUID(),
+                        spawnPos.immutable(),
+                        hasAnyNonAirAbove(level, spawnPos));
+            }
+        }
+        return null;
+    }
+
+    private static boolean isGrandEventSpawnPlanStillValid(
+            ServerLevel level,
+            @Nullable GrandEventSpawnPlan plan,
+            boolean forcedByCommand) {
+        if (plan == null) {
+            return false;
+        }
+        ServerPlayer anchor = level.getServer().getPlayerList().getPlayer(plan.anchorId());
+        if (anchor == null || anchor.serverLevel() != level || !anchor.isAlive() || anchor.isSpectator()) {
+            return false;
+        }
+        return isGrandWardenSpawnCandidateValid(
+                level,
+                anchor,
+                plan.spawnPos(),
+                forcedByCommand,
+                plan.covered(),
+                plan.covered() ? GRAND_WARDEN_COVERED_FALLBACK_MAX_Y_DELTA : 0,
+                plan.covered() ? 0 : 8,
+                plan.covered() ? 0 : -4);
     }
 
     private static BlockPos findGrandWardenSpawnPos(ServerLevel level, ServerPlayer anchor, boolean forcedByCommand) {
@@ -10331,6 +10663,13 @@ public final class UncannyParanoiaEventSystem {
                 ticksToSeconds(now - state.startedTick()),
                 discardWarden,
                 players.size());
+        UncannyDiagnostics.record(DiagnosticSeverity.INFO, "major", "grand_warden_ended", UncannyDiagnostics.fields(
+                "dimension", level.dimension().location(),
+                "reason", reason,
+                "duration_ticks", now - state.startedTick(),
+                "discard_warden", discardWarden,
+                "remaining_players", players.size(),
+                "runtime_id", state.runtimeId()));
         debugLog("GRAND_EVENT pause_auto off dim={}", level.dimension().location());
     }
 
@@ -10387,6 +10726,9 @@ public final class UncannyParanoiaEventSystem {
         if (server == null) {
             return;
         }
+        if (!UncannyDimensionPolicy.runsOrdinaryScheduler(player.serverLevel())) {
+            return;
+        }
 
         UncannyWorldState state = UncannyWorldState.get(server);
         UncannyPhase phase = state.getPhase();
@@ -10403,6 +10745,11 @@ public final class UncannyParanoiaEventSystem {
 
         if (!passesGlobalAndRespawnChecks(state, player, phase, profile, danger, now)) {
             debugLog("AUTO_EVENT skip checks player={} phase={} profile={} danger={}", playerLabel(player), phase.index(), profile, danger);
+            UncannyDiagnostics.recordEventOutcome(player, "primary", "none", "blocked", UncannyDiagnostics.fields(
+                    "reason", "global_or_respawn_guard",
+                    "phase", phase.index(),
+                    "profile", profile,
+                    "danger", danger));
             return;
         }
 
@@ -10419,6 +10766,13 @@ public final class UncannyParanoiaEventSystem {
                     danger,
                     String.format(Locale.ROOT, "%.4f", roll),
                     String.format(Locale.ROOT, "%.4f", triggerChance));
+            UncannyDiagnostics.recordEventOutcome(player, "primary", "none", "roll_miss", UncannyDiagnostics.fields(
+                    "roll", String.format(Locale.ROOT, "%.6f", roll),
+                    "chance", String.format(Locale.ROOT, "%.6f", triggerChance),
+                    "forced_by_silence", false,
+                    "phase", phase.index(),
+                    "profile", profile,
+                    "danger", danger));
             return;
         }
 
@@ -10463,7 +10817,7 @@ public final class UncannyParanoiaEventSystem {
                 addEventChoiceIfReady(choices, player, "beacon_fragment", profileScaledWeight("beacon_fragment", 1, profile, danger), now);
             }
             addEventChoiceIfReady(choices, player, "false_sculk_vibration", profileScaledWeight("false_sculk_vibration", 1, profile, danger), now);
-            addEventChoiceIfReady(choices, player, "blackout", profileScaledWeight("blackout", 7, profile, danger), now);
+            addEventChoiceIfReady(choices, player, "blackout", phaseProfileScaledWeight("blackout", 7, phase, profile, danger), now);
             addEventChoiceIfReady(choices, player, "flash", profileScaledWeight("flash", 4, profile, danger), now);
             addEventChoiceIfReady(choices, player, "false_injury", profileScaledWeight("false_injury", 4, profile, danger), now);
             addEventChoiceIfReady(choices, player, "door_inversion", profileScaledWeight("door_inversion", 9, profile, danger), now);
@@ -10484,10 +10838,15 @@ public final class UncannyParanoiaEventSystem {
 
         if (choices.isEmpty()) {
             debugLog("AUTO_EVENT no-choices player={} phase={} profile={} danger={}", playerLabel(player), phase.index(), profile, danger);
+            UncannyDiagnostics.recordEventOutcome(player, "primary", "none", "no_candidates", UncannyDiagnostics.fields(
+                    "forced_by_silence", forcedBySilence,
+                    "phase", phase.index(),
+                    "profile", profile,
+                    "danger", danger));
             return;
         }
 
-        String triggeredKey = triggerWeightedChoiceWithFallback(player, choices);
+        String triggeredKey = triggerWeightedChoiceWithFallback(player, choices, "primary");
         boolean triggered = triggeredKey != null;
 
         if (!triggered && forcedBySilence && !tensionActive) {
@@ -10500,14 +10859,29 @@ public final class UncannyParanoiaEventSystem {
         if (triggered && triggeredKey != null) {
             onAutoEventTriggered(player, triggeredKey, now, phase, profile, danger);
             debugLog("AUTO_EVENT triggered key={} player={} phase={} profile={} danger={}", triggeredKey, playerLabel(player), phase.index(), profile, danger);
+            UncannyDiagnostics.recordEventOutcome(player, "primary", triggeredKey, "started", UncannyDiagnostics.fields(
+                    "candidates", diagnosticChoices(choices),
+                    "forced_by_silence", forcedBySilence,
+                    "phase", phase.index(),
+                    "profile", profile,
+                    "danger", danger));
         } else {
             debugLog("AUTO_EVENT failed-all player={} phase={} profile={} danger={}", playerLabel(player), phase.index(), profile, danger);
+            UncannyDiagnostics.recordEventOutcome(player, "primary", "none", "failed", UncannyDiagnostics.fields(
+                    "candidates", diagnosticChoices(choices),
+                    "forced_by_silence", forcedBySilence,
+                    "phase", phase.index(),
+                    "profile", profile,
+                    "danger", danger));
         }
     }
 
     private static void maybeTriggerAmbientSoundEvent(ServerPlayer player, long now) {
         MinecraftServer server = player.getServer();
         if (server == null) {
+            return;
+        }
+        if (!UncannyDimensionPolicy.runsOrdinaryScheduler(player.serverLevel())) {
             return;
         }
 
@@ -10545,6 +10919,12 @@ public final class UncannyParanoiaEventSystem {
                     danger,
                     String.format(Locale.ROOT, "%.4f", roll),
                     String.format(Locale.ROOT, "%.4f", triggerChance));
+            UncannyDiagnostics.recordEventOutcome(player, "ambient", "none", "roll_miss", UncannyDiagnostics.fields(
+                    "roll", String.format(Locale.ROOT, "%.6f", roll),
+                    "chance", String.format(Locale.ROOT, "%.6f", triggerChance),
+                    "phase", phase.index(),
+                    "profile", profile,
+                    "danger", danger));
             return;
         }
 
@@ -10577,12 +10957,21 @@ public final class UncannyParanoiaEventSystem {
 
         if (choices.isEmpty()) {
             debugLog("AUTO_AMBIENT no-choices player={} phase={} profile={} danger={}", playerLabel(player), phase.index(), profile, danger);
+            UncannyDiagnostics.recordEventOutcome(player, "ambient", "none", "no_candidates", UncannyDiagnostics.fields(
+                    "phase", phase.index(),
+                    "profile", profile,
+                    "danger", danger));
             return;
         }
 
-        String triggeredKey = triggerWeightedChoiceWithFallback(player, choices);
+        String triggeredKey = triggerWeightedChoiceWithFallback(player, choices, "ambient");
         if (triggeredKey == null) {
             debugLog("AUTO_AMBIENT failed-all player={} phase={} profile={} danger={}", playerLabel(player), phase.index(), profile, danger);
+            UncannyDiagnostics.recordEventOutcome(player, "ambient", "none", "failed", UncannyDiagnostics.fields(
+                    "candidates", diagnosticChoices(choices),
+                    "phase", phase.index(),
+                    "profile", profile,
+                    "danger", danger));
             return;
         }
 
@@ -10590,13 +10979,20 @@ public final class UncannyParanoiaEventSystem {
         LAST_AMBIENT_EVENT_TICKS.put(player.getUUID(), now);
         UncannyCampaignDirector.recordEvent(state, triggeredKey);
         debugLog("AUTO_AMBIENT triggered key={} player={} phase={} profile={} danger={}", triggeredKey, playerLabel(player), phase.index(), profile, danger);
+        UncannyDiagnostics.recordEventOutcome(player, "ambient", triggeredKey, "started", UncannyDiagnostics.fields(
+                "candidates", diagnosticChoices(choices),
+                "phase", phase.index(),
+                "profile", profile,
+                "danger", danger));
     }
 
     private static void addEventChoiceIfReady(List<EventChoice> choices, ServerPlayer player, String key, int weight, long now) {
         if (isTensionBuilderActiveForPlayer(player, now)) {
             return;
         }
-        if (weight <= 0 || isEventOnCooldown(player, key, now)) {
+        if (weight <= 0
+                || !UncannyDimensionPolicy.allowsNaturalEvent(player.serverLevel(), key)
+                || isEventOnCooldown(player, key, now)) {
             return;
         }
         MinecraftServer server = player.getServer();
@@ -10626,7 +11022,9 @@ public final class UncannyParanoiaEventSystem {
     }
 
     private static void addAmbientEventChoiceIfReady(List<EventChoice> choices, ServerPlayer player, String key, int weight, long now) {
-        if (weight <= 0 || isAmbientEventOnCooldown(player, key, now)) {
+        if (weight <= 0
+                || !UncannyDimensionPolicy.allowsNaturalEvent(player.serverLevel(), key)
+                || isAmbientEventOnCooldown(player, key, now)) {
             return;
         }
         MinecraftServer server = player.getServer();
@@ -10702,7 +11100,10 @@ public final class UncannyParanoiaEventSystem {
         return seconds <= 0 ? 0L : seconds * 20L;
     }
 
-    private static String triggerWeightedChoiceWithFallback(ServerPlayer player, List<EventChoice> initialChoices) {
+    private static String triggerWeightedChoiceWithFallback(
+            ServerPlayer player,
+            List<EventChoice> initialChoices,
+            String lane) {
         List<EventChoice> remaining = new ArrayList<>(initialChoices);
         while (!remaining.isEmpty()) {
             int totalWeight = remaining.stream().mapToInt(EventChoice::weight).sum();
@@ -10723,10 +11124,20 @@ public final class UncannyParanoiaEventSystem {
                 return selected.key();
             }
             debugLog("AUTO_EVENT fail key={} player={}", selected.key(), playerLabel(player));
+            UncannyDiagnostics.recordEventOutcome(player, lane, selected.key(), "context_failed", UncannyDiagnostics.fields(
+                    "remaining_candidates", remaining.size(),
+                    "selected_weight", selected.weight(),
+                    "total_weight", totalWeight));
             remaining.remove(selected);
         }
         debugLog("AUTO_EVENT no-success player={}", playerLabel(player));
         return null;
+    }
+
+    private static String diagnosticChoices(List<EventChoice> choices) {
+        return choices.stream()
+                .map(choice -> choice.key() + "=" + choice.weight())
+                .collect(java.util.stream.Collectors.joining(","));
     }
 
     private static boolean triggerEventByKey(ServerPlayer player, String eventKey) {
@@ -10787,8 +11198,7 @@ public final class UncannyParanoiaEventSystem {
         };
         if (triggered && player.getServer() != null && !ParanoiaEventIds.CORRUPT_MESSAGE.equals(eventKey)) {
             long now = player.getServer().getTickCount();
-            ParanoiaMessageService.maybeSendForEvent(player, eventKey, now)
-                    .ifPresent(text -> maybeArmTurnAroundTrap(player, text, now));
+            ParanoiaMessageService.maybeQueueForEvent(player, eventKey, now);
         }
         return triggered;
     }
@@ -10957,6 +11367,11 @@ public final class UncannyParanoiaEventSystem {
         long respawnGraceTicks = UncannyConfig.RESPAWN_GRACE_SECONDS.get() * 20L;
         if (isCooldownActive(lastRespawnTick, now, respawnGraceTicks)) {
             debugLog("SPECIAL skip respawn-grace player={}", playerLabel(player));
+            UncannyDiagnostics.recordEventOutcome(player, "special", "none", "blocked", UncannyDiagnostics.fields(
+                    "reason", "respawn_grace",
+                    "phase", phase.index(),
+                    "profile", profile,
+                    "danger", danger));
             return false;
         }
 
@@ -10964,6 +11379,12 @@ public final class UncannyParanoiaEventSystem {
         Long lastSpecialTick = LAST_SPECIAL_ENTITY_EVENT_TICKS.get(player.getUUID());
         if (isCooldownActive(lastSpecialTick, now, specialGlobalCooldownTicks)) {
             debugLog("SPECIAL skip global-cooldown player={} remaining={}t", playerLabel(player), remainingCooldownTicks(lastSpecialTick, now, specialGlobalCooldownTicks));
+            UncannyDiagnostics.recordEventOutcome(player, "special", "none", "blocked", UncannyDiagnostics.fields(
+                    "reason", "global_cooldown",
+                    "remaining_ticks", remainingCooldownTicks(lastSpecialTick, now, specialGlobalCooldownTicks),
+                    "phase", phase.index(),
+                    "profile", profile,
+                    "danger", danger));
             return false;
         }
         if (isCooldownActive(
@@ -10971,6 +11392,11 @@ public final class UncannyParanoiaEventSystem {
                 now,
                 ParanoiaPacingRules.CROSS_LANE_BURST_GUARD_TICKS)) {
             debugLog("SPECIAL skip cross-lane-burst-guard player={}", playerLabel(player));
+            UncannyDiagnostics.recordEventOutcome(player, "special", "none", "blocked", UncannyDiagnostics.fields(
+                    "reason", "cross_lane_burst_guard",
+                    "phase", phase.index(),
+                    "profile", profile,
+                    "danger", danger));
             return false;
         }
 
@@ -10986,6 +11412,12 @@ public final class UncannyParanoiaEventSystem {
                     danger,
                     String.format(Locale.ROOT, "%.4f", roll),
                     String.format(Locale.ROOT, "%.4f", triggerChance));
+            UncannyDiagnostics.recordEventOutcome(player, "special", "none", "roll_miss", UncannyDiagnostics.fields(
+                    "roll", String.format(Locale.ROOT, "%.6f", roll),
+                    "chance", String.format(Locale.ROOT, "%.6f", triggerChance),
+                    "phase", phase.index(),
+                    "profile", profile,
+                    "danger", danger));
             return false;
         }
 
@@ -10993,20 +11425,40 @@ public final class UncannyParanoiaEventSystem {
 
         if (specialChoices.isEmpty()) {
             debugLog("SPECIAL no-choices player={} phase={} profile={} danger={}", playerLabel(player), phase.index(), profile, danger);
+            UncannyDiagnostics.recordEventOutcome(player, "special", "none", "no_candidates", UncannyDiagnostics.fields(
+                    "phase", phase.index(),
+                    "profile", profile,
+                    "danger", danger));
             return false;
         }
 
         String triggeredKey = triggerSpecialChoicePool(player, specialChoices, now, phase, profile, danger, specialGlobalCooldownTicks, true);
         if (triggeredKey != null) {
+            UncannyDiagnostics.recordEventOutcome(player, "special", triggeredKey,
+                    "ferryman".equals(triggeredKey) ? "deferred" : "started", UncannyDiagnostics.fields(
+                    "candidates", diagnosticChoices(specialChoices),
+                    "phase", phase.index(),
+                    "profile", profile,
+                    "danger", danger));
             return true;
         }
         String guaranteedFallback = tryGuaranteedSpecialSpawn(player, phase, danger);
         if (guaranteedFallback != null) {
             markSpecialEntityTriggered(player, guaranteedFallback, now, phase, profile, danger, specialGlobalCooldownTicks);
             debugLog("SPECIAL guaranteed-fallback-success key={} player={}", guaranteedFallback, playerLabel(player));
+            UncannyDiagnostics.recordEventOutcome(player, "special", guaranteedFallback, "started_guaranteed_fallback", UncannyDiagnostics.fields(
+                    "candidates", diagnosticChoices(specialChoices),
+                    "phase", phase.index(),
+                    "profile", profile,
+                    "danger", danger));
             return true;
         }
         debugLog("SPECIAL no-success player={}", playerLabel(player));
+        UncannyDiagnostics.recordEventOutcome(player, "special", "none", "failed", UncannyDiagnostics.fields(
+                "candidates", diagnosticChoices(specialChoices),
+                "phase", phase.index(),
+                "profile", profile,
+                "danger", danger));
         return false;
     }
 
@@ -11029,11 +11481,13 @@ public final class UncannyParanoiaEventSystem {
         boolean nearBase = isNearBase(player, server);
         boolean insideBase = isInsideBase(player, server);
 
+        if (phase.index() >= UncannyPhase.PHASE_3.index()
+                && !ApprovedSpecialSystem.hasPendingFerrymanEncounter(player)) {
+            addSpecialEntityChoiceIfReady(specialChoices, player, "ferryman",
+                    profileScaledWeight("ferryman", 3, profile, danger), now, ignoreCooldowns);
+        }
+
         if (shouldBlockSpecialSpawn(player)) {
-            if (phase.index() >= UncannyPhase.PHASE_3.index() && player.getVehicle() instanceof Boat) {
-                addSpecialEntityChoiceIfReady(specialChoices, player, "ferryman",
-                        profileScaledWeight("ferryman", 3, profile, danger), now, ignoreCooldowns);
-            }
             return specialChoices;
         }
 
@@ -11052,6 +11506,16 @@ public final class UncannyParanoiaEventSystem {
             }
             if (ApprovedSpecialSystem.hasRecentCombat(level, player.position(), 42.0D)) {
                 addSpecialEntityChoiceIfReady(specialChoices, player, "bystander", profileScaledWeight("bystander", 4, profile, danger), now, ignoreCooldowns);
+            }
+            if (danger >= 3) {
+                if (HuntingSpecialSoundMemory.memoryCount(level) > 0) {
+                    addSpecialEntityChoiceIfReady(specialChoices, player, "echoer",
+                            profileScaledWeight("echoer", 3, profile, danger), now, ignoreCooldowns);
+                }
+                addSpecialEntityChoiceIfReady(specialChoices, player, "drifter",
+                        profileScaledWeight("drifter", 3, profile, danger), now, ignoreCooldowns);
+                addSpecialEntityChoiceIfReady(specialChoices, player, "ashwalker",
+                        profileScaledWeight("ashwalker", 4, profile, danger), now, ignoreCooldowns);
             }
             ToolAnswerContext recentMining = LAST_TOOL_ANSWER_CONTEXT.get(player.getUUID());
             boolean recentNaturalMining = hasRecentToolAnswerContext(player, recentMining, 45L * 20L)
@@ -11086,6 +11550,18 @@ public final class UncannyParanoiaEventSystem {
             }
             if (danger > 1) {
                 addSpecialEntityChoiceIfReady(specialChoices, player, "stalker", profileScaledWeight("stalker", 11, profile, danger), now, ignoreCooldowns);
+                addSpecialEntityChoiceIfReady(specialChoices, player, "miner", profileScaledWeight("miner", 2, profile, danger), now, ignoreCooldowns);
+                UncannyWorldState state = UncannyWorldState.get(server);
+                if (phase.index() >= UncannyPhase.PHASE_4.index()
+                        && (ignoreCooldowns || !state.isDevourerGlobalCooldownActive())) {
+                    addSpecialEntityChoiceIfReady(specialChoices, player, "devourer", profileScaledWeight("devourer", 1, profile, danger), now, ignoreCooldowns);
+                }
+            }
+            if (danger >= 4) {
+                addSpecialEntityChoiceIfReady(specialChoices, player, "dredger",
+                        profileScaledWeight("dredger", 2, profile, danger), now, ignoreCooldowns);
+                addSpecialEntityChoiceIfReady(specialChoices, player, "flanker",
+                        profileScaledWeight("flanker", 2, profile, danger), now, ignoreCooldowns);
             }
             if (level.getRawBrightness(player.blockPosition(), 0) <= 8) {
                 addSpecialEntityChoiceIfReady(specialChoices, player, "shadow", profileScaledWeight("shadow", 12, profile, danger), now, ignoreCooldowns);
@@ -11135,6 +11611,10 @@ public final class UncannyParanoiaEventSystem {
                 return selected.key();
             }
             debugLog("SPECIAL fail key={} player={}", selected.key(), playerLabel(player));
+            UncannyDiagnostics.recordEventOutcome(player, "special", selected.key(), "context_failed", UncannyDiagnostics.fields(
+                    "remaining_candidates", remaining.size(),
+                    "selected_weight", selected.weight(),
+                    "total_weight", totalWeight));
             remaining.remove(selected);
         }
 
@@ -11151,19 +11631,28 @@ public final class UncannyParanoiaEventSystem {
     }
 
     private static String tryCloseFallbackSpecialSpawn(ServerPlayer player, UncannyPhase phase, int danger) {
-        if (phase.index() >= UncannyPhase.PHASE_3.index() && danger > 0 && spawnHurler(player, true, false)) {
+        if (phase.index() >= UncannyPhase.PHASE_3.index() && danger > 0
+                && UncannyDimensionPolicy.allowsNaturalSpecial(player.serverLevel(), "hurler")
+                && spawnHurler(player, true, false)) {
             return "hurler";
         }
-        if (phase.index() >= UncannyPhase.PHASE_3.index() && danger > 1 && spawnStalker(player, true, false)) {
+        if (phase.index() >= UncannyPhase.PHASE_3.index() && danger > 1
+                && UncannyDimensionPolicy.allowsNaturalSpecial(player.serverLevel(), "stalker")
+                && spawnStalker(player, true, false)) {
             return "stalker";
         }
-        if (phase.index() >= UncannyPhase.PHASE_2.index() && spawnFollower(player, true)) {
+        if (phase.index() >= UncannyPhase.PHASE_2.index()
+                && UncannyDimensionPolicy.allowsNaturalSpecial(player.serverLevel(), "follower")
+                && spawnFollower(player, true)) {
             return "follower";
         }
-        if (phase.index() >= UncannyPhase.PHASE_2.index() && spawnKnocker(player, true, false)) {
+        if (phase.index() >= UncannyPhase.PHASE_2.index()
+                && UncannyDimensionPolicy.allowsNaturalSpecial(player.serverLevel(), "knocker")
+                && spawnKnocker(player, true, false)) {
             return "knocker";
         }
         if (phase.index() >= UncannyPhase.PHASE_2.index()
+                && UncannyDimensionPolicy.allowsNaturalSpecial(player.serverLevel(), "watcher")
                 && (UncannyWatcherSystem.spawnWatcherFromEvents(player) || UncannyWatcherSystem.forceSpawnWatcher(player))) {
             return "watcher";
         }
@@ -11171,25 +11660,39 @@ public final class UncannyParanoiaEventSystem {
     }
 
     private static String tryGuaranteedSpecialSpawn(ServerPlayer player, UncannyPhase phase, int danger) {
-        if (phase.index() >= UncannyPhase.PHASE_3.index() && danger > 1 && spawnStalker(player, true, true)) {
+        if (phase.index() >= UncannyPhase.PHASE_3.index() && danger > 1
+                && UncannyDimensionPolicy.allowsNaturalSpecial(player.serverLevel(), "stalker")
+                && spawnStalker(player, true, true)) {
             return "stalker";
         }
-        if (phase.index() >= UncannyPhase.PHASE_3.index() && danger > 0 && spawnHurler(player, true, true)) {
+        if (phase.index() >= UncannyPhase.PHASE_3.index() && danger > 0
+                && UncannyDimensionPolicy.allowsNaturalSpecial(player.serverLevel(), "hurler")
+                && spawnHurler(player, true, true)) {
             return "hurler";
         }
-        if (phase.index() >= UncannyPhase.PHASE_2.index() && spawnFollower(player, true)) {
+        if (phase.index() >= UncannyPhase.PHASE_2.index()
+                && UncannyDimensionPolicy.allowsNaturalSpecial(player.serverLevel(), "follower")
+                && spawnFollower(player, true)) {
             return "follower";
         }
-        if (phase.index() >= UncannyPhase.PHASE_2.index() && spawnKnocker(player, true, false)) {
+        if (phase.index() >= UncannyPhase.PHASE_2.index()
+                && UncannyDimensionPolicy.allowsNaturalSpecial(player.serverLevel(), "knocker")
+                && spawnKnocker(player, true, false)) {
             return "knocker";
         }
-        if (phase.index() >= UncannyPhase.PHASE_2.index() && (UncannyWatcherSystem.forceSpawnWatcher(player) || UncannyWatcherSystem.spawnWatcherFromEvents(player))) {
+        if (phase.index() >= UncannyPhase.PHASE_2.index()
+                && UncannyDimensionPolicy.allowsNaturalSpecial(player.serverLevel(), "watcher")
+                && (UncannyWatcherSystem.forceSpawnWatcher(player) || UncannyWatcherSystem.spawnWatcherFromEvents(player))) {
             return "watcher";
         }
-        if (phase.index() >= UncannyPhase.PHASE_3.index() && spawnShadow(player, false, true)) {
+        if (phase.index() >= UncannyPhase.PHASE_3.index()
+                && UncannyDimensionPolicy.allowsNaturalSpecial(player.serverLevel(), "shadow")
+                && spawnShadow(player, false, true)) {
             return "shadow";
         }
-        if (phase.index() >= UncannyPhase.PHASE_3.index() && spawnUsher(player, true)) {
+        if (phase.index() >= UncannyPhase.PHASE_3.index()
+                && UncannyDimensionPolicy.allowsNaturalSpecial(player.serverLevel(), "usher")
+                && spawnUsher(player, true)) {
             return "usher";
         }
         return null;
@@ -11211,7 +11714,9 @@ public final class UncannyParanoiaEventSystem {
             int weight,
             long now,
             boolean ignoreCooldown) {
-        if (weight <= 0 || (!ignoreCooldown && isSpecialEntityOnCooldown(player, key, now))) {
+        if (weight <= 0
+                || !UncannyDimensionPolicy.allowsNaturalSpecial(player.serverLevel(), key)
+                || (!ignoreCooldown && isSpecialEntityOnCooldown(player, key, now))) {
             return;
         }
         MinecraftServer server = player.getServer();
@@ -11233,6 +11738,9 @@ public final class UncannyParanoiaEventSystem {
     }
 
     private static boolean triggerSpecialEntityByKey(ServerPlayer player, String key) {
+        if (!UncannyDimensionPolicy.allowsNaturalSpecial(player.serverLevel(), key)) {
+            return false;
+        }
         return switch (key) {
             case "watcher" -> UncannyWatcherSystem.spawnWatcherFromEvents(player) || UncannyWatcherSystem.forceSpawnWatcher(player);
             case "shadow" -> spawnShadow(player, true) || spawnShadow(player, false, true) || spawnShadow(player, false);
@@ -11244,8 +11752,13 @@ public final class UncannyParanoiaEventSystem {
             case "keeper" -> spawnKeeper(player, true) || spawnKeeper(player, false);
             case "tenant" -> spawnTenant(player, true) || spawnTenant(player, false);
             case "follower" -> spawnFollower(player, true) || spawnFollower(player, false);
-            case "surveyor", "mourner", "doubler", "ferryman", "listener", "bystander" ->
+            case "ferryman" -> ApprovedSpecialSystem.armFerrymanEncounter(player);
+            case "surveyor", "mourner", "doubler", "listener", "bystander" ->
                     ApprovedSpecialSystem.spawn(player, key, false);
+            case "miner" -> UncannyMinerSystem.spawnNatural(player);
+            case "devourer" -> UncannyDevourerSystem.spawnNatural(player);
+            case "echoer", "drifter", "ashwalker", "dredger", "flanker" ->
+                    UncannyHuntingSpecialSystem.spawnNatural(player, key);
             default -> false;
         };
     }
@@ -11265,7 +11778,11 @@ public final class UncannyParanoiaEventSystem {
                 .put(key, now + Math.max(globalCooldownTicks / 2L, perEntityCooldownTicks));
         MinecraftServer server = player.getServer();
         if (server != null) {
-            UncannyCampaignDirector.recordEvent(UncannyWorldState.get(server), key);
+            UncannyWorldState state = UncannyWorldState.get(server);
+            if ("devourer".equals(key)) {
+                state.startDevourerGlobalCooldown(7200L * 20L);
+            }
+            UncannyCampaignDirector.recordEvent(state, key);
         }
     }
 
@@ -11344,13 +11861,13 @@ public final class UncannyParanoiaEventSystem {
     }
 
     private static double getSleepDisturbChance(UncannyPhase phase, int profile) {
-        return ParanoiaPacingRules.sleepDisturbChance(phase.index(), profile);
+        return ParanoiaPacingRules.activeSleepDisturbChance(phase.index(), profile);
     }
 
     private static long rollSleepDisturbCooldownTicks(ServerLevel level, UncannyPhase phase, int profile) {
         int baseSeconds = SLEEP_DISTURB_COOLDOWN_MIN_SECONDS
                 + level.random.nextInt(Math.max(1, SLEEP_DISTURB_COOLDOWN_MAX_SECONDS - SLEEP_DISTURB_COOLDOWN_MIN_SECONDS + 1));
-        return ParanoiaPacingRules.sleepDisturbCooldownTicks(phase.index(), profile, baseSeconds);
+        return ParanoiaPacingRules.activeSleepDisturbCooldownTicks(phase.index(), profile, baseSeconds);
     }
 
     private static double getAutoTriggerChance(UncannyPhase phase, int profile, int danger) {
@@ -11451,9 +11968,6 @@ public final class UncannyParanoiaEventSystem {
             return true;
         }
         if (danger > 0 && phase.index() >= UncannyPhase.PHASE_3.index() && triggerFlashError(player)) {
-            return true;
-        }
-        if (danger > 1 && phase.index() >= UncannyPhase.PHASE_3.index() && triggerBlackoutSafe(player)) {
             return true;
         }
         if (danger > 1 && phase.index() >= UncannyPhase.PHASE_2.index() && triggerBell(player)) {
@@ -12218,18 +12732,23 @@ public final class UncannyParanoiaEventSystem {
         player.invulnerableTime = previousInvulnerableTime;
     }
 
-    private static void queueSleepDisturbMessage(ServerPlayer player, long now) {
-        PENDING_SLEEP_MESSAGE_TICKS.put(player.getUUID(), now + 1L);
+    private static void queueSleepDisturbMessage(ServerPlayer player, SleepDisturbanceState state, long now) {
+        String text = SleepDisturbanceMessageCatalog.message(
+                state.messageVariant(),
+                Math.max(0, state.attempts() - 1));
+        PENDING_SLEEP_MESSAGES.put(
+                player.getUUID(),
+                new PendingSleepMessage(now + 1L, Component.literal(text)));
     }
 
     private static void tickPendingSleepMessage(ServerPlayer player, long now) {
-        Long displayTick = PENDING_SLEEP_MESSAGE_TICKS.get(player.getUUID());
-        if (displayTick == null || now < displayTick) {
+        PendingSleepMessage pending = PENDING_SLEEP_MESSAGES.get(player.getUUID());
+        if (pending == null || now < pending.displayTick()) {
             return;
         }
 
-        player.displayClientMessage(SLEEP_DISTURB_MESSAGE, true);
-        PENDING_SLEEP_MESSAGE_TICKS.remove(player.getUUID());
+        player.displayClientMessage(pending.message(), true);
+        PENDING_SLEEP_MESSAGES.remove(player.getUUID());
     }
 
     private static void spawnPulseInBed(ServerPlayer player, BlockPos bedPos) {
@@ -12247,8 +12766,13 @@ public final class UncannyParanoiaEventSystem {
 
         pulse.moveTo(spawnPos.getX() + 0.5D, spawnPos.getY(), spawnPos.getZ() + 0.5D, player.getYRot() + 180.0F, 0.0F);
         pulse.setTarget(player);
-        level.addFreshEntity(pulse);
-        debugLog("BED_DISTURB spawn success player={} bedPos={} spawnPos={}", playerLabel(player), bedPos, spawnPos);
+        boolean added = level.addFreshEntity(pulse);
+        UncannyDiagnostics.specialSpawnResult(player, pulse, added, "sleep_disturbance");
+        if (added) {
+            debugLog("BED_DISTURB spawn success player={} bedPos={} spawnPos={}", playerLabel(player), bedPos, spawnPos);
+        } else {
+            debugLog("BED_DISTURB spawn rejected player={} bedPos={} spawnPos={}", playerLabel(player), bedPos, spawnPos);
+        }
     }
 
     private static BlockPos findPulseSpawnPosNearBed(ServerLevel level, BlockPos bedPos) {
@@ -12299,7 +12823,9 @@ public final class UncannyParanoiaEventSystem {
             ACTIVE_BLACKOUTS.remove(player.getUUID());
             player.removeEffect(MobEffects.BLINDNESS);
             player.removeEffect(MobEffects.MOVEMENT_SLOWDOWN);
-            player.connection.send(new ClientboundStopSoundPacket(null, SoundSource.RECORDS));
+            // Any category: the client plays this score through the Master channel.
+            player.connection.send(new ClientboundStopSoundPacket(
+                    UncannySoundRegistry.BLACKOUT_SCORE.get().getLocation(), null));
             return;
         }
 
@@ -12350,9 +12876,6 @@ public final class UncannyParanoiaEventSystem {
             }
         }
 
-        if (elapsed % 70L == 0L) {
-            playMentalSound(player, SoundEvents.MUSIC_DISC_11.value(), SoundSource.RECORDS, 0.22F, 1.0F, 42);
-        }
     }
 
     private static void tickFootsteps(ServerPlayer player, long now) {
@@ -12460,7 +12983,11 @@ public final class UncannyParanoiaEventSystem {
 
         Vec3 currentLook = player.getLookAngle().normalize();
         if (currentLook.dot(state.initialLook()) <= -0.80D) {
-            triggerTotalBlackout(player);
+            // The trap is one more natural route to a Blackout, so it obeys the same long cooldown.
+            if (!isEventOnCooldown(player, "blackout", now) && triggerBlackoutSafe(player)) {
+                UncannyWorldState worldState = UncannyWorldState.get(player.getServer());
+                markEventCooldown(player, "blackout", now, worldState.getPhase(), getIntensityProfile(), getDangerLevel());
+            }
             ACTIVE_TURN_AROUND_TRAPS.remove(player.getUUID());
         }
     }
@@ -13161,8 +13688,9 @@ public final class UncannyParanoiaEventSystem {
         stalker.moveTo(pos.getX() + 0.5D, pos.getY(), pos.getZ() + 0.5D, player.getYRot() + 180.0F, 0.0F);
         stalker.setHuntTarget(player);
         stalker.setAnimationStyle(animationStyle);
-        level.addFreshEntity(stalker);
-        return stalker;
+        boolean added = level.addFreshEntity(stalker);
+        UncannyDiagnostics.specialSpawnResult(player, stalker, added, requireObserverStealth ? "command_search" : "natural_search");
+        return added ? stalker : null;
     }
 
     private static UncannyStalkerEntity resolveFlashStalker(ServerLevel level, FlashErrorState state) {
@@ -13795,8 +14323,11 @@ public final class UncannyParanoiaEventSystem {
     }
 
     private static void suppressNonGrandEventEffectsDuringGrandPause(ServerPlayer player) {
+        suppressNonGrandEventEffectsDuringGrandPause(player, player.serverLevel());
+    }
+
+    private static void suppressNonGrandEventEffectsDuringGrandPause(ServerPlayer player, ServerLevel level) {
         UUID playerId = player.getUUID();
-        ServerLevel level = player.serverLevel();
         MinecraftServer server = player.getServer();
         if (server != null) {
             UncannyPhase phase = UncannyWorldState.get(server).getPhase();
@@ -13866,6 +14397,34 @@ public final class UncannyParanoiaEventSystem {
         UncannyClientStateSync.syncParanoiaState(player, false, false);
     }
 
+    /** Clears dimension-bound presentation/runtime state without erasing pacing cooldowns. */
+    public static void onPlayerChangedDimension(ServerPlayer player, @Nullable ServerLevel previousLevel) {
+        if (player == null) {
+            return;
+        }
+        ServerLevel cleanupLevel = previousLevel == null ? player.serverLevel() : previousLevel;
+        suppressNonGrandEventEffectsDuringGrandPause(player, cleanupLevel);
+        UUID playerId = player.getUUID();
+        ACTIVE_SLEEP_DISTURBANCES.remove(playerId);
+        PENDING_SLEEP_MESSAGES.remove(playerId);
+        ACTIVE_TURN_AROUND_TRAPS.remove(playerId);
+        LIVING_ORE_PRIMED.remove(playerId);
+        ACTIVE_AQUATIC_BITE.remove(playerId);
+        LAST_TRIGGERED_PRESSURE_PLATE_TICKS.remove(playerId);
+        LAST_TRIGGERED_PRESSURE_PLATE_POS.remove(playerId);
+        LAST_CONTAINER_OPEN_TICKS.remove(playerId);
+        LAST_CONTAINER_CONTEXTS.remove(playerId);
+        LAST_TOOL_ANSWER_CONTEXT.remove(playerId);
+        UncannyDiagnostics.recordForPlayer(
+                player,
+                DiagnosticSeverity.INFO,
+                "event",
+                "dimension_transients_cleared",
+                UncannyDiagnostics.fields(
+                        "from", cleanupLevel.dimension().location(),
+                        "to", player.serverLevel().dimension().location()));
+    }
+
     private static void clearPlayerEventState(ServerPlayer player) {
         UUID playerId = player.getUUID();
         ServerLevel level = player.serverLevel();
@@ -13912,7 +14471,7 @@ public final class UncannyParanoiaEventSystem {
         ACTIVE_AQUATIC_BITE.remove(playerId);
         ACTIVE_SLEEP_DISTURBANCES.remove(playerId);
         LAST_SLEEP_DISTURB_ATTEMPT_TICKS.remove(playerId);
-        PENDING_SLEEP_MESSAGE_TICKS.remove(playerId);
+        PENDING_SLEEP_MESSAGES.remove(playerId);
         SKIP_NEXT_SLEEP_DISTURB.remove(playerId);
         REQUIRE_NORMAL_SLEEP_BEFORE_NEXT_DISTURB.remove(playerId);
         NEXT_SLEEP_DISTURB_ALLOWED_TICKS.remove(playerId);
@@ -13966,12 +14525,18 @@ public final class UncannyParanoiaEventSystem {
     }
 
     private static boolean isNearBase(ServerPlayer player, MinecraftServer server) {
+        if (!hasBaseInCurrentDimension(player)) {
+            return false;
+        }
         BlockPos baseCenter = resolveBaseCenter(player, server);
         int radius = UncannyConfig.BASE_RADIUS_BLOCKS.get() + 8;
         return player.blockPosition().distSqr(baseCenter) <= (long) radius * radius;
     }
 
     private static boolean isInsideBase(ServerPlayer player, MinecraftServer server) {
+        if (!hasBaseInCurrentDimension(player)) {
+            return false;
+        }
         BlockPos baseCenter = resolveBaseCenter(player, server);
         int radius = Math.max(4, UncannyConfig.BASE_RADIUS_BLOCKS.get());
         return player.blockPosition().distSqr(baseCenter) <= (long) radius * radius;
@@ -13995,10 +14560,18 @@ public final class UncannyParanoiaEventSystem {
 
     private static BlockPos resolveBaseCenter(ServerPlayer player, MinecraftServer server) {
         BlockPos respawn = player.getRespawnPosition();
-        if (respawn != null) {
+        if (respawn != null && player.getRespawnDimension() == player.serverLevel().dimension()) {
             return respawn;
         }
         return server.overworld().getSharedSpawnPos();
+    }
+
+    private static boolean hasBaseInCurrentDimension(ServerPlayer player) {
+        BlockPos respawn = player.getRespawnPosition();
+        if (respawn != null) {
+            return player.getRespawnDimension() == player.serverLevel().dimension();
+        }
+        return player.serverLevel().dimension() == Level.OVERWORLD;
     }
 
     private static final class CompassLiarState {
@@ -14654,10 +15227,14 @@ public final class UncannyParanoiaEventSystem {
     private static final class SleepDisturbanceState {
         private BlockPos bedPos;
         private int attempts;
+        private final int messageVariant;
 
-        private SleepDisturbanceState(BlockPos bedPos, int attempts) {
+        private SleepDisturbanceState(BlockPos bedPos, int attempts, int messageVariant) {
             this.bedPos = bedPos.immutable();
             this.attempts = attempts;
+            this.messageVariant = Math.floorMod(
+                    messageVariant,
+                    SleepDisturbanceMessageCatalog.variantCount());
         }
 
         private BlockPos bedPos() {
@@ -14672,9 +15249,19 @@ public final class UncannyParanoiaEventSystem {
             return this.attempts;
         }
 
+        private int messageVariant() {
+            return this.messageVariant;
+        }
+
         private void incrementAttempts() {
             this.attempts++;
         }
+    }
+
+    private record PendingSleepMessage(long displayTick, Component message) {
+    }
+
+    private record GrandEventSpawnPlan(UUID anchorId, BlockPos spawnPos, boolean covered) {
     }
 
     private record ChestCloseTask(UUID playerId, net.minecraft.resources.ResourceKey<Level> dimension, BlockPos pos, long closeTick) {

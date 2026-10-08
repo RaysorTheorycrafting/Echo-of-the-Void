@@ -3,12 +3,13 @@ package com.eotv.echoofthevoid.event.passive;
 import com.eotv.echoofthevoid.network.UncannyVanillaVariantVisualPayload;
 import com.eotv.echoofthevoid.state.UncannyWorldState;
 import java.util.List;
-import java.util.Locale;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Direction;
 import net.minecraft.core.particles.BlockParticleOption;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.nbt.CompoundTag;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.sounds.SoundEvents;
@@ -79,23 +80,29 @@ public final class ApprovedVanillaVariantSystem {
             return;
         }
         if (!UncannyWorldState.get(level.getServer()).isSystemEnabled()
-                || !isNaturalSpawn(event.getSpawnType())
+                || !isNaturalSpawn(mob, event.getSpawnType())
                 || mob.getPersistentData().getBoolean(LEGACY_PASSIVE_TAG)) {
             return;
         }
-        ApprovedVanillaVariantCatalog.Variant variant = variantForType(mob.getType());
-        if (variant == null) {
+        String typeKey = typeKey(mob.getType());
+        ApprovedVanillaVariantCatalog.Species species =
+                ApprovedVanillaVariantCatalog.speciesByTypeKey(typeKey);
+        if (species == null) {
             return;
         }
         int phase = UncannyWorldState.get(level.getServer()).getPhase().index();
-        double chance = ApprovedVanillaVariantCatalog.naturalChance(variant, phase);
+        double chance = ApprovedVanillaVariantCatalog.naturalChanceForType(typeKey, phase);
         RandomSource random = RandomSource.create(
                 mob.getUUID().getMostSignificantBits()
                         ^ mob.getUUID().getLeastSignificantBits()
                         ^ level.getSeed()
                         ^ level.getGameTime());
         if (random.nextDouble() < chance) {
-            applyVariant(mob, variant, level.getGameTime(), false);
+            ApprovedVanillaVariantCatalog.Variant variant =
+                    ApprovedVanillaVariantCatalog.selectVariant(typeKey, phase, random.nextLong());
+            if (variant != null) {
+                applyVariant(mob, variant, level.getGameTime(), false);
+            }
         }
     }
 
@@ -108,10 +115,14 @@ public final class ApprovedVanillaVariantSystem {
             return;
         }
         ApprovedVanillaVariantCatalog.Variant variant = ApprovedVanillaVariantCatalog.byId(id);
-        if (variant == null || variantForType(mob.getType()) != variant) {
+        if (variant == null || !variant.typeKey().equals(typeKey(mob.getType()))) {
             return;
         }
-        tickVariant(level, mob, variant.id(), level.getGameTime());
+        VanillaVariantBehaviorRuntime.tick(
+                level, mob, variant.behaviorKind(), variant.silent(), level.getGameTime());
+        if (variant.behaviorKind() == ApprovedVanillaVariantCatalog.BehaviorKind.SPECIALIZED) {
+            tickVariant(level, mob, variant.id(), level.getGameTime());
+        }
     }
 
     public static void onLivingIncomingDamage(LivingIncomingDamageEvent event) {
@@ -160,6 +171,21 @@ public final class ApprovedVanillaVariantSystem {
 
     public static boolean forceSpawn(ServerPlayer player, String variantId) {
         ApprovedVanillaVariantCatalog.Variant variant = ApprovedVanillaVariantCatalog.byId(variantId);
+        return forceSpawn(player, variant);
+    }
+
+    public static boolean forceSpawnRandom(ServerPlayer player, String typeKey) {
+        if (player == null) {
+            return false;
+        }
+        ApprovedVanillaVariantCatalog.Variant variant = ApprovedVanillaVariantCatalog.selectVariant(
+                typeKey, 4, player.getRandom().nextLong());
+        return forceSpawn(player, variant);
+    }
+
+    private static boolean forceSpawn(
+            ServerPlayer player,
+            ApprovedVanillaVariantCatalog.Variant variant) {
         EntityType<? extends Mob> type = variant == null ? null : resolveType(variant.typeKey());
         if (player == null || type == null) {
             return false;
@@ -178,6 +204,15 @@ public final class ApprovedVanillaVariantSystem {
 
     public static String variantId(Entity entity) {
         return entity == null ? "" : entity.getPersistentData().getString(TAG_VARIANT);
+    }
+
+    public static boolean applyVariantForTesting(Mob mob, String variantId, long now) {
+        ApprovedVanillaVariantCatalog.Variant variant = ApprovedVanillaVariantCatalog.byId(variantId);
+        if (mob == null || variant == null || !variant.typeKey().equals(typeKey(mob.getType()))) {
+            return false;
+        }
+        applyVariant(mob, variant, now, true);
+        return true;
     }
 
     private static void tickVariant(ServerLevel level, Mob mob, String id, long now) {
@@ -666,6 +701,14 @@ public final class ApprovedVanillaVariantSystem {
         data.putLong(TAG_END, 0L);
         data.putLong(TAG_NEXT, dev ? now + 12L : now + cooldown(mob, 300, 900));
         data.putBoolean(TAG_DEV, dev);
+        VanillaVariantBehaviorRuntime.initialize(
+                mob,
+                variant.id(),
+                variant.behaviorKind(),
+                variant.visualStyle(),
+                variant.silent(),
+                now,
+                dev);
         if (dev && "sniffer_second_dig".equals(variant.id())) {
             storePos(data, mob.blockPosition());
             data.putLong(TAG_MEMORY_TIME, now - 24000L);
@@ -690,40 +733,22 @@ public final class ApprovedVanillaVariantSystem {
         }
     }
 
-    private static ApprovedVanillaVariantCatalog.Variant variantForType(EntityType<?> type) {
-        String key = type.builtInRegistryHolder().key().location().getPath();
-        return ApprovedVanillaVariantCatalog.byTypeKey(key);
+    private static String typeKey(EntityType<?> type) {
+        return type.builtInRegistryHolder().key().location().getPath();
     }
 
+    @SuppressWarnings("unchecked")
     private static EntityType<? extends Mob> resolveType(String key) {
-        return switch (key.toLowerCase(Locale.ROOT)) {
-            case "bee" -> EntityType.BEE;
-            case "bat" -> EntityType.BAT;
-            case "rabbit" -> EntityType.RABBIT;
-            case "goat" -> EntityType.GOAT;
-            case "horse" -> EntityType.HORSE;
-            case "allay" -> EntityType.ALLAY;
-            case "axolotl" -> EntityType.AXOLOTL;
-            case "dolphin" -> EntityType.DOLPHIN;
-            case "frog" -> EntityType.FROG;
-            case "turtle" -> EntityType.TURTLE;
-            case "sniffer" -> EntityType.SNIFFER;
-            case "armadillo" -> EntityType.ARMADILLO;
-            case "glow_squid" -> EntityType.GLOW_SQUID;
-            case "breeze" -> EntityType.BREEZE;
-            case "cave_spider" -> EntityType.CAVE_SPIDER;
-            case "shulker" -> EntityType.SHULKER;
-            case "guardian" -> EntityType.GUARDIAN;
-            case "vex" -> EntityType.VEX;
-            case "silverfish" -> EntityType.SILVERFISH;
-            case "zombified_piglin" -> EntityType.ZOMBIFIED_PIGLIN;
-            default -> null;
-        };
+        if (key == null || ApprovedVanillaVariantCatalog.speciesByTypeKey(key) == null) {
+            return null;
+        }
+        EntityType<?> resolved = BuiltInRegistries.ENTITY_TYPE.get(
+                ResourceLocation.withDefaultNamespace(key.toLowerCase(java.util.Locale.ROOT)));
+        return (EntityType<? extends Mob>) resolved;
     }
 
     private static Vec3 findDevSpawnPosition(ServerLevel level, ServerPlayer player, EntityType<?> type) {
-        if (type == EntityType.AXOLOTL || type == EntityType.DOLPHIN || type == EntityType.GLOW_SQUID
-                || type == EntityType.GUARDIAN || type == EntityType.TURTLE) {
+        if (requiresWater(type)) {
             BlockPos origin = player.blockPosition();
             for (BlockPos pos : BlockPos.betweenClosed(origin.offset(-8, -5, -8), origin.offset(8, 5, 8))) {
                 if (!level.getFluidState(pos).isEmpty() && level.getBlockState(pos).getCollisionShape(level, pos).isEmpty()) {
@@ -741,12 +766,28 @@ public final class ApprovedVanillaVariantSystem {
         return new Vec3(ground.getX() + 0.5D, ground.getY(), ground.getZ() + 0.5D);
     }
 
-    private static boolean isNaturalSpawn(MobSpawnType type) {
+    private static boolean isNaturalSpawn(Mob mob, MobSpawnType type) {
+        if (type == MobSpawnType.TRIGGERED
+                && (mob.getType() == EntityType.WARDEN || mob.getType() == EntityType.SKELETON_HORSE)) {
+            return true;
+        }
         return switch (type) {
             case SPAWNER, SPAWN_EGG, COMMAND, DISPENSER, TRIAL_SPAWNER, BUCKET, BREEDING,
                     MOB_SUMMONED, TRIGGERED -> false;
             default -> true;
         };
+    }
+
+    private static boolean requiresWater(EntityType<?> type) {
+        return type == EntityType.AXOLOTL
+                || type == EntityType.DOLPHIN
+                || type == EntityType.GLOW_SQUID
+                || type == EntityType.GUARDIAN
+                || type == EntityType.ELDER_GUARDIAN
+                || type == EntityType.PUFFERFISH
+                || type == EntityType.TADPOLE
+                || type == EntityType.TROPICAL_FISH
+                || type == EntityType.TURTLE;
     }
 
     private static boolean is(Mob mob, String id) {

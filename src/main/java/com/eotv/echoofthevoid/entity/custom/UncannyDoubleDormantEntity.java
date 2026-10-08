@@ -3,6 +3,9 @@ package com.eotv.echoofthevoid.entity.custom;
 import com.eotv.echoofthevoid.config.UncannyConfig;
 import com.eotv.echoofthevoid.entity.UncannyEntityMarker;
 import com.eotv.echoofthevoid.entity.UncannyEntityUtil;
+import com.eotv.echoofthevoid.diagnostics.DiagnosticSeverity;
+import com.eotv.echoofthevoid.diagnostics.UncannyDiagnostics;
+import com.eotv.echoofthevoid.event.special.AdaptiveSpecialEquipment;
 import java.util.Optional;
 import java.util.UUID;
 import net.minecraft.core.BlockPos;
@@ -19,11 +22,7 @@ import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.monster.Zombie;
-import net.minecraft.world.item.ArmorItem;
-import net.minecraft.world.item.AxeItem;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.ShieldItem;
-import net.minecraft.world.item.SwordItem;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
@@ -187,94 +186,25 @@ public class UncannyDoubleDormantEntity extends Zombie implements UncannyEntityM
     }
 
     private void copyInventoryLoadout(ServerPlayer player) {
-        ItemStack bestWeapon = ItemStack.EMPTY;
-        ItemStack bestShield = ItemStack.EMPTY;
-
-        ItemStack bestHead = ItemStack.EMPTY;
-        ItemStack bestChest = ItemStack.EMPTY;
-        ItemStack bestLegs = ItemStack.EMPTY;
-        ItemStack bestFeet = ItemStack.EMPTY;
-
-        for (ItemStack stack : player.getInventory().items) {
-            if (stack.isEmpty()) {
-                continue;
-            }
-
-            if (stack.getItem() instanceof SwordItem && bestWeapon.isEmpty()) {
-                bestWeapon = stack.copy();
-            } else if (stack.getItem() instanceof AxeItem && bestWeapon.isEmpty()) {
-                bestWeapon = stack.copy();
-            }
-
-            if (stack.getItem() instanceof ShieldItem && bestShield.isEmpty()) {
-                bestShield = stack.copy();
-            }
-
-            if (stack.getItem() instanceof ArmorItem armorItem) {
-                ItemStack selected = switch (armorItem.getType()) {
-                    case HELMET -> bestHead;
-                    case CHESTPLATE -> bestChest;
-                    case LEGGINGS -> bestLegs;
-                    case BOOTS -> bestFeet;
-                    default -> ItemStack.EMPTY;
-                };
-
-                if (selected.isEmpty() || armorItem.getDefense() > ((ArmorItem) selected.getItem()).getDefense()) {
-                    switch (armorItem.getType()) {
-                        case HELMET -> bestHead = stack.copy();
-                        case CHESTPLATE -> bestChest = stack.copy();
-                        case LEGGINGS -> bestLegs = stack.copy();
-                        case BOOTS -> bestFeet = stack.copy();
-                        default -> {
-                        }
-                    }
-                }
-            }
-        }
-
-        for (ItemStack stack : player.getInventory().armor) {
-            if (stack.isEmpty()) {
-                continue;
-            }
-
-            if (stack.getItem() instanceof ArmorItem armorItem) {
-                ItemStack selected = switch (armorItem.getType()) {
-                    case HELMET -> bestHead;
-                    case CHESTPLATE -> bestChest;
-                    case LEGGINGS -> bestLegs;
-                    case BOOTS -> bestFeet;
-                    default -> ItemStack.EMPTY;
-                };
-
-                if (selected.isEmpty() || armorItem.getDefense() > ((ArmorItem) selected.getItem()).getDefense()) {
-                    switch (armorItem.getType()) {
-                        case HELMET -> bestHead = stack.copy();
-                        case CHESTPLATE -> bestChest = stack.copy();
-                        case LEGGINGS -> bestLegs = stack.copy();
-                        case BOOTS -> bestFeet = stack.copy();
-                        default -> {
-                        }
-                    }
-                }
-            }
-        }
-
-        for (ItemStack stack : player.getInventory().offhand) {
-            if (stack.getItem() instanceof ShieldItem && bestShield.isEmpty()) {
-                bestShield = stack.copy();
-            }
-            if ((stack.getItem() instanceof SwordItem || stack.getItem() instanceof AxeItem) && bestWeapon.isEmpty()) {
-                bestWeapon = stack.copy();
-            }
-        }
-
-        this.setItemSlot(EquipmentSlot.MAINHAND, bestWeapon);
-        this.setItemSlot(EquipmentSlot.OFFHAND, bestShield);
-        this.setItemSlot(EquipmentSlot.HEAD, bestHead);
-        this.setItemSlot(EquipmentSlot.CHEST, bestChest);
-        this.setItemSlot(EquipmentSlot.LEGS, bestLegs);
-        this.setItemSlot(EquipmentSlot.FEET, bestFeet);
+        AdaptiveSpecialEquipment.Snapshot loadout = AdaptiveSpecialEquipment.select(player);
+        this.setItemSlot(EquipmentSlot.MAINHAND, loadout.weapon());
+        this.setItemSlot(EquipmentSlot.OFFHAND, loadout.shield());
+        this.setItemSlot(EquipmentSlot.HEAD, loadout.armor(EquipmentSlot.HEAD));
+        this.setItemSlot(EquipmentSlot.CHEST, loadout.armor(EquipmentSlot.CHEST));
+        this.setItemSlot(EquipmentSlot.LEGS, loadout.armor(EquipmentSlot.LEGS));
+        this.setItemSlot(EquipmentSlot.FEET, loadout.armor(EquipmentSlot.FEET));
         disableEquipmentDrops();
+        UncannyDiagnostics.recordForPlayer(
+                player,
+                DiagnosticSeverity.INFO,
+                "special",
+                "adaptive_loadout_selected",
+                UncannyDiagnostics.fields(
+                        "special", "mimic",
+                        "weapon", loadout.weapon().isEmpty() ? "none" : loadout.weapon().getItem().toString(),
+                        "attack_damage", loadout.attackDamage(),
+                        "armor", loadout.armorValue(),
+                        "armor_toughness", loadout.armorToughness()));
     }
 
     private void disableEquipmentDrops() {

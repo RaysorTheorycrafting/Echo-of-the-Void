@@ -24,14 +24,15 @@ class ApprovedSpecialCatalogTest {
     private static final Path JAVA_ROOT = Path.of(
             "src", "main", "java", "com", "eotv", "echoofthevoid");
     private static final List<String> IDS = List.of(
-            "surveyor", "mourner", "doubler", "ferryman", "listener", "bystander");
+            "surveyor", "mourner", "doubler", "ferryman", "listener", "bystander",
+            "miner", "devourer", "echoer", "drifter", "ashwalker", "dredger", "flanker");
 
     @Test
-    void catalogContainsOnlyTheSixActiveApprovedSpecials() {
+    void catalogContainsOnlyTheThirteenActiveApprovedSpecials() {
         assertEquals(IDS, ApprovedSpecialCatalog.definitions().stream()
                 .map(ApprovedSpecialCatalog.Definition::id)
                 .toList());
-        assertEquals(6, new HashSet<>(IDS).size());
+        assertEquals(13, new HashSet<>(IDS).size());
         assertNull(ApprovedSpecialCatalog.byId("impostor"));
         assertNull(ApprovedSpecialCatalog.byId("pilgrim"));
         assertNull(ApprovedSpecialCatalog.byId("climber"));
@@ -47,6 +48,13 @@ class ApprovedSpecialCatalogTest {
         assertDefinition("ferryman", 3, 1, 3, ApprovedSpecialCatalog.Status.WORKING);
         assertDefinition("listener", 2, 0, 3, ApprovedSpecialCatalog.Status.WORKING);
         assertDefinition("bystander", 2, 0, 4, ApprovedSpecialCatalog.Status.WORKING);
+        assertDefinition("miner", 3, 2, 2, ApprovedSpecialCatalog.Status.WORKING);
+        assertDefinition("devourer", 4, 2, 1, ApprovedSpecialCatalog.Status.WORKING);
+        assertDefinition("echoer", 2, 3, 3, ApprovedSpecialCatalog.Status.WORKING);
+        assertDefinition("drifter", 2, 3, 3, ApprovedSpecialCatalog.Status.WORKING);
+        assertDefinition("ashwalker", 2, 3, 4, ApprovedSpecialCatalog.Status.WORKING);
+        assertDefinition("dredger", 3, 4, 2, ApprovedSpecialCatalog.Status.WORKING);
+        assertDefinition("flanker", 3, 4, 2, ApprovedSpecialCatalog.Status.WORKING);
 
         for (ApprovedSpecialCatalog.Definition definition : ApprovedSpecialCatalog.definitions()) {
             var descriptor = ParanoiaEventCatalog.require(definition.id());
@@ -145,7 +153,9 @@ class ApprovedSpecialCatalogTest {
         for (String id : List.of(
                 "uncanny_mourner_sob", "uncanny_ferryman_wake",
                 "uncanny_attacker_rush", "uncanny_attacker_scream",
-                "uncanny_attacker_hurt", "uncanny_attacker_death")) {
+                "uncanny_attacker_hurt", "uncanny_attacker_death",
+                "uncanny_echoer_cry", "uncanny_drifter_cry", "uncanny_ashwalker_cry",
+                "uncanny_dredger_cry", "uncanny_flanker_call", "uncanny_flanker_response")) {
             assertTrue(sounds.contains("\"" + id + "\""), id);
             assertNotNull(UncannyDevCatalog.byId("audio_physical_" + id), id);
         }
@@ -175,6 +185,15 @@ class ApprovedSpecialCatalogTest {
         }
         assertTrue(sounds.contains("\"uncanny_terror_lock\""));
         assertNotNull(UncannyDevCatalog.byId("audio_mental_uncanny_terror_lock"));
+        for (String family : List.of("echoer", "drifter", "ashwalker", "dredger", "flanker")) {
+            Path directory = Path.of(
+                    "src", "main", "resources", "assets", "echoofthevoid", "sounds", "uncanny", family);
+            assertTrue(Files.isDirectory(directory), family);
+            try (var files = Files.list(directory)) {
+                assertEquals(family.equals("flanker") ? 4L : 2L,
+                        files.filter(path -> path.getFileName().toString().endsWith(".ogg")).count(), family);
+            }
+        }
     }
 
     @Test
@@ -194,19 +213,19 @@ class ApprovedSpecialCatalogTest {
     }
 
     @Test
-    void terrorUsesOneContinuousPrivateSoundForTheWholeCameraLock() throws IOException {
+    void terrorIsAShortScreamerWithItsOwnScreams() throws IOException {
+        // User, 2026-10-08: the Terror? becomes a screamer, not a five-second slow camera lock.
         String terror = read(JAVA_ROOT.resolve(Path.of("entity", "custom", "UncannyTerrorEntity.java")));
-        Path asset = Path.of(
-                "src", "main", "resources", "assets", "echoofthevoid", "sounds",
-                "uncanny", "terror", "terror_lock_1.ogg");
-
-        assertTrue(terror.contains("ENGAGED_DURATION_TICKS = 20 * 5"));
-        assertTrue(terror.contains("UNCANNY_TERROR_LOCK"));
-        assertTrue(terror.contains("1.10F, 1.0F, ENGAGED_DURATION_TICKS"));
-        assertFalse(terror.contains("playProximitySound"));
+        assertTrue(terror.contains("ENGAGED_DURATION_TICKS = 32"));
+        assertTrue(terror.contains("UNCANNY_TERROR_SCREAM"));
+        assertTrue(terror.contains("burstAway(target)"));
+        assertTrue(terror.contains("Math.max(toFace, toBody) > 0.985D"), "Looking at its face must set it off");
         assertFalse(terror.contains("UNCANNY_TINNITUS"));
-        assertTrue(Files.isRegularFile(asset));
-        assertTrue(Files.size(asset) > 20_000L, "The continuous Terror asset must not be an empty cue");
+        for (int variant = 1; variant <= 3; variant++) {
+            Path asset = Path.of("src", "main", "resources", "assets", "echoofthevoid", "sounds",
+                    "uncanny", "terror", "terror_scream_" + variant + ".ogg");
+            assertTrue(Files.isRegularFile(asset) && Files.size(asset) > 10_000L, asset.toString());
+        }
     }
 
     @Test
@@ -236,39 +255,27 @@ class ApprovedSpecialCatalogTest {
     }
 
     @Test
-    void attackerAnimationFormsAreSyncedPersistentAndSeparatelyTestable() throws IOException {
+    void customSpecialModelsWereReplacedByTheStandardSilhouette() throws IOException {
+        // D-83 removed the Attacker? poses, hunter postures and the old Devourer?/Ashwalker? meshes;
+        // D-84 then gave Devourer? the only dedicated model again (Blockbench). Mourner? keeps its pose.
         String client = read(JAVA_ROOT.resolve(Path.of("EchoOfTheVoidClient.java")));
-        String renderer = read(JAVA_ROOT.resolve(Path.of("client", "UncannyAttackerRenderer.java")));
-        String model = read(JAVA_ROOT.resolve(Path.of("client", "UncannyAttackerModel.java")));
         String entity = read(JAVA_ROOT.resolve(Path.of("entity", "custom", "UncannyStalkerEntity.java")));
-        String executor = read(JAVA_ROOT.resolve(Path.of("dev", "UncannyDevActionExecutor.java")));
-
-        assertTrue(client.contains("UNCANNY_STALKER.get(), UncannyAttackerRenderer::new"));
-        assertTrue(renderer.contains("new UncannyAttackerModel("));
-        assertTrue(model.contains("case CRAWL -> setupCrawl"));
-        assertTrue(model.contains("case OUTSTRETCHED -> setupOutstretched"));
-        assertTrue(model.contains("this.body.z = -3.2F"));
-        assertTrue(model.contains("this.body.xRot = 1.50F"));
-        assertTrue(model.contains("this.rightArm.xRot = -1.48F"));
-        assertTrue(model.contains("this.rightLeg.z = 0.9F"));
-        assertTrue(model.contains("this.leftLeg.z = 0.9F"));
-        assertTrue(model.contains("irregularPulse"));
-        assertTrue(entity.contains("EntityDataSerializers.BYTE"));
+        for (String removed : List.of("UncannyAttackerModel", "UncannyAttackerRenderer", "UncannyHuntingSpecialModel",
+                "UncannyHuntingSpecialRenderer", "HuntingSpecialModelPoseRules", "UncannyAshwalkerModel")) {
+            assertFalse(Files.exists(JAVA_ROOT.resolve(Path.of("client", removed + ".java"))), removed);
+            assertFalse(client.contains(removed), removed);
+        }
+        for (String id : List.of("STALKER", "ECHOER", "DRIFTER", "DREDGER", "FLANKER")) {
+            assertTrue(client.contains("UNCANNY_" + id + ".get(), context -> new UncannySilhouetteRenderer<>(context)"), id);
+        }
+        assertTrue(read(JAVA_ROOT.resolve(Path.of("client", "UncannyDevourerRenderer.java")))
+                .contains("MobRenderer<UncannyDevourerEntity, UncannyDevourerModel>"));
+        assertTrue(read(JAVA_ROOT.resolve(Path.of("client", "UncannyAshwalkerRenderer.java")))
+                .contains("extends UncannySilhouetteRenderer<UncannyAshwalkerEntity>"));
+        assertNull(UncannyDevCatalog.byId("entity_attacker_crawl"));
+        assertNull(UncannyDevCatalog.byId("entity_attacker_outstretched"));
+        // The synced style byte stays readable so existing worlds keep loading their Attacker?.
         assertTrue(entity.contains("tag.putByte(\"AttackerAnimationStyle\""));
-        assertTrue(entity.contains("CRAWL(1)"));
-        assertTrue(entity.contains("OUTSTRETCHED(2)"));
-        assertTrue(entity.contains("AnimationStyle random(RandomSource random)"));
-        assertFalse(entity.contains("STANDARD("));
-
-        UncannyDevCatalog.Entry crawl = UncannyDevCatalog.byId("entity_attacker_crawl");
-        UncannyDevCatalog.Entry outstretched = UncannyDevCatalog.byId("entity_attacker_outstretched");
-        assertNotNull(crawl);
-        assertNotNull(outstretched);
-        assertEquals("attacker", crawl.groupKey());
-        assertEquals("attacker_crawl", crawl.actionArg());
-        assertEquals("attacker_outstretched", outstretched.actionArg());
-        assertTrue(executor.contains("AnimationStyle.CRAWL"));
-        assertTrue(executor.contains("AnimationStyle.OUTSTRETCHED"));
     }
 
     @Test
@@ -287,16 +294,22 @@ class ApprovedSpecialCatalogTest {
         assertTrue(rewards.contains("UNCANNY_REALITY_SHARD_PIECE.get()"));
         assertFalse(utility.contains("dropPulseStyleRewards"));
 
+        String specialPredicate = registry.substring(
+                registry.indexOf("public static boolean isSpecialEntity"),
+                registry.indexOf("public static void onEntityAttributeCreation"));
         for (String holder : List.of(
                 "UNCANNY_DOUBLE_DORMANT", "UNCANNY_WATCHER", "UNCANNY_STALKER",
                 "UNCANNY_HURLER", "UNCANNY_SHADOW", "UNCANNY_KNOCKER",
                 "UNCANNY_PULSE", "UNCANNY_TERROR", "UNCANNY_USHER",
                 "UNCANNY_KEEPER", "UNCANNY_TENANT", "UNCANNY_FOLLOWER",
                 "UNCANNY_SURVEYOR", "UNCANNY_MOURNER", "UNCANNY_DOUBLER",
-                "UNCANNY_FERRYMAN", "UNCANNY_LISTENER", "UNCANNY_BYSTANDER")) {
-            assertTrue(registry.substring(registry.indexOf("public static boolean isSpecialEntity"))
-                    .contains(holder + ".get()"), holder);
+                "UNCANNY_FERRYMAN", "UNCANNY_LISTENER", "UNCANNY_BYSTANDER",
+                "UNCANNY_AMBUSHER", "UNCANNY_MINER", "UNCANNY_DEVOURER",
+                "UNCANNY_ECHOER", "UNCANNY_DRIFTER", "UNCANNY_ASHWALKER",
+                "UNCANNY_DREDGER", "UNCANNY_FLANKER")) {
+            assertTrue(specialPredicate.contains(holder + ".get()"), holder);
         }
+        assertFalse(specialPredicate.contains("UNCANNY_ARENA_PURSUER.get()"));
 
         for (String source : List.of(
                 "UncannyPulseEntity.java", "UncannyKnockerEntity.java",
@@ -335,5 +348,15 @@ class ApprovedSpecialCatalogTest {
 
     private static String read(Path path) throws IOException {
         return Files.readString(path, StandardCharsets.UTF_8);
+    }
+
+    private static int count(String value, String needle) {
+        int total = 0;
+        int cursor = 0;
+        while ((cursor = value.indexOf(needle, cursor)) >= 0) {
+            total++;
+            cursor += needle.length();
+        }
+        return total;
     }
 }

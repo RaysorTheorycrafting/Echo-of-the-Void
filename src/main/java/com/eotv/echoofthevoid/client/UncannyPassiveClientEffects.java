@@ -4,6 +4,8 @@ import com.eotv.echoofthevoid.EchoOfTheVoid;
 import com.eotv.echoofthevoid.config.UncannyConfig;
 import com.eotv.echoofthevoid.entity.custom.UncannyStructureVillagerEntity;
 import com.eotv.echoofthevoid.entity.custom.UncannyUsherEntity;
+import com.eotv.echoofthevoid.event.passive.ApprovedVanillaVariantCatalog;
+import com.eotv.echoofthevoid.event.passive.ApprovedVanillaVariantCatalog.VisualStyle;
 import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.math.Axis;
 import java.util.HashMap;
@@ -36,6 +38,7 @@ public final class UncannyPassiveClientEffects {
     private static final Set<Integer> DARK_RENDER_ENTITIES = new HashSet<>();
     private static final Set<Integer> INVERTED_RENDER_ENTITIES = new HashSet<>();
     private static final Set<Integer> STRETCHED_RENDER_ENTITIES = new HashSet<>();
+    private static final Set<Integer> GENERIC_TRANSFORM_ENTITIES = new HashSet<>();
     private static final Map<Integer, Long> PET_REFUSAL_VISUAL_UNTIL = new HashMap<>();
 
     private UncannyPassiveClientEffects() {
@@ -45,8 +48,9 @@ public final class UncannyPassiveClientEffects {
         LivingEntity entity = event.getEntity();
         int id = entity.getId();
 
-        if (shouldRenderPitchBlack(entity)) {
-            RenderSystem.setShaderColor(0.0F, 0.0F, 0.0F, 1.0F);
+        float[] tint = renderTint(entity);
+        if (tint != null) {
+            RenderSystem.setShaderColor(tint[0], tint[1], tint[2], 1.0F);
             DARK_RENDER_ENTITIES.add(id);
         }
 
@@ -69,10 +73,17 @@ public final class UncannyPassiveClientEffects {
             event.getPoseStack().scale(1.0F, 2.0F, 1.0F);
             STRETCHED_RENDER_ENTITIES.add(id);
         }
+
+        if (applyExpandedVariantTransform(entity, event)) {
+            GENERIC_TRANSFORM_ENTITIES.add(id);
+        }
     }
 
     public static void onRenderLivingPost(RenderLivingEvent.Post<?, ?> event) {
         int id = event.getEntity().getId();
+        if (GENERIC_TRANSFORM_ENTITIES.remove(id)) {
+            event.getPoseStack().popPose();
+        }
         if (STRETCHED_RENDER_ENTITIES.remove(id)) {
             event.getPoseStack().popPose();
         }
@@ -147,14 +158,49 @@ public final class UncannyPassiveClientEffects {
         return name != null && "Dinnerbone".equals(name.getString());
     }
 
-    private static boolean shouldRenderPitchBlack(LivingEntity entity) {
+    private static float[] renderTint(LivingEntity entity) {
         Minecraft minecraft = Minecraft.getInstance();
         long now = minecraft != null && minecraft.level != null ? minecraft.level.getGameTime() : Long.MIN_VALUE;
-        return PET_REFUSAL_VISUAL_UNTIL.getOrDefault(entity.getId(), Long.MIN_VALUE) > now
+        boolean pitchBlack = PET_REFUSAL_VISUAL_UNTIL.getOrDefault(entity.getId(), Long.MIN_VALUE) > now
                 || entity.getTags().contains("eotv_pet_refusal_black")
                 || isOnTeam(entity, TEAM_PET_REFUSAL_BLACK)
                 || (entity instanceof Fox && entity.getTags().contains(TAG_FOX_BLACK))
-                || (entity instanceof Llama && (entity.getTags().contains(TAG_LLAMA_BLACK) || entity.getTags().contains(TAG_LLAMA_BLACK_MARKER)));
+                || (entity instanceof Llama && (entity.getTags().contains(TAG_LLAMA_BLACK) || entity.getTags().contains(TAG_LLAMA_BLACK_MARKER)))
+                || entity.getTags().contains("eotv_variant_visual_pitch_black");
+        if (pitchBlack) {
+            return new float[]{0.0F, 0.0F, 0.0F};
+        }
+        if (entity.getTags().contains("eotv_variant_visual_pale")) {
+            return new float[]{0.72F, 0.80F, 0.88F};
+        }
+        if (entity.getTags().contains("eotv_variant_visual_ashen")) {
+            return new float[]{0.52F, 0.49F, 0.47F};
+        }
+        return null;
+    }
+
+    private static boolean applyExpandedVariantTransform(
+            LivingEntity entity,
+            RenderLivingEvent.Pre<?, ?> event) {
+        VisualStyle style;
+        if (entity.getTags().contains("eotv_variant_visual_tall")) {
+            style = VisualStyle.TALL;
+        } else if (entity.getTags().contains("eotv_variant_visual_narrow")) {
+            style = VisualStyle.NARROW;
+        } else if (entity.getTags().contains("eotv_variant_visual_wide")) {
+            style = VisualStyle.WIDE;
+        } else if (entity.getTags().contains("eotv_variant_visual_compressed")) {
+            style = VisualStyle.COMPRESSED;
+        } else if (entity.getTags().contains("eotv_variant_visual_mirrored")) {
+            style = VisualStyle.MIRRORED;
+        } else {
+            return false;
+        }
+        ApprovedVanillaVariantCatalog.VisualScale scale =
+                ApprovedVanillaVariantCatalog.visualScale(style);
+        event.getPoseStack().pushPose();
+        event.getPoseStack().scale(scale.x(), scale.y(), scale.z());
+        return true;
     }
 
     private static boolean isOnTeam(Entity entity, String teamName) {

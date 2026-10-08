@@ -64,4 +64,14 @@ class UncannyWeatherTimingRulesTest {
         assertEquals(-1, noPlayers.targetIndex());
         assertEquals(-1, solo.targetIndex());
     }
+
+    @Test
+    void expiredWeatherDeadlinesRemainRunnableInsteadOfBeingRewrittenEveryTick() {
+        assertTrue(!UncannyWeatherTimingRules.requiresFutureDeadlineRebase(8_000L, 10_000L, 4_000L));
+        assertTrue(!UncannyWeatherTimingRules.requiresFutureDeadlineRebase(10_000L, 10_000L, 4_000L));
+        assertTrue(!UncannyWeatherTimingRules.requiresFutureDeadlineRebase(13_999L, 10_000L, 4_000L));
+        assertTrue(UncannyWeatherTimingRules.requiresFutureDeadlineRebase(14_001L, 10_000L, 4_000L));
+        assertTrue(!UncannyWeatherTimingRules.requiresFutureDeadlineRebase(
+                Long.MIN_VALUE, 10_000L, 4_000L));
+    }
 }

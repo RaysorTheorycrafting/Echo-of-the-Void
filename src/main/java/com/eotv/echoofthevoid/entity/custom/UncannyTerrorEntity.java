@@ -35,11 +35,18 @@ import net.minecraft.world.phys.Vec3;
 public class UncannyTerrorEntity extends Monster implements UncannyEntityMarker {
     private static final EntityDataAccessor<Optional<UUID>> TARGET_PLAYER =
             SynchedEntityData.defineId(UncannyTerrorEntity.class, EntityDataSerializers.OPTIONAL_UUID);
-    private static final int ENGAGED_DURATION_TICKS = 20 * 5;
+    /**
+     * Screamer (user, 2026-10-08): the instant it is looked at, it is in the player's face with a
+     * scream, shaking violently, then it bursts away. Short, loud and sudden rather than a long lock.
+     */
+    private static final int ENGAGED_DURATION_TICKS = 32;
+    private static final int LUNGE_TICKS = 3;
+    private static final double FACE_DISTANCE = 0.62D;
     private static final double NORMAL_APPROACH_SPEED = 0.28D;
-    private static final double FLOAT_CHASE_SPEED = 0.16D;
-    private static final double TOUCH_DISTANCE_SQR = 1.35D * 1.35D;
     private static final double TARGET_ACQUIRE_RANGE = 28.0D;
+    /** Lurking right behind an unaware player this long also sets it off. */
+    private static final double BEHIND_TRIGGER_DISTANCE = 2.2D;
+    private static final int BEHIND_TRIGGER_TICKS = 30;
 
     private int engagedTicks;
     private boolean touchedPlayer;
@@ -48,6 +55,9 @@ public class UncannyTerrorEntity extends Monster implements UncannyEntityMarker 
     private double lockedPlayerX;
     private double lockedPlayerY;
     private double lockedPlayerZ;
+    private int lurkingTicks;
+    private Vec3 lungeStart;
+    private Vec3 screamDirection;
 
     public UncannyTerrorEntity(EntityType<? extends Monster> entityType, Level level) {
         super(entityType, level);
@@ -87,16 +97,23 @@ public class UncannyTerrorEntity extends Monster implements UncannyEntityMarker 
         }
 
         if (this.engagedTicks > 0) {
+            if (this.screamDirection == null) {
+                // Reloaded in the middle of a scream: the moment is gone, never replay it late.
+                this.discard();
+                return;
+            }
             tickEngaged(target);
             return;
         }
 
-        // Normal behavior until direct eye-contact triggers the "engaged" phase.
+        // Silent approach until it is looked at, or until it has lurked right behind the player.
         this.setNoGravity(false);
         this.noPhysics = false;
         this.getNavigation().moveTo(target, NORMAL_APPROACH_SPEED);
-
-        if (isDirectlyLookedAt(target)) {
+        this.lurkingTicks = this.distanceToSqr(target) <= BEHIND_TRIGGER_DISTANCE * BEHIND_TRIGGER_DISTANCE
+                ? this.lurkingTicks + 1
+                : 0;
+        if (isDirectlyLookedAt(target) || this.lurkingTicks >= BEHIND_TRIGGER_TICKS) {
             beginEngaged(target);
         }
     }
@@ -105,41 +122,63 @@ public class UncannyTerrorEntity extends Monster implements UncannyEntityMarker 
         this.setNoGravity(true);
         this.noPhysics = true;
         this.getNavigation().stop();
-        lockCameraOnEntity(target);
         immobilizePlayer(target);
 
-        double distanceSqr = this.distanceToSqr(target);
-
-        if (!this.touchedPlayer) {
-            Vec3 destination = new Vec3(target.getX(), target.getY(), target.getZ());
-            Vec3 direction = destination.subtract(this.position());
-            if (direction.lengthSqr() > 1.0E-6D) {
-                Vec3 velocity = direction.normalize().scale(FLOAT_CHASE_SPEED);
-                this.setDeltaMovement(velocity);
-                this.move(MoverType.SELF, velocity);
-                float yaw = (float) (Mth.atan2(velocity.z, velocity.x) * (180.0D / Math.PI)) - 90.0F;
-                this.setYRot(yaw);
-                this.yBodyRot = yaw;
-                this.yHeadRot = yaw;
-            } else {
-                this.setDeltaMovement(Vec3.ZERO);
-            }
-
-            if (distanceSqr <= TOUCH_DISTANCE_SQR) {
-                this.touchedPlayer = true;
-                this.shakeBaseYaw = this.getYRot();
-                this.shakeBasePitch = this.getXRot();
-                freezePosition();
-            }
+        int elapsed = ENGAGED_DURATION_TICKS - this.engagedTicks;
+        // Its face lands right in front of the player's eyes within three ticks, then stays there.
+        Vec3 face = target.getEyePosition()
+                .add(this.screamDirection.scale(FACE_DISTANCE))
+                .subtract(0.0D, this.getEyeHeight(), 0.0D);
+        Vec3 position;
+        if (elapsed < LUNGE_TICKS) {
+            double progress = (elapsed + 1.0D) / LUNGE_TICKS;
+            position = this.lungeStart.lerp(face, progress * progress);
         } else {
-            freezePosition();
+            this.touchedPlayer = true;
+            position = face.add(
+                    (this.random.nextDouble() - 0.5D) * 0.12D,
+                    (this.random.nextDouble() - 0.5D) * 0.10D,
+                    (this.random.nextDouble() - 0.5D) * 0.12D);
+        }
+        this.setPos(position.x, position.y, position.z);
+        this.setDeltaMovement(Vec3.ZERO);
+        faceThePlayer(target);
+        if (this.touchedPlayer) {
             shakeHead();
         }
+        lockCameraOnEntity(target);
 
-        this.engagedTicks--;
-        if (this.engagedTicks <= 0) {
-            this.discard();
+        if (--this.engagedTicks <= 0) {
+            burstAway(target);
         }
+    }
+
+    private void faceThePlayer(ServerPlayer target) {
+        Vec3 toPlayer = target.getEyePosition().subtract(this.getEyePosition());
+        float yaw = (float) (Mth.atan2(toPlayer.z, toPlayer.x) * (180.0D / Math.PI)) - 90.0F;
+        float pitch = (float) -(Mth.atan2(toPlayer.y, Math.sqrt(toPlayer.x * toPlayer.x + toPlayer.z * toPlayer.z))
+                * (180.0D / Math.PI));
+        this.shakeBaseYaw = yaw;
+        this.shakeBasePitch = pitch;
+        this.setYRot(yaw);
+        this.yBodyRot = yaw;
+        this.yHeadRot = yaw;
+        this.setXRot(pitch);
+    }
+
+    /** It vanishes in a burst and leaves the player half-blind with a racing heart. */
+    private void burstAway(ServerPlayer target) {
+        if (this.level() instanceof ServerLevel level) {
+            level.sendParticles(net.minecraft.core.particles.ParticleTypes.LARGE_SMOKE,
+                    this.getX(), this.getEyeY(), this.getZ(), 40, 0.35D, 0.45D, 0.35D, 0.02D);
+            level.sendParticles(net.minecraft.core.particles.ParticleTypes.SQUID_INK,
+                    this.getX(), this.getEyeY(), this.getZ(), 24, 0.3D, 0.4D, 0.3D, 0.05D);
+        }
+        target.addEffect(new MobEffectInstance(MobEffects.DARKNESS, 60, 0, false, false, false));
+        target.addEffect(new MobEffectInstance(MobEffects.BLINDNESS, 10, 0, false, false, false));
+        UncannySoundDelivery.playMental(
+                target, UncannySoundRegistry.UNCANNY_HEARTBEAT.get(), SoundSource.HOSTILE, 0.9F, 1.15F, 80);
+        this.discard();
     }
 
     private void lockCameraOnEntity(ServerPlayer player) {
@@ -161,8 +200,8 @@ public class UncannyTerrorEntity extends Monster implements UncannyEntityMarker 
     }
 
     private void shakeHead() {
-        float yawJitter = (this.random.nextFloat() - 0.5F) * 42.0F;
-        float pitchJitter = (this.random.nextFloat() - 0.5F) * 24.0F;
+        float yawJitter = (this.random.nextFloat() - 0.5F) * 70.0F;
+        float pitchJitter = (this.random.nextFloat() - 0.5F) * 45.0F;
         float jitteredYaw = this.shakeBaseYaw + yawJitter;
         this.setYRot(jitteredYaw);
         this.yBodyRot = jitteredYaw;
@@ -188,6 +227,36 @@ public class UncannyTerrorEntity extends Monster implements UncannyEntityMarker 
     @Override
     protected SoundEvent getDeathSound() {
         return null;
+    }
+
+    @Override
+    public boolean hurt(DamageSource source, float amount) {
+        return false;
+    }
+
+    @Override
+    public boolean isInvulnerableTo(DamageSource source) {
+        return true;
+    }
+
+    @Override
+    public boolean isAttackable() {
+        return false;
+    }
+
+    @Override
+    public boolean canBeSeenAsEnemy() {
+        return false;
+    }
+
+    @Override
+    public boolean canBeHitByProjectile() {
+        return false;
+    }
+
+    @Override
+    public boolean canBeCollidedWith() {
+        return false;
     }
 
     @Override
@@ -230,9 +299,15 @@ public class UncannyTerrorEntity extends Monster implements UncannyEntityMarker 
         this.lockedPlayerX = player.getX();
         this.lockedPlayerY = player.getY();
         this.lockedPlayerZ = player.getZ();
+        this.lungeStart = this.position();
+        Vec3 toward = this.getEyePosition().subtract(player.getEyePosition());
+        Vec3 horizontal = new Vec3(toward.x, 0.0D, toward.z);
+        this.screamDirection = horizontal.lengthSqr() < 1.0E-4D
+                ? player.getViewVector(1.0F).multiply(1.0D, 0.0D, 1.0D).normalize()
+                : horizontal.normalize();
         UncannySoundDelivery.playMental(
-                player, UncannySoundRegistry.UNCANNY_TERROR_LOCK.get(), SoundSource.HOSTILE,
-                1.10F, 1.0F, ENGAGED_DURATION_TICKS);
+                player, UncannySoundRegistry.UNCANNY_TERROR_SCREAM.get(), SoundSource.HOSTILE,
+                1.0F, 0.94F + this.random.nextFloat() * 0.12F, ENGAGED_DURATION_TICKS + 10);
     }
 
     private void freezePosition() {
@@ -266,9 +341,11 @@ public class UncannyTerrorEntity extends Monster implements UncannyEntityMarker 
         if (!this.hasLineOfSight(player) || !player.hasLineOfSight(this)) {
             return false;
         }
+        // Looking at its face or its body counts; aiming at its feet was the old, accidental rule.
         Vec3 look = player.getViewVector(1.0F).normalize();
-        Vec3 toTerror = this.position().subtract(player.getEyePosition()).normalize();
-        double dot = look.dot(toTerror);
-        return dot > 0.985D;
+        Vec3 eyes = player.getEyePosition();
+        double toFace = look.dot(this.getEyePosition().subtract(eyes).normalize());
+        double toBody = look.dot(this.position().add(0.0D, this.getBbHeight() * 0.5D, 0.0D).subtract(eyes).normalize());
+        return Math.max(toFace, toBody) > 0.985D;
     }
 }

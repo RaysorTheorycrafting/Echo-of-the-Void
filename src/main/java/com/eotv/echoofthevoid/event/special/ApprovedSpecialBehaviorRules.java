@@ -11,6 +11,8 @@ public final class ApprovedSpecialBehaviorRules {
     public static final double FERRYMAN_MAX_VERTICAL_STEP = 0.18D;
     public static final double FERRYMAN_MOVING_THRESHOLD_SQR = 0.0004D;
     public static final int FERRYMAN_MISSING_BOAT_RETIRE_TICKS = 55;
+    public static final int FERRYMAN_PENDING_MIN_NAVIGATION_TICKS = 20 * 10;
+    public static final int FERRYMAN_PENDING_MAX_NAVIGATION_TICKS = 20 * 15;
     public static final int FERRYMAN_IDLE_RISE_DELAY_TICKS = 28;
     public static final int FERRYMAN_REVEAL_TIMEOUT_TICKS = 70;
     public static final int FERRYMAN_REVEAL_HOLD_TICKS = 42;
@@ -29,11 +31,58 @@ public final class ApprovedSpecialBehaviorRules {
     public static final double MOURNER_AUDIBLE_RANGE = 15.0D;
     public static final float MOURNER_SOB_VOLUME = 1.0F;
 
+    public static final float FOLLOWER_PLAYER_MELEE_DAMAGE_CAP = 4.0F;
+    public static final double FOLLOWER_EVASION_TRIGGER_DISTANCE = 10.0D;
+    public static final double FOLLOWER_EVASION_RELEASE_DISTANCE = 18.0D;
+    public static final double FOLLOWER_EVASION_ANCHOR_DISTANCE = 20.0D;
+    public static final double FOLLOWER_EVASION_SPEED = 1.68D;
+    public static final int FOLLOWER_EVASION_BURST_TICKS = 70;
+    public static final int FOLLOWER_INITIAL_REPOSITIONS = 2;
+    public static final int FOLLOWER_UNOBSERVED_REPOSITION_TICKS = 8;
+    public static final int FOLLOWER_REPOSITION_COOLDOWN_TICKS = 100;
+    public static final int FOLLOWER_REPOSITION_RETRY_TICKS = 20;
+    public static final int FOLLOWER_POST_REPOSITION_ATTACK_GRACE_TICKS = 60;
+    public static final double FOLLOWER_REPOSITION_MIN_DISTANCE = 16.0D;
+    public static final double FOLLOWER_REPOSITION_DISTANCE_SPAN = 8.0D;
+    public static final int FOLLOWER_REPOSITION_ATTEMPTS = 20;
+    public static final double FOLLOWER_OBSERVER_RANGE = 96.0D;
+    public static final int FOLLOWER_PURSUIT_REQUIRED_TICKS = 8;
+    public static final int FOLLOWER_PURSUIT_ARM_LIFETIME_TICKS = 100;
+    public static final double FOLLOWER_PURSUIT_MAX_DISTANCE = 18.0D;
+    public static final double FOLLOWER_PURSUIT_MIN_FORWARD_PROGRESS = 0.015D;
+    public static final double FOLLOWER_PURSUIT_MIN_CLOSING_DISTANCE = 0.008D;
+    public static final int FOLLOWER_REPOSITION_CLOAK_TICKS = 20;
+    public static final int FOLLOWER_REPOSITION_TELEPORT_DELAY_TICKS = 3;
+    public static final double FOLLOWER_REAR_APPROACH_DISTANCE = 3.25D;
+    public static final double FOLLOWER_UNSEEN_FAR_SPEED = 0.52D;
+    public static final double FOLLOWER_UNSEEN_NEAR_SPEED = 0.42D;
+
+    public static final double SURVEYOR_RUSH_SPEED = 1.35D;
+    public static final int SURVEYOR_RUSH_TICKS = 50;
+    public static final double SURVEYOR_STRIKE_REACH = 2.0D;
+    public static final double SURVEYOR_CLOSE_TRIGGER = 3.5D;
+    public static final float SURVEYOR_STRIKE_DAMAGE = 4.0F;
+    public static final float SURVEYOR_LAUGH_VOLUME = 0.9F;
+    public static final int SURVEYOR_QUICK_SINK_TICKS = 20;
+
+    /** One real blow that always leaves the player at least one heart. */
+    public static float surveyorStrikeDamage(float playerHealth) {
+        return Math.max(0.0F, Math.min(SURVEYOR_STRIKE_DAMAGE, playerHealth - 2.0F));
+    }
+
     private ApprovedSpecialBehaviorRules() {
     }
 
     public static boolean ferrymanBoatIsMoving(double xVelocity, double zVelocity) {
         return xVelocity * xVelocity + zVelocity * zVelocity > FERRYMAN_MOVING_THRESHOLD_SQR;
+    }
+
+    public static int ferrymanRequiredNavigationTicks(int boundedRandomValue) {
+        return FERRYMAN_PENDING_MIN_NAVIGATION_TICKS
+                + clamp(
+                        boundedRandomValue,
+                        0,
+                        FERRYMAN_PENDING_MAX_NAVIGATION_TICKS - FERRYMAN_PENDING_MIN_NAVIGATION_TICKS);
     }
 
     public static int mournerSobIntervalTicks(int boundedRandomValue) {
@@ -42,6 +91,51 @@ public final class ApprovedSpecialBehaviorRules {
 
     public static int ferrymanWakeIntervalTicks(int boundedRandomValue) {
         return 100 + clamp(boundedRandomValue, 0, 120);
+    }
+
+    public static float followerPlayerMeleeDamage(float requestedDamage) {
+        return Math.max(0.0F, Math.min(FOLLOWER_PLAYER_MELEE_DAMAGE_CAP, requestedDamage));
+    }
+
+    /**
+     * A Follower? encounter is local. Keeping an owner after an in-dimension teleport would make
+     * visibility/path probes traverse unloaded chunks and can stall the server thread.
+     */
+    public static boolean followerOwnerWithinTrackingRange(double distanceSqr) {
+        return Double.isFinite(distanceSqr)
+                && distanceSqr <= FOLLOWER_OBSERVER_RANGE * FOLLOWER_OBSERVER_RANGE;
+    }
+
+    public static boolean followerCanAttemptReposition(
+            int repositionsRemaining,
+            boolean evasionArmed,
+            boolean observedByAnyPlayer,
+            long unobservedTicks,
+            long now,
+            long nextAttemptTick) {
+        return repositionsRemaining > 0
+                && evasionArmed
+                && !observedByAnyPlayer
+                && unobservedTicks >= FOLLOWER_UNOBSERVED_REPOSITION_TICKS
+                && now >= nextAttemptTick;
+    }
+
+    public static boolean followerPursuitEvidence(
+            boolean visibleToOwner,
+            double distance,
+            double ownerForwardProgress,
+            double closingDistance) {
+        return visibleToOwner
+                && distance <= FOLLOWER_PURSUIT_MAX_DISTANCE
+                && ownerForwardProgress >= FOLLOWER_PURSUIT_MIN_FORWARD_PROGRESS
+                && closingDistance >= FOLLOWER_PURSUIT_MIN_CLOSING_DISTANCE;
+    }
+
+    public static boolean followerCanStartUnseenAttack(
+            double distance,
+            long now,
+            long attackSuppressedUntilTick) {
+        return distance <= 1.7D && now >= attackSuppressedUntilTick;
     }
 
     /** Reflects motion across Doubler?'s vertical separation plane while preserving height. */

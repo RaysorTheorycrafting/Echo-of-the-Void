@@ -1,0 +1,22 @@
+{
+  "type": "echoofthevoid:elsewhere",
+  "generator": {
+    "type": "minecraft:flat",
+    "settings": {
+      "biome": "minecraft:the_void",
+      "features": false,
+      "lakes": false,
+      "layers": [
+        {
+          "block": "minecraft:bedrock",
+          "height": 1
+        },
+        {
+          "block": "echoofthevoid:uncanny_block",
+          "height": 12
+        }
+      ],
+      "structure_overrides": []
+    }
+  }
+}

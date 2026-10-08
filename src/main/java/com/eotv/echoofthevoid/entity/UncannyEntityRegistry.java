@@ -39,6 +39,15 @@ import com.eotv.echoofthevoid.entity.custom.UncannyZombieEntity;
 import com.eotv.echoofthevoid.entity.custom.UncannyZombieVillagerEntity;
 import com.eotv.echoofthevoid.entity.custom.UncannyBlazeEntity;
 import com.eotv.echoofthevoid.entity.custom.UncannyApprovedSpecialEntity;
+import com.eotv.echoofthevoid.entity.custom.UncannyAmbusherEntity;
+import com.eotv.echoofthevoid.entity.custom.UncannyMinerEntity;
+import com.eotv.echoofthevoid.entity.custom.UncannyDevourerEntity;
+import com.eotv.echoofthevoid.entity.custom.UncannyArenaPursuerEntity;
+import com.eotv.echoofthevoid.entity.custom.UncannyEchoerEntity;
+import com.eotv.echoofthevoid.entity.custom.UncannyDrifterEntity;
+import com.eotv.echoofthevoid.entity.custom.UncannyAshwalkerEntity;
+import com.eotv.echoofthevoid.entity.custom.UncannyDredgerEntity;
+import com.eotv.echoofthevoid.entity.custom.UncannyFlankerEntity;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
@@ -201,6 +210,57 @@ public final class UncannyEntityRegistry {
             "uncanny_listener", () -> EntityType.Builder.of(UncannyApprovedSpecialEntity::new, MobCategory.MONSTER).sized(0.6F, 1.95F).build(id("uncanny_listener")));
     public static final DeferredHolder<EntityType<?>, EntityType<UncannyApprovedSpecialEntity>> UNCANNY_BYSTANDER = registerMonster(
             "uncanny_bystander", () -> EntityType.Builder.of(UncannyApprovedSpecialEntity::new, MobCategory.MONSTER).sized(0.6F, 1.95F).build(id("uncanny_bystander")));
+    public static final DeferredHolder<EntityType<?>, EntityType<UncannyAmbusherEntity>> UNCANNY_AMBUSHER = registerMonster(
+            "uncanny_ambusher", () -> EntityType.Builder.of(UncannyAmbusherEntity::new, MobCategory.MONSTER).sized(0.6F, 1.95F).build(id("uncanny_ambusher")));
+    public static final DeferredHolder<EntityType<?>, EntityType<UncannyMinerEntity>> UNCANNY_MINER = registerMonster(
+            "uncanny_miner", () -> EntityType.Builder.of(UncannyMinerEntity::new, MobCategory.MONSTER)
+                    .sized(0.6F, 1.95F)
+                    .clientTrackingRange(10)
+                    .updateInterval(2)
+                    .build(id("uncanny_miner")));
+    public static final DeferredHolder<EntityType<?>, EntityType<UncannyDevourerEntity>> UNCANNY_DEVOURER = registerMonster(
+            "uncanny_devourer", () -> EntityType.Builder.of(UncannyDevourerEntity::new, MobCategory.MONSTER)
+                    .sized(1.20F, 2.70F)
+                    .clientTrackingRange(10)
+                    .updateInterval(2)
+                    .build(id("uncanny_devourer")));
+    public static final DeferredHolder<EntityType<?>, EntityType<UncannyArenaPursuerEntity>> UNCANNY_ARENA_PURSUER = registerMonster(
+            "uncanny_arena_pursuer", () -> EntityType.Builder.of(UncannyArenaPursuerEntity::new, MobCategory.MONSTER)
+                    .sized(1.0F, 1.20F)
+                    .clientTrackingRange(8)
+                    .updateInterval(2)
+                    .build(id("uncanny_arena_pursuer")));
+    public static final DeferredHolder<EntityType<?>, EntityType<UncannyEchoerEntity>> UNCANNY_ECHOER = registerMonster(
+            "uncanny_echoer", () -> EntityType.Builder.of(UncannyEchoerEntity::new, MobCategory.MONSTER)
+                    .sized(0.55F, 2.05F)
+                    .clientTrackingRange(10)
+                    .updateInterval(2)
+                    .build(id("uncanny_echoer")));
+    public static final DeferredHolder<EntityType<?>, EntityType<UncannyDrifterEntity>> UNCANNY_DRIFTER = registerMonster(
+            "uncanny_drifter", () -> EntityType.Builder.of(UncannyDrifterEntity::new, MobCategory.MONSTER)
+                    .sized(0.78F, 1.55F)
+                    .clientTrackingRange(10)
+                    .updateInterval(2)
+                    .build(id("uncanny_drifter")));
+    public static final DeferredHolder<EntityType<?>, EntityType<UncannyAshwalkerEntity>> UNCANNY_ASHWALKER = registerMonster(
+            "uncanny_ashwalker", () -> EntityType.Builder.of(UncannyAshwalkerEntity::new, MobCategory.MONSTER)
+                    .sized(1.10F, 0.90F)
+                    .fireImmune()
+                    .clientTrackingRange(10)
+                    .updateInterval(2)
+                    .build(id("uncanny_ashwalker")));
+    public static final DeferredHolder<EntityType<?>, EntityType<UncannyDredgerEntity>> UNCANNY_DREDGER = registerMonster(
+            "uncanny_dredger", () -> EntityType.Builder.of(UncannyDredgerEntity::new, MobCategory.MONSTER)
+                    .sized(1.20F, 2.15F)
+                    .clientTrackingRange(10)
+                    .updateInterval(2)
+                    .build(id("uncanny_dredger")));
+    public static final DeferredHolder<EntityType<?>, EntityType<UncannyFlankerEntity>> UNCANNY_FLANKER = registerMonster(
+            "uncanny_flanker", () -> EntityType.Builder.of(UncannyFlankerEntity::new, MobCategory.MONSTER)
+                    .sized(0.55F, 2.05F)
+                    .clientTrackingRange(10)
+                    .updateInterval(2)
+                    .build(id("uncanny_flanker")));
 
     public static final DeferredHolder<EntityType<?>, EntityType<UncannyStructureVillagerEntity>> UNCANNY_STRUCTURE_VILLAGER = registerMonster(
             "uncanny_structure_villager", () -> EntityType.Builder.of(UncannyStructureVillagerEntity::new, MobCategory.MONSTER).sized(0.6F, 1.95F).build(id("uncanny_structure_villager")));
@@ -233,6 +293,9 @@ public final class UncannyEntityRegistry {
         registerMapping(EntityType.SLIME, "uncanny_slime", UNCANNY_SLIME);
         registerMapping(EntityType.MAGMA_CUBE, "uncanny_magma_cube", UNCANNY_MAGMA_CUBE);
 
+        // Spiderlings hatch from Uncanny eggs; the mapping only lets QA spawn one directly.
+        COMMAND_TO_UNCANNY.put("uncanny_spiderling", UNCANNY_SPIDERLING);
+        COMMAND_TO_UNCANNY.put("spiderling", UNCANNY_SPIDERLING);
         COMMAND_TO_UNCANNY.put("uncanny_double_dormant", UNCANNY_DOUBLE_DORMANT);
         COMMAND_TO_UNCANNY.put("double_dormant", UNCANNY_DOUBLE_DORMANT);
         COMMAND_TO_UNCANNY.put("uncanny_mimic", UNCANNY_DOUBLE_DORMANT);
@@ -273,6 +336,22 @@ public final class UncannyEntityRegistry {
         COMMAND_TO_UNCANNY.put("listener", UNCANNY_LISTENER);
         COMMAND_TO_UNCANNY.put("uncanny_bystander", UNCANNY_BYSTANDER);
         COMMAND_TO_UNCANNY.put("bystander", UNCANNY_BYSTANDER);
+        COMMAND_TO_UNCANNY.put("uncanny_ambusher", UNCANNY_AMBUSHER);
+        COMMAND_TO_UNCANNY.put("ambusher", UNCANNY_AMBUSHER);
+        COMMAND_TO_UNCANNY.put("uncanny_miner", UNCANNY_MINER);
+        COMMAND_TO_UNCANNY.put("miner", UNCANNY_MINER);
+        COMMAND_TO_UNCANNY.put("uncanny_devourer", UNCANNY_DEVOURER);
+        COMMAND_TO_UNCANNY.put("devourer", UNCANNY_DEVOURER);
+        COMMAND_TO_UNCANNY.put("uncanny_echoer", UNCANNY_ECHOER);
+        COMMAND_TO_UNCANNY.put("echoer", UNCANNY_ECHOER);
+        COMMAND_TO_UNCANNY.put("uncanny_drifter", UNCANNY_DRIFTER);
+        COMMAND_TO_UNCANNY.put("drifter", UNCANNY_DRIFTER);
+        COMMAND_TO_UNCANNY.put("uncanny_ashwalker", UNCANNY_ASHWALKER);
+        COMMAND_TO_UNCANNY.put("ashwalker", UNCANNY_ASHWALKER);
+        COMMAND_TO_UNCANNY.put("uncanny_dredger", UNCANNY_DREDGER);
+        COMMAND_TO_UNCANNY.put("dredger", UNCANNY_DREDGER);
+        COMMAND_TO_UNCANNY.put("uncanny_flanker", UNCANNY_FLANKER);
+        COMMAND_TO_UNCANNY.put("flanker", UNCANNY_FLANKER);
         COMMAND_TO_UNCANNY.put("uncanny_structure_villager", UNCANNY_STRUCTURE_VILLAGER);
         COMMAND_TO_UNCANNY.put("structure_villager", UNCANNY_STRUCTURE_VILLAGER);
     }
@@ -325,7 +404,15 @@ public final class UncannyEntityRegistry {
                 || type == UNCANNY_DOUBLER.get()
                 || type == UNCANNY_FERRYMAN.get()
                 || type == UNCANNY_LISTENER.get()
-                || type == UNCANNY_BYSTANDER.get();
+                || type == UNCANNY_BYSTANDER.get()
+                || type == UNCANNY_AMBUSHER.get()
+                || type == UNCANNY_MINER.get()
+                || type == UNCANNY_DEVOURER.get()
+                || type == UNCANNY_ECHOER.get()
+                || type == UNCANNY_DRIFTER.get()
+                || type == UNCANNY_ASHWALKER.get()
+                || type == UNCANNY_DREDGER.get()
+                || type == UNCANNY_FLANKER.get();
     }
 
     public static void onEntityAttributeCreation(EntityAttributeCreationEvent event) {
@@ -401,6 +488,65 @@ public final class UncannyEntityRegistry {
                 .add(Attributes.ARMOR_TOUGHNESS, 1.0D)
                 .add(Attributes.FOLLOW_RANGE, 64.0D);
         event.put(UNCANNY_STALKER.get(), stalkerAttributes.build());
+        event.put(UNCANNY_MINER.get(), stalkerAttributes.build());
+
+        AttributeSupplier devourerAttributes = Mob.createMobAttributes()
+                .add(Attributes.MAX_HEALTH, 32.0D)
+                .add(Attributes.MOVEMENT_SPEED, 0.14D)
+                .add(Attributes.ATTACK_DAMAGE, 0.0D)
+                .add(Attributes.ARMOR, 4.0D)
+                .add(Attributes.FOLLOW_RANGE, 32.0D)
+                .build();
+        event.put(UNCANNY_DEVOURER.get(), devourerAttributes);
+
+        AttributeSupplier arenaPursuerAttributes = Mob.createMobAttributes()
+                .add(Attributes.MAX_HEALTH, 20.0D)
+                .add(Attributes.MOVEMENT_SPEED, 0.18D)
+                .add(Attributes.ATTACK_DAMAGE, 4.0D)
+                .add(Attributes.ARMOR, 0.0D)
+                .add(Attributes.ARMOR_TOUGHNESS, 0.0D)
+                .add(Attributes.FOLLOW_RANGE, 64.0D)
+                .build();
+        event.put(UNCANNY_ARENA_PURSUER.get(), arenaPursuerAttributes);
+
+        AttributeSupplier huntingGroundAttributes = Mob.createMobAttributes()
+                .add(Attributes.MAX_HEALTH, 24.0D)
+                .add(Attributes.MOVEMENT_SPEED, 0.36D)
+                .add(Attributes.ATTACK_DAMAGE, 5.0D)
+                .add(Attributes.ARMOR, 2.0D)
+                .add(Attributes.ARMOR_TOUGHNESS, 1.0D)
+                .add(Attributes.FOLLOW_RANGE, 64.0D)
+                .build();
+        event.put(UNCANNY_ECHOER.get(), huntingGroundAttributes);
+        event.put(UNCANNY_FLANKER.get(), huntingGroundAttributes);
+
+        AttributeSupplier drifterAttributes = Drowned.createAttributes()
+                .add(Attributes.MAX_HEALTH, 24.0D)
+                .add(Attributes.MOVEMENT_SPEED, 0.34D)
+                .add(Attributes.ATTACK_DAMAGE, 5.0D)
+                .add(Attributes.ARMOR, 2.0D)
+                .add(Attributes.FOLLOW_RANGE, 48.0D)
+                .build();
+        event.put(UNCANNY_DRIFTER.get(), drifterAttributes);
+
+        AttributeSupplier ashwalkerAttributes = Mob.createMobAttributes()
+                .add(Attributes.MAX_HEALTH, 24.0D)
+                .add(Attributes.MOVEMENT_SPEED, 0.28D)
+                .add(Attributes.ATTACK_DAMAGE, 6.0D)
+                .add(Attributes.ARMOR, 2.0D)
+                .add(Attributes.FOLLOW_RANGE, 48.0D)
+                .build();
+        event.put(UNCANNY_ASHWALKER.get(), ashwalkerAttributes);
+
+        AttributeSupplier dredgerAttributes = Drowned.createAttributes()
+                .add(Attributes.MAX_HEALTH, 32.0D)
+                .add(Attributes.MOVEMENT_SPEED, 0.24D)
+                .add(Attributes.ATTACK_DAMAGE, 1.0D)
+                .add(Attributes.ARMOR, 4.0D)
+                .add(Attributes.KNOCKBACK_RESISTANCE, 0.60D)
+                .add(Attributes.FOLLOW_RANGE, 56.0D)
+                .build();
+        event.put(UNCANNY_DREDGER.get(), dredgerAttributes);
 
         AttributeSupplier.Builder hurlerAttributes = Mob.createMobAttributes()
                 .add(Attributes.MAX_HEALTH, 20.0D)
@@ -483,6 +629,15 @@ public final class UncannyEntityRegistry {
         event.put(UNCANNY_FERRYMAN.get(), approvedSpecialAttributes);
         event.put(UNCANNY_LISTENER.get(), approvedSpecialAttributes);
         event.put(UNCANNY_BYSTANDER.get(), approvedSpecialAttributes);
+
+        AttributeSupplier ambusherAttributes = Mob.createMobAttributes()
+                .add(Attributes.MAX_HEALTH, 16.0D)
+                .add(Attributes.MOVEMENT_SPEED, 0.34D)
+                .add(Attributes.ATTACK_DAMAGE, 3.0D)
+                .add(Attributes.FOLLOW_RANGE, 32.0D)
+                .add(Attributes.KNOCKBACK_RESISTANCE, 0.20D)
+                .build();
+        event.put(UNCANNY_AMBUSHER.get(), ambusherAttributes);
 
         AttributeSupplier.Builder structureVillagerAttributes = Villager.createAttributes()
                 .add(Attributes.MAX_HEALTH, 20.0D)

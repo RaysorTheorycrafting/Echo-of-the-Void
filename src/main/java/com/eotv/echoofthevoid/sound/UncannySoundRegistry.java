@@ -44,6 +44,45 @@ public final class UncannySoundRegistry {
             "uncanny_attacker_death",
             () -> SoundEvent.createVariableRangeEvent(ResourceLocation.fromNamespaceAndPath(EchoOfTheVoid.MODID, "uncanny_attacker_death")));
 
+    public static final DeferredHolder<SoundEvent, SoundEvent> UNCANNY_ECHOER_CRY = SOUND_EVENTS.register(
+            "uncanny_echoer_cry",
+            () -> SoundEvent.createVariableRangeEvent(ResourceLocation.fromNamespaceAndPath(EchoOfTheVoid.MODID, "uncanny_echoer_cry")));
+    public static final DeferredHolder<SoundEvent, SoundEvent> UNCANNY_DRIFTER_CRY = SOUND_EVENTS.register(
+            "uncanny_drifter_cry",
+            () -> SoundEvent.createVariableRangeEvent(ResourceLocation.fromNamespaceAndPath(EchoOfTheVoid.MODID, "uncanny_drifter_cry")));
+    public static final DeferredHolder<SoundEvent, SoundEvent> UNCANNY_ASHWALKER_CRY = SOUND_EVENTS.register(
+            "uncanny_ashwalker_cry",
+            () -> SoundEvent.createVariableRangeEvent(ResourceLocation.fromNamespaceAndPath(EchoOfTheVoid.MODID, "uncanny_ashwalker_cry")));
+    public static final DeferredHolder<SoundEvent, SoundEvent> UNCANNY_DREDGER_CRY = SOUND_EVENTS.register(
+            "uncanny_dredger_cry",
+            () -> SoundEvent.createVariableRangeEvent(ResourceLocation.fromNamespaceAndPath(EchoOfTheVoid.MODID, "uncanny_dredger_cry")));
+    public static final DeferredHolder<SoundEvent, SoundEvent> UNCANNY_FLANKER_CALL = SOUND_EVENTS.register(
+            "uncanny_flanker_call",
+            () -> SoundEvent.createVariableRangeEvent(ResourceLocation.fromNamespaceAndPath(EchoOfTheVoid.MODID, "uncanny_flanker_call")));
+    public static final DeferredHolder<SoundEvent, SoundEvent> UNCANNY_FLANKER_RESPONSE = SOUND_EVENTS.register(
+            "uncanny_flanker_response",
+            () -> SoundEvent.createVariableRangeEvent(ResourceLocation.fromNamespaceAndPath(EchoOfTheVoid.MODID, "uncanny_flanker_response")));
+
+    public static final DeferredHolder<SoundEvent, SoundEvent> DEVOURER_RATTLE = SOUND_EVENTS.register(
+            "devourer_rattle",
+            () -> SoundEvent.createVariableRangeEvent(ResourceLocation.fromNamespaceAndPath(EchoOfTheVoid.MODID, "devourer_rattle")));
+    public static final DeferredHolder<SoundEvent, SoundEvent> DEVOURER_EMERGE = SOUND_EVENTS.register(
+            "devourer_emerge",
+            () -> SoundEvent.createVariableRangeEvent(ResourceLocation.fromNamespaceAndPath(EchoOfTheVoid.MODID, "devourer_emerge")));
+    public static final DeferredHolder<SoundEvent, SoundEvent> DEVOURER_PORTAL_LOOP = SOUND_EVENTS.register(
+            "devourer_portal_loop",
+            () -> SoundEvent.createVariableRangeEvent(ResourceLocation.fromNamespaceAndPath(EchoOfTheVoid.MODID, "devourer_portal_loop")));
+
+    // Original procedural score of the Blackout: played once, privately, for the whole blindness.
+    public static final DeferredHolder<SoundEvent, SoundEvent> BLACKOUT_SCORE = SOUND_EVENTS.register(
+            "event.blackout",
+            () -> SoundEvent.createVariableRangeEvent(ResourceLocation.fromNamespaceAndPath(EchoOfTheVoid.MODID, "event.blackout")));
+
+    // Original procedural score heard only during the Elsewhere trial (Music category, streamed).
+    public static final DeferredHolder<SoundEvent, SoundEvent> ELSEWHERE_TRIAL_MUSIC = SOUND_EVENTS.register(
+            "music.elsewhere_trial",
+            () -> SoundEvent.createVariableRangeEvent(ResourceLocation.fromNamespaceAndPath(EchoOfTheVoid.MODID, "music.elsewhere_trial")));
+
     public static final DeferredHolder<SoundEvent, SoundEvent> UNCANNY_FOX_SCREAM = SOUND_EVENTS.register(
             "uncanny_fox_scream",
             () -> SoundEvent.createVariableRangeEvent(ResourceLocation.fromNamespaceAndPath(EchoOfTheVoid.MODID, "uncanny_fox_scream")));
@@ -68,6 +107,10 @@ public final class UncannySoundRegistry {
             "uncanny_tinnitus",
             () -> SoundEvent.createVariableRangeEvent(ResourceLocation.fromNamespaceAndPath(EchoOfTheVoid.MODID, "uncanny_tinnitus")));
 
+    // Terror? screamer: three original variants, played privately the instant it is looked at.
+    public static final DeferredHolder<SoundEvent, SoundEvent> UNCANNY_TERROR_SCREAM = SOUND_EVENTS.register(
+            "uncanny_terror_scream",
+            () -> SoundEvent.createVariableRangeEvent(ResourceLocation.fromNamespaceAndPath(EchoOfTheVoid.MODID, "uncanny_terror_scream")));
     public static final DeferredHolder<SoundEvent, SoundEvent> UNCANNY_TERROR_LOCK = SOUND_EVENTS.register(
             "uncanny_terror_lock",
             () -> SoundEvent.createVariableRangeEvent(ResourceLocation.fromNamespaceAndPath(EchoOfTheVoid.MODID, "uncanny_terror_lock")));

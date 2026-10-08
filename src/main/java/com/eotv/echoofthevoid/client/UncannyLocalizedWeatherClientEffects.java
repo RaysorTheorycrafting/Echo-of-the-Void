@@ -123,6 +123,13 @@ public final class UncannyLocalizedWeatherClientEffects {
         }
     }
 
+    public static String diagnosticState() {
+        LocalizedWeatherState state = active;
+        return state == null
+                ? "active=false"
+                : "active=true,event_id=" + state.eventId() + ",end_tick=" + state.endTick();
+    }
+
     public static void onRenderLevelStage(RenderLevelStageEvent event) {
         if (event.getStage() != RenderLevelStageEvent.Stage.AFTER_WEATHER || active == null) {
             return;

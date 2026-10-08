@@ -51,6 +51,17 @@ class ApprovedEventBehaviorSurfaceTest {
     }
 
     @Test
+    void syntheticLightningCannotTickOnTheServerOrAwardVanillaAdvancements() throws IOException {
+        String source = read(WEATHER_SYSTEM);
+        String helper = between(source, "private static void spawnVisualLightning", "private static BlockPos randomOffsetPos");
+        assertTrue(helper.contains("ClientboundAddEntityPacket"));
+        assertTrue(helper.contains("ClientboundSetEntityDataPacket"));
+        assertTrue(helper.contains("observer.connection.send"));
+        assertFalse(helper.contains("level.addFreshEntity"));
+        assertFalse(source.contains("setWeather(overworld, true, true"));
+    }
+
+    @Test
     void revisedOneShotVolumesStayBelowThePreviousClippingValues() throws IOException {
         String zombie = read(ZOMBIE);
         String follower = read(FOLLOWER);
@@ -58,6 +69,52 @@ class ApprovedEventBehaviorSurfaceTest {
         assertFalse(zombie.contains("new UncannyZombieRalePayload(1.85F, pitch)"));
         assertTrue(follower.contains("SoundSource.HOSTILE, 1.05F, 0.88F"));
         assertFalse(follower.contains("SoundSource.HOSTILE, 2.7F, 0.88F"));
+    }
+
+    @Test
+    void followerVisibilityAndTeleportUseTheIntendedNativeMechanisms() throws IOException {
+        String follower = read(FOLLOWER);
+        assertTrue(follower.contains("ClipContext.Block.VISUAL"));
+        assertTrue(follower.contains("followerPursuitEvidence"));
+        assertTrue(follower.contains("reposition_cloaked"));
+        assertTrue(follower.contains("this.setInvisible(true)"));
+        assertTrue(follower.contains("this.setInvisible(false)"));
+        assertFalse(follower.contains("MobEffects.INVISIBILITY"));
+    }
+
+    @Test
+    void finalSleepDisturbanceMessageSurvivesOccurrenceCleanup() throws IOException {
+        String source = read(EVENT_SYSTEM);
+        String sleepHandler = between(
+                source,
+                "public static void onCanPlayerSleep",
+                "public static boolean triggerBedDisturbance");
+        String completedOccurrence = sleepHandler.substring(
+                sleepHandler.indexOf("if (state.attempts() >= SLEEP_DISTURB_REQUIRED_CLICKS)"));
+        assertTrue(sleepHandler.contains("queueSleepDisturbMessage(player, state, now)"));
+        assertTrue(source.contains("new PendingSleepMessage(now + 1L, Component.literal(text))"));
+        assertFalse(completedOccurrence.contains("PENDING_SLEEP_MESSAGES.remove(playerId)"));
+    }
+
+    @Test
+    void grandWardenWarningIsCommittedOnlyAfterASpawnPreflight() throws IOException {
+        String source = read(EVENT_SYSTEM);
+        String manual = between(
+                source,
+                "public static boolean triggerGrandEventWarden",
+                "public static boolean triggerGrandEventStop");
+        assertTrue(manual.indexOf("prepareGrandEventSpawnPlan")
+                < manual.indexOf("sendGrandEventPreSpawnWarning"));
+
+        String scheduler = between(
+                source,
+                "private static void maybeRollGrandEvent",
+                "private static boolean startGrandEventWarden");
+        assertTrue(scheduler.indexOf("prepareGrandEventSpawnPlan")
+                < scheduler.indexOf("sendGrandEventPreSpawnWarning"));
+        assertTrue(scheduler.contains("grand_warden_start_cancelled_after_warning"));
+        assertFalse(scheduler.contains("delayed-start retry"));
+        assertTrue(scheduler.contains("single post-tension roll consumed"));
     }
 
     private static String between(String source, String startMarker, String endMarker) {

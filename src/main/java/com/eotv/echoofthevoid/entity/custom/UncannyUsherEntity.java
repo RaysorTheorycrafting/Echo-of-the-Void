@@ -579,11 +579,12 @@ public class UncannyUsherEntity extends Monster implements UncannyEntityMarker {
     }
 
     private void tickVanishing(ServerLevel level) {
-        this.setDeltaMovement(0.0D, -0.065D, 0.0D);
-        this.setPos(this.getX(), this.getY() - 0.065D, this.getZ());
-        if (this.tickCount >= this.vanishEndTick) {
+        double step = UncannySinkTransition.step(this, 0.065D, 26);
+        this.setDeltaMovement(0.0D, -step, 0.0D);
+        this.setPos(this.getX(), this.getY() - step, this.getZ());
+        if (this.tickCount >= this.vanishEndTick || UncannySinkTransition.breaksIntoOpenSpace(this)) {
             this.setNoGravity(false);
-            this.discard();
+            UncannySinkTransition.vanish(this);
         }
     }
 

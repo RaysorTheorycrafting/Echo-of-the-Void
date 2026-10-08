@@ -55,6 +55,48 @@
       "echoofthevoid:uncanny/attacker/attacker_death_2"
     ]
   },
+  "uncanny_echoer_cry": {
+    "subtitle": "subtitle.echoofthevoid.echoer_cry",
+    "sounds": [
+      "echoofthevoid:uncanny/echoer/echoer_cry_1",
+      "echoofthevoid:uncanny/echoer/echoer_cry_2"
+    ]
+  },
+  "uncanny_drifter_cry": {
+    "subtitle": "subtitle.echoofthevoid.drifter_cry",
+    "sounds": [
+      "echoofthevoid:uncanny/drifter/drifter_cry_1",
+      "echoofthevoid:uncanny/drifter/drifter_cry_2"
+    ]
+  },
+  "uncanny_ashwalker_cry": {
+    "subtitle": "subtitle.echoofthevoid.ashwalker_cry",
+    "sounds": [
+      "echoofthevoid:uncanny/ashwalker/ashwalker_cry_1",
+      "echoofthevoid:uncanny/ashwalker/ashwalker_cry_2"
+    ]
+  },
+  "uncanny_dredger_cry": {
+    "subtitle": "subtitle.echoofthevoid.dredger_cry",
+    "sounds": [
+      "echoofthevoid:uncanny/dredger/dredger_cry_1",
+      "echoofthevoid:uncanny/dredger/dredger_cry_2"
+    ]
+  },
+  "uncanny_flanker_call": {
+    "subtitle": "subtitle.echoofthevoid.flanker_call",
+    "sounds": [
+      "echoofthevoid:uncanny/flanker/flanker_call_1",
+      "echoofthevoid:uncanny/flanker/flanker_call_2"
+    ]
+  },
+  "uncanny_flanker_response": {
+    "subtitle": "subtitle.echoofthevoid.flanker_response",
+    "sounds": [
+      "echoofthevoid:uncanny/flanker/flanker_response_1",
+      "echoofthevoid:uncanny/flanker/flanker_response_2"
+    ]
+  },
   "uncanny_fox_scream": {
     "subtitle": "entity.echoofthevoid.uncanny_fox",
     "sounds": [
@@ -96,6 +138,14 @@
     "subtitle": "subtitle.echoofthevoid.terror_lock",
     "sounds": [
       "echoofthevoid:uncanny/terror/terror_lock_1"
+    ]
+  },
+  "uncanny_terror_scream": {
+    "subtitle": "subtitle.echoofthevoid.terror_scream",
+    "sounds": [
+      "echoofthevoid:uncanny/terror/terror_scream_1",
+      "echoofthevoid:uncanny/terror/terror_scream_2",
+      "echoofthevoid:uncanny/terror/terror_scream_3"
     ]
   },
   "uncanny_psss": {
@@ -319,6 +369,44 @@
       "echoofthevoid:uncanny/villager_very_long/trade_1",
       "echoofthevoid:uncanny/villager_very_long/trade_2",
       "echoofthevoid:uncanny/villager_very_long/trade_3"
+    ]
+  },
+  "music.elsewhere_trial": {
+    "sounds": [
+      {
+        "name": "echoofthevoid:music/elsewhere_trial",
+        "stream": true,
+        "volume": 1.0
+      }
+    ]
+  },
+  "event.blackout": {
+    "sounds": [
+      {
+        "name": "echoofthevoid:uncanny/events/blackout_dread",
+        "stream": true
+      }
+    ]
+  },
+  "devourer_rattle": {
+    "subtitle": "subtitle.echoofthevoid.devourer_rattle",
+    "sounds": [
+      "echoofthevoid:uncanny/devourer/devourer_rattle_1",
+      "echoofthevoid:uncanny/devourer/devourer_rattle_2",
+      "echoofthevoid:uncanny/devourer/devourer_rattle_3",
+      "echoofthevoid:uncanny/devourer/devourer_rattle_4"
+    ]
+  },
+  "devourer_emerge": {
+    "subtitle": "subtitle.echoofthevoid.devourer_emerge",
+    "sounds": [
+      "echoofthevoid:uncanny/devourer/devourer_emerge"
+    ]
+  },
+  "devourer_portal_loop": {
+    "subtitle": "subtitle.echoofthevoid.devourer_portal_loop",
+    "sounds": [
+      "echoofthevoid:uncanny/devourer/devourer_portal_loop"
     ]
   }
 }

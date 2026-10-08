@@ -39,4 +39,30 @@ class PlayerFacingLoreGuardTest {
         }
         assertTrue(violations.isEmpty(), "Internal lore term leaked into player resources: " + violations);
     }
+
+    @Test
+    void specialNamesNeverReachPlayers() throws IOException {
+        // Death messages, subtitles and info mods read these keys; Vanilla-derived "X?" variants stay named.
+        String lang = Files.readString(
+                Path.of("src", "main", "resources", "assets", "echoofthevoid", "lang", "en_us.json"),
+                StandardCharsets.UTF_8);
+        List<String> specials = List.of(
+                "ambusher", "arena_pursuer", "ashwalker", "bystander", "devourer", "double_dormant", "doubler",
+                "dredger", "drifter", "echoer", "ferryman", "flanker", "follower", "hurler", "keeper", "knocker",
+                "listener", "miner", "mourner", "pulse", "shadow", "stalker", "surveyor", "tenant", "terror",
+                "usher", "watcher");
+        List<String> violations = new ArrayList<>();
+        for (String id : specials) {
+            if (!lang.contains("\"entity.echoofthevoid.uncanny_" + id + "\": \"something\"")) {
+                violations.add(id);
+            }
+        }
+        for (String name : List.of("Attacker?", "Echoer?", "Drifter?", "Ashwalker?", "Dredger?", "Flanker?",
+                "Mourner?", "Terror?", "Watcher?", "Pursuer?", "Devourer?", "Mimic\"")) {
+            if (lang.contains(name)) {
+                violations.add(name);
+            }
+        }
+        assertTrue(violations.isEmpty(), "Special names visible to players: " + violations);
+    }
 }

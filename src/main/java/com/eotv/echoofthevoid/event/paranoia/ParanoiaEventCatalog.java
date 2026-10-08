@@ -49,12 +49,20 @@ public final class ParanoiaEventCatalog {
             EXTRA_IN_THE_HERD,
             LAVA_WAKE,
             FALSE_LID,
+            DEBUG_BOUNDS,
             SURVEYOR,
             MOURNER,
             DOUBLER,
             FERRYMAN,
             LISTENER,
-            BYSTANDER);
+            BYSTANDER,
+            MINER,
+            DEVOURER,
+            ECHOER,
+            DRIFTER,
+            ASHWALKER,
+            DREDGER,
+            FLANKER);
     private static final Set<String> VALIDATED_NATIVE_EVENT_IDS = Set.of(
             ORPHAN_SHADOW,
             GHOST_BREAKING,
@@ -215,6 +223,7 @@ public final class ParanoiaEventCatalog {
         merge(events, event(MAP_INTRUDER, "Map Intruder", 3, 0, ParanoiaEventSeverity.LIGHT, 0, 1, 0, 2400, 2400, ParanoiaEventLane.AMBIENT, ParanoiaEventLane.CONTEXTUAL));
         merge(events, event(COUNTERCURRENT_COLUMN, "Countercurrent Column", 2, 0, ParanoiaEventSeverity.LIGHT, 0, 2, 0, 1200, 1200, ParanoiaEventLane.AMBIENT, ParanoiaEventLane.CONTEXTUAL));
         merge(events, event(FALSE_LID, "False Lid", 2, 0, ParanoiaEventSeverity.LIGHT, 0, 2, 0, 1800, 1800, ParanoiaEventLane.AMBIENT, ParanoiaEventLane.CONTEXTUAL));
+        merge(events, event(DEBUG_BOUNDS, "Debug Bounds", 2, 0, ParanoiaEventSeverity.HIGH, 0, 0, 0, 0, 0, ParanoiaEventLane.CONTEXTUAL));
         merge(events, event(BEDSIDE_OPEN, "Bedside Open", 2, 0, ParanoiaEventSeverity.MEDIUM, 0, 0, 0, 600, 0, ParanoiaEventLane.CONTEXTUAL));
         merge(events, event(FALSE_RECIPE_TOAST, "False Recipe Toast", 3, 0, ParanoiaEventSeverity.MEDIUM, 0, 0, 0, 1200, 0, ParanoiaEventLane.CONTEXTUAL));
 
@@ -235,6 +244,13 @@ public final class ParanoiaEventCatalog {
         merge(events, event(FERRYMAN, "Ferryman", 3, 0, ParanoiaEventSeverity.MEDIUM, 0, 0, 3, 0, 0, ParanoiaEventLane.SPECIAL));
         merge(events, event(LISTENER, "Listener", 2, 0, ParanoiaEventSeverity.LIGHT, 0, 0, 3, 0, 0, ParanoiaEventLane.SPECIAL));
         merge(events, event(BYSTANDER, "Bystander", 2, 0, ParanoiaEventSeverity.LIGHT, 0, 0, 4, 0, 0, ParanoiaEventLane.SPECIAL));
+        merge(events, event(MINER, "Miner", 3, 2, ParanoiaEventSeverity.HIGH, 0, 0, 2, 0, 0, ParanoiaEventLane.SPECIAL));
+        merge(events, event(DEVOURER, "Devourer", 4, 2, ParanoiaEventSeverity.EXTREME, 0, 0, 1, 0, 0, ParanoiaEventLane.SPECIAL));
+        merge(events, event(ECHOER, "Echoer", 2, 3, ParanoiaEventSeverity.HIGH, 0, 0, 3, 0, 0, ParanoiaEventLane.SPECIAL));
+        merge(events, event(DRIFTER, "Drifter", 2, 3, ParanoiaEventSeverity.HIGH, 0, 0, 3, 0, 0, ParanoiaEventLane.SPECIAL));
+        merge(events, event(ASHWALKER, "Ashwalker", 2, 3, ParanoiaEventSeverity.HIGH, 0, 0, 4, 0, 0, ParanoiaEventLane.SPECIAL));
+        merge(events, event(DREDGER, "Dredger", 3, 4, ParanoiaEventSeverity.HIGH, 0, 0, 2, 0, 0, ParanoiaEventLane.SPECIAL));
+        merge(events, event(FLANKER, "Flanker", 3, 4, ParanoiaEventSeverity.EXTREME, 0, 0, 2, 0, 0, ParanoiaEventLane.SPECIAL));
 
         merge(events, event(GRAND_EVENT, "Grand Event", 4, 0, ParanoiaEventSeverity.EXTREME, 0, 0, 0, 0, 0, ParanoiaEventLane.CONTROL));
         merge(events, event(GRAND_EVENT_WARDEN, "Grand Event Warden", 4, 0, ParanoiaEventSeverity.EXTREME, 0, 0, 0, 0, 0, ParanoiaEventLane.CONTROL));

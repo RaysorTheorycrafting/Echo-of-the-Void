@@ -1,8 +1,12 @@
 package com.eotv.echoofthevoid.event.special;
 
+import com.eotv.echoofthevoid.diagnostics.DiagnosticSeverity;
+import com.eotv.echoofthevoid.diagnostics.UncannyDiagnostics;
 import com.eotv.echoofthevoid.entity.UncannyEntityMarker;
 import com.eotv.echoofthevoid.entity.UncannyEntityRegistry;
+import com.eotv.echoofthevoid.entity.custom.UncannyAmbusherEntity;
 import com.eotv.echoofthevoid.entity.custom.UncannyApprovedSpecialEntity;
+import com.eotv.echoofthevoid.event.paranoia.UncannyDimensionPolicy;
 import com.eotv.echoofthevoid.state.UncannyWorldState;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -27,6 +31,7 @@ import net.minecraft.world.entity.EntityType;
 import net.minecraft.world.entity.Mob;
 import net.minecraft.world.entity.vehicle.Boat;
 import net.minecraft.world.level.Level;
+import net.minecraft.world.level.ClipContext;
 import net.minecraft.world.level.block.DoorBlock;
 import net.minecraft.world.level.block.FenceBlock;
 import net.minecraft.world.level.block.IronBarsBlock;
@@ -38,6 +43,7 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
 import net.minecraft.world.phys.AABB;
+import net.minecraft.world.phys.HitResult;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.event.PlayLevelSoundEvent;
 import net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent;
@@ -46,6 +52,8 @@ import net.neoforged.neoforge.event.entity.living.LivingIncomingDamageEvent;
 public final class ApprovedSpecialSystem {
     private static final Map<ResourceKey<Level>, ArrayDeque<SoundMemory>> SOUNDS = new HashMap<>();
     private static final Map<ResourceKey<Level>, ArrayDeque<CombatMemory>> COMBATS = new HashMap<>();
+    private static final Map<UUID, PendingBoatSample> PENDING_FERRYMAN_BOAT_SAMPLES = new HashMap<>();
+    private static final Map<UUID, Long> PENDING_FERRYMAN_RETRY_TICKS = new HashMap<>();
     private static final int MAX_MEMORIES = 64;
 
     private ApprovedSpecialSystem() {
@@ -87,6 +95,9 @@ public final class ApprovedSpecialSystem {
             return false;
         }
         ServerLevel level = player.serverLevel();
+        if (!debug && !UncannyDimensionPolicy.allowsNaturalSpecial(level, definition.id())) {
+            return false;
+        }
         SpawnContext context = findContext(level, player, definition.id(), debug);
         if (context == null) {
             return false;
@@ -106,6 +117,7 @@ public final class ApprovedSpecialSystem {
             entity.addTag("eotv_dev_spawned");
         }
         boolean added = level.addFreshEntity(entity);
+        UncannyDiagnostics.specialSpawnResult(player, entity, added, debug ? "dev_context" : "approved_special_system");
 
         if (added && !debug && "mourner".equals(definition.id())) {
             UncannyWorldState.get(level.getServer()).markMournerUsed(player.getUUID());
@@ -115,6 +127,179 @@ public final class ApprovedSpecialSystem {
 
     public static boolean spawnForDebug(ServerPlayer player, String id) {
         return spawn(player, id, true);
+    }
+
+    public static boolean spawnAmbusher(ServerPlayer player, boolean debug) {
+        if (player == null || !player.isAlive() || player.isSpectator()) {
+            return false;
+        }
+        ServerLevel level = player.serverLevel();
+        if (!level.getEntitiesOfClass(
+                UncannyAmbusherEntity.class,
+                player.getBoundingBox().inflate(64.0D),
+                entity -> entity.isAlive() && entity.isFocusedOn(player.getUUID())).isEmpty()) {
+            return false;
+        }
+        Vec3 position = findAmbusherPosition(level, player);
+        if (position == null) {
+            return false;
+        }
+        UncannyAmbusherEntity entity = UncannyEntityRegistry.UNCANNY_AMBUSHER.get().create(level);
+        if (entity == null) {
+            return false;
+        }
+        entity.moveTo(position.x, position.y, position.z, player.getYRot(), 0.0F);
+        entity.setup(player);
+        if (debug) {
+            entity.addTag("eotv_dev_spawned");
+        }
+        boolean added = level.addFreshEntity(entity);
+        UncannyDiagnostics.specialSpawnResult(
+                player, entity, added, debug ? "dev_false_fall_followup" : "false_fall_followup");
+        return added;
+    }
+
+    /**
+     * Reserves a Ferryman? encounter without requiring the player to already be boating. The
+     * reservation is persisted; only its real continuous boat-motion sample is session-local.
+     */
+    public static boolean armFerrymanEncounter(ServerPlayer player) {
+        if (player == null || player.getServer() == null || player.isSpectator() || !player.isAlive()) {
+            return false;
+        }
+        if (player.serverLevel().dimension() != Level.OVERWORLD) {
+            return false;
+        }
+        UncannyWorldState state = UncannyWorldState.get(player.getServer());
+        if (state.getPendingFerrymanEncounter(player.getUUID()) != null || hasActiveFerrymanNear(player)) {
+            return false;
+        }
+        int requiredTicks = ApprovedSpecialBehaviorRules.ferrymanRequiredNavigationTicks(
+                player.getRandom().nextInt(
+                        ApprovedSpecialBehaviorRules.FERRYMAN_PENDING_MAX_NAVIGATION_TICKS
+                                - ApprovedSpecialBehaviorRules.FERRYMAN_PENDING_MIN_NAVIGATION_TICKS + 1));
+        if (!state.armPendingFerrymanEncounter(player.getUUID(), requiredTicks)) {
+            return false;
+        }
+        PENDING_FERRYMAN_BOAT_SAMPLES.remove(player.getUUID());
+        PENDING_FERRYMAN_RETRY_TICKS.remove(player.getUUID());
+        UncannyDiagnostics.record(
+                DiagnosticSeverity.INFO,
+                "special",
+                "ferryman_encounter_armed",
+                UncannyDiagnostics.fields(
+                        "player", player.getGameProfile().getName(),
+                        "required_navigation_ticks", requiredTicks,
+                        "required_navigation_seconds", requiredTicks / 20.0D));
+        return true;
+    }
+
+    public static boolean hasPendingFerrymanEncounter(ServerPlayer player) {
+        return player != null
+                && player.getServer() != null
+                && UncannyWorldState.get(player.getServer())
+                        .getPendingFerrymanEncounter(player.getUUID()) != null;
+    }
+
+    /** Advances a reserved encounter only while the same boat visibly moves over deep water. */
+    public static boolean tickPendingFerrymanEncounter(ServerPlayer player) {
+        if (player == null || player.getServer() == null) {
+            return false;
+        }
+        UncannyWorldState state = UncannyWorldState.get(player.getServer());
+        UncannyWorldState.PendingFerrymanEncounter pending =
+                state.getPendingFerrymanEncounter(player.getUUID());
+        if (pending == null) {
+            PENDING_FERRYMAN_BOAT_SAMPLES.remove(player.getUUID());
+            PENDING_FERRYMAN_RETRY_TICKS.remove(player.getUUID());
+            return false;
+        }
+
+        Boat boat = player.getVehicle() instanceof Boat current ? current : null;
+        boolean validContext = player.isAlive()
+                && !player.isSpectator()
+                && !player.isSleeping()
+                && player.serverLevel().dimension() == Level.OVERWORLD
+                && boat != null
+                && isEligibleFerrymanBoat(player.serverLevel(), boat);
+        if (!validContext) {
+            resetPendingFerrymanNavigation(state, player, pending.progressTicks());
+            return false;
+        }
+
+        PendingBoatSample previous = PENDING_FERRYMAN_BOAT_SAMPLES.put(
+                player.getUUID(), new PendingBoatSample(boat.getUUID(), boat.position()));
+        boolean sameMovingBoat = previous != null
+                && previous.boatId().equals(boat.getUUID())
+                && ApprovedSpecialBehaviorRules.ferrymanBoatIsMoving(
+                        boat.getX() - previous.position().x,
+                        boat.getZ() - previous.position().z);
+        if (!sameMovingBoat) {
+            if (previous != null) {
+                resetPendingFerrymanNavigation(state, player, pending.progressTicks());
+            }
+            return false;
+        }
+
+        int progress = Math.min(pending.requiredNavigationTicks(), pending.progressTicks() + 1);
+        state.setPendingFerrymanProgress(player.getUUID(), progress);
+        if (progress < pending.requiredNavigationTicks()) {
+            return false;
+        }
+
+        long now = player.getServer().getTickCount();
+        if (now < PENDING_FERRYMAN_RETRY_TICKS.getOrDefault(player.getUUID(), Long.MIN_VALUE)) {
+            return false;
+        }
+        if (!spawn(player, "ferryman", false)) {
+            PENDING_FERRYMAN_RETRY_TICKS.put(player.getUUID(), now + 100L);
+            UncannyDiagnostics.record(
+                    DiagnosticSeverity.WARNING,
+                    "special",
+                    "ferryman_deferred_spawn_failed",
+                    UncannyDiagnostics.fields(
+                            "player", player.getGameProfile().getName(),
+                            "boat", boat.getUUID(),
+                            "required_navigation_ticks", pending.requiredNavigationTicks()));
+            return false;
+        }
+
+        state.clearPendingFerrymanEncounter(player.getUUID());
+        PENDING_FERRYMAN_BOAT_SAMPLES.remove(player.getUUID());
+        PENDING_FERRYMAN_RETRY_TICKS.remove(player.getUUID());
+        UncannyDiagnostics.record(
+                DiagnosticSeverity.INFO,
+                "special",
+                "ferryman_deferred_spawned",
+                UncannyDiagnostics.fields(
+                        "player", player.getGameProfile().getName(),
+                        "navigation_ticks", progress,
+                        "boat", boat.getUUID()));
+        return true;
+    }
+
+    private static void resetPendingFerrymanNavigation(
+            UncannyWorldState state,
+            ServerPlayer player,
+            int previousProgressTicks) {
+        PENDING_FERRYMAN_BOAT_SAMPLES.remove(player.getUUID());
+        if (previousProgressTicks > 0) {
+            state.setPendingFerrymanProgress(player.getUUID(), 0);
+            UncannyDiagnostics.record(
+                    DiagnosticSeverity.INFO,
+                    "special",
+                    "ferryman_navigation_reset",
+                    UncannyDiagnostics.fields(
+                            "player", player.getGameProfile().getName(),
+                            "previous_progress_ticks", previousProgressTicks));
+        }
+    }
+
+    private static boolean hasActiveFerrymanNear(ServerPlayer player) {
+        return !player.serverLevel().getEntitiesOfClass(
+                UncannyApprovedSpecialEntity.class,
+                player.getBoundingBox().inflate(256.0D),
+                entity -> entity.isAlive() && "ferryman".equals(entity.specialId())).isEmpty();
     }
 
     public static DebugSpawnResult spawnForDebugDetailed(ServerPlayer player, String id) {
@@ -186,7 +371,9 @@ public final class ApprovedSpecialSystem {
     }
 
     private static void recordSound(ServerLevel level, Vec3 position, Holder<SoundEvent> sound) {
-        if (sound == null || !isTrackedPhysicalSound(sound)) {
+        if (sound == null
+                || HuntingSpecialSoundMemory.isReplayEmission(level, position, sound)
+                || !isTrackedPhysicalSound(sound)) {
             return;
         }
         ArrayDeque<SoundMemory> memories = SOUNDS.computeIfAbsent(level.dimension(), ignored -> new ArrayDeque<>());
@@ -487,6 +674,41 @@ public final class ApprovedSpecialSystem {
         return null;
     }
 
+    private static Vec3 findAmbusherPosition(ServerLevel level, ServerPlayer player) {
+        Vec3 look = player.getLookAngle();
+        Vec3 behind = new Vec3(-look.x, 0.0D, -look.z);
+        if (behind.horizontalDistanceSqr() < 0.01D) {
+            behind = Vec3.directionFromRotation(0.0F, player.getYRot()).scale(-1.0D);
+        }
+        behind = behind.normalize();
+        double[] distances = {5.5D, 4.5D, 6.5D, 3.8D};
+        float[] rotations = {0.0F, 0.30F, -0.30F, 0.62F, -0.62F};
+        for (double distance : distances) {
+            for (float rotation : rotations) {
+                Vec3 direction = behind.yRot(rotation);
+                BlockPos probe = BlockPos.containing(player.position().add(direction.scale(distance)));
+                if (!level.hasChunkAt(probe)) {
+                    continue;
+                }
+                BlockPos ground = findGroundNear(level, probe, 3);
+                if (ground == null) {
+                    continue;
+                }
+                Vec3 candidate = Vec3.atBottomCenterOf(ground);
+                HitResult sight = level.clip(new ClipContext(
+                        candidate.add(0.0D, 1.62D, 0.0D),
+                        player.getEyePosition(),
+                        ClipContext.Block.COLLIDER,
+                        ClipContext.Fluid.NONE,
+                        player));
+                if (sight.getType() == HitResult.Type.MISS) {
+                    return candidate;
+                }
+            }
+        }
+        return null;
+    }
+
     public static boolean isEligibleFerrymanBoat(ServerLevel level, Boat boat) {
         if (level == null || boat == null || !boat.isAlive()) {
             return false;
@@ -575,6 +797,17 @@ public final class ApprovedSpecialSystem {
     public record DebugSpawnResult(boolean success, String message) {
     }
 
+    /** Read-only runtime census used by the local diagnostic recorder. */
+    public static Map<String, Integer> diagnosticStateCounts() {
+        int soundMemories = SOUNDS.values().stream().mapToInt(ArrayDeque::size).sum();
+        int combatMemories = COMBATS.values().stream().mapToInt(ArrayDeque::size).sum();
+        return Map.of(
+                "sound_memory_dimensions", SOUNDS.size(),
+                "sound_memories", soundMemories,
+                "combat_memory_dimensions", COMBATS.size(),
+                "combat_memories", combatMemories);
+    }
+
     private record SpawnContext(Vec3 position, BlockPos anchor, UUID relatedEntityId) {
         private SpawnContext(Vec3 position, BlockPos anchor) {
             this(position, anchor, null);
@@ -582,5 +815,8 @@ public final class ApprovedSpecialSystem {
     }
 
     private record SurveyorPlacement(Vec3 spawnPosition, BlockPos featurePos) {
+    }
+
+    private record PendingBoatSample(UUID boatId, Vec3 position) {
     }
 }

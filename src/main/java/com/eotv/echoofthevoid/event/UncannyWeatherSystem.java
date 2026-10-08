@@ -2,19 +2,26 @@ package com.eotv.echoofthevoid.event;
 
 import com.eotv.echoofthevoid.EchoOfTheVoid;
 import com.eotv.echoofthevoid.config.UncannyConfig;
+import com.eotv.echoofthevoid.diagnostics.DiagnosticSeverity;
+import com.eotv.echoofthevoid.diagnostics.UncannyDiagnostics;
 import com.eotv.echoofthevoid.event.weather.UncannyWeatherTimingRules;
 import com.eotv.echoofthevoid.event.weather.UncannyWeatherPacingRules;
 import com.eotv.echoofthevoid.event.weather.UncannyWeatherPacingRules.Event;
+import com.eotv.echoofthevoid.event.weather.UncannyWeatherRenderingBudget;
 import com.eotv.echoofthevoid.network.UncannyLocalizedWeatherPayload;
 import com.eotv.echoofthevoid.sound.UncannySoundDelivery;
 import com.eotv.echoofthevoid.sound.UncannySoundRegistry;
 import com.eotv.echoofthevoid.state.UncannyWorldState;
+import com.eotv.echoofthevoid.world.UncannyDimensions;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.Holder;
 import net.minecraft.network.protocol.game.ClientboundSoundPacket;
+import net.minecraft.network.protocol.game.ClientboundAddEntityPacket;
+import net.minecraft.network.protocol.game.ClientboundSetEntityDataPacket;
 import net.minecraft.network.protocol.game.ClientboundStopSoundPacket;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
@@ -77,7 +84,15 @@ public final class UncannyWeatherSystem {
             return;
         }
 
-        List<ServerPlayer> activePlayers = allPlayers.stream()
+        List<ServerPlayer> arenaPlayers = allPlayers.stream()
+                .filter(player -> UncannyDimensions.isElsewhere(player.level()))
+                .toList();
+        List<ServerPlayer> weatherPlayers = allPlayers.stream()
+                .filter(player -> !UncannyDimensions.isElsewhere(player.level()))
+                .toList();
+        clearWeatherTags(arenaPlayers);
+
+        List<ServerPlayer> activePlayers = weatherPlayers.stream()
                 .filter(player -> !player.isSpectator())
                 .toList();
 
@@ -88,37 +103,37 @@ public final class UncannyWeatherSystem {
 
         if (!state.isSystemEnabled() || phaseIndex < 1) {
             stopActiveEvent(server, state, now, true);
-            clearWeatherTags(allPlayers);
+            clearWeatherTags(weatherPlayers);
             return;
         }
 
         if (UncannyParanoiaEventSystem.isGrandEventAutoPauseActive(server.overworld())) {
             stopActiveEvent(server, state, now, true);
-            clearWeatherTags(allPlayers);
+            clearWeatherTags(weatherPlayers);
             debugLog("WEATHER pause_auto dim={} reason=grand_event_active", server.overworld().dimension().location());
             return;
         }
         if (UncannyParanoiaEventSystem.isTensionBuilderAutoPauseActive(server.overworld())) {
             stopActiveEvent(server, state, now, true);
-            clearWeatherTags(allPlayers);
+            clearWeatherTags(weatherPlayers);
             debugLog("WEATHER pause_auto dim={} reason=tension_builder_active", server.overworld().dimension().location());
             return;
         }
 
         Event activeEvent = Event.byId(state.getActiveWeatherEventId());
         if (activeEvent != null) {
-            syncWeatherTags(allPlayers, activeEvent.id);
+            syncWeatherTags(weatherPlayers, activeEvent.id);
             if (isLocalizedWeather(activeEvent) && now % 40L == 0L) {
-                syncLocalizedWeather(server, state, activeEvent, now, allPlayers);
+                syncLocalizedWeather(server, state, activeEvent, now, weatherPlayers);
             }
-            tickActiveEvent(server, state, activeEvent, now, allPlayers);
+            tickActiveEvent(server, state, activeEvent, now, weatherPlayers);
             if (now >= state.getWeatherEventEndTick()) {
                 stopActiveEvent(server, state, now, false);
             }
             return;
         }
 
-        clearWeatherTags(allPlayers);
+        clearWeatherTags(weatherPlayers);
         if (activePlayers.isEmpty()) {
             return;
         }
@@ -134,6 +149,12 @@ public final class UncannyWeatherSystem {
         double roll = server.overworld().random.nextDouble();
         if (roll > chance) {
             debugLog("WEATHER no-trigger phase={} profile={} danger={} roll={} chance={}", phaseIndex, profile, danger, roll, chance);
+            UncannyDiagnostics.record(DiagnosticSeverity.INFO, "weather", "weather_roll_miss", UncannyDiagnostics.fields(
+                    "phase", phaseIndex,
+                    "profile", profile,
+                    "danger", danger,
+                    "roll", String.format(Locale.ROOT, "%.6f", roll),
+                    "chance", String.format(Locale.ROOT, "%.6f", chance)));
             return;
         }
 
@@ -141,13 +162,23 @@ public final class UncannyWeatherSystem {
         Event selected = rollEvent(server.overworld(), phaseIndex, profile, danger, state.getLastWeatherEventId());
         if (selected == null) {
             debugLog("WEATHER no-candidate-selected phase={} profile={} danger={}", phaseIndex, profile, danger);
+            UncannyDiagnostics.record(DiagnosticSeverity.WARNING, "weather", "weather_no_candidate", UncannyDiagnostics.fields(
+                    "phase", phaseIndex,
+                    "profile", profile,
+                    "danger", danger,
+                    "last_weather", state.getLastWeatherEventId()));
             return;
         }
 
         debugLog("WEATHER selected event={} phase={} profile={} danger={}", selected.id, phaseIndex, profile, danger);
-        if (!startEvent(server, state, selected, now, allPlayers, phaseIndex, profile)) {
+        if (!startEvent(server, state, selected, now, weatherPlayers, phaseIndex, profile)) {
             state.setWeatherNextCheckTick(now + 100L + server.overworld().random.nextInt(121));
             debugLog("WEATHER selected-context-lost event={} phase={}", selected.id, phaseIndex);
+            UncannyDiagnostics.record(DiagnosticSeverity.INFO, "weather", "weather_context_failed", UncannyDiagnostics.fields(
+                    "event_id", selected.id,
+                    "phase", phaseIndex,
+                    "profile", profile,
+                    "danger", danger));
         }
     }
 
@@ -155,6 +186,10 @@ public final class UncannyWeatherSystem {
         Event event = Event.byId(eventId);
         if (server == null || event == null) {
             debugLog("WEATHER force-trigger failed id={} serverNull={} eventNull={}", eventId, server == null, event == null);
+            UncannyDiagnostics.record(DiagnosticSeverity.WARNING, "weather", "weather_force_failed", UncannyDiagnostics.fields(
+                    "event_id", eventId,
+                    "server_missing", server == null,
+                    "event_unknown", event == null));
             return false;
         }
 
@@ -231,16 +266,19 @@ public final class UncannyWeatherSystem {
                     state.setWeatherTargetPlayerUuid(eligible.get(audience.targetIndex()).getStringUUID());
                 }
             }
-            case THUNDER_SILENT -> setWeather(overworld, true, true, duration + 120);
-            case THUNDER_ARTIFICIAL -> setWeather(overworld, true, true, duration + 120);
+            // Synthetic thunder must never create server-side lightning. Besides fire and block
+            // mutations, Vanilla's visualOnly LightningBolt still awards lightning advancements.
+            // Keep the rain real, but render every EOTV flash only on observing clients.
+            case THUNDER_SILENT -> setWeather(overworld, true, false, duration + 120);
+            case THUNDER_ARTIFICIAL -> setWeather(overworld, true, false, duration + 120);
             case THUNDER_TARGET_STRIKE -> {
-                setWeather(overworld, true, true, duration + 120);
+                setWeather(overworld, true, false, duration + 120);
                 for (ServerPlayer player : overworld.players()) {
                     spawnTargetStrike(player);
                 }
             }
             case THUNDER_STROBOSCOPIC -> {
-                setWeather(overworld, true, true, duration + 120);
+                setWeather(overworld, true, false, duration + 120);
                 state.setWeatherAuxValue(5 + overworld.random.nextInt(6));
                 state.setWeatherAuxTick(now + 4L);
             }
@@ -251,7 +289,7 @@ public final class UncannyWeatherSystem {
                 state.setWeatherSavedDayTime(overworld.getDayTime());
                 overworld.setDayTime((overworld.getDayTime() / 24000L) * 24000L + 6000L);
             }
-            case SKY_EMPTY -> setWeather(overworld, true, true, duration + 120);
+            case SKY_EMPTY -> setWeather(overworld, true, false, duration + 120);
             case SKY_PRESSURE -> {
                 for (ServerPlayer player : players) {
                     player.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SLOWDOWN, 20 * 60, 0, false, false, true));
@@ -267,6 +305,14 @@ public final class UncannyWeatherSystem {
         long cooldownTicks = rollCooldownTicks(overworld, phaseIndex, profile, event.severityMultiplier);
         state.setWeatherCooldownUntilTick(now + duration + cooldownTicks);
         debugLog("WEATHER start event={} duration={}t cooldown={}t phase={} profile={}", event.id, duration, cooldownTicks, phaseIndex, profile);
+        UncannyDiagnostics.record(DiagnosticSeverity.INFO, "weather", "weather_started", UncannyDiagnostics.fields(
+                "event_id", event.id,
+                "duration_ticks", duration,
+                "cooldown_ticks", cooldownTicks,
+                "phase", phaseIndex,
+                "profile", profile,
+                "localized", isLocalizedWeather(event),
+                "audience", state.getWeatherTargetPlayerUuid().isBlank() ? "shared" : "individual"));
         return true;
     }
 
@@ -328,7 +374,7 @@ public final class UncannyWeatherSystem {
                 }
             }
             case RAIN_ASH -> {
-                if (now % 6L == 0L) {
+                if (now % UncannyWeatherRenderingBudget.ASH_NEAR_INTERVAL_TICKS == 0L) {
                     for (ServerPlayer player : players) {
                         if (player.level().dimension() != Level.OVERWORLD) {
                             continue;
@@ -338,14 +384,14 @@ public final class UncannyWeatherSystem {
                                 player.getX(),
                                 player.getY() + 2.0D,
                                 player.getZ(),
-                                90,
+                                UncannyWeatherRenderingBudget.ASH_NEAR_PARTICLE_COUNT,
                                 10.0D,
                                 3.2D,
                                 10.0D,
                                 0.016D);
                     }
                 }
-                if (now % 1L == 0L) {
+                if (now % UncannyWeatherRenderingBudget.ASH_WIDE_INTERVAL_TICKS == 0L) {
                     for (ServerPlayer player : players) {
                         if (player.level().dimension() != Level.OVERWORLD) {
                             continue;
@@ -355,7 +401,7 @@ public final class UncannyWeatherSystem {
                                 player.getX(),
                                 player.getY() + 6.5D,
                                 player.getZ(),
-                                420,
+                                UncannyWeatherRenderingBudget.ASH_WIDE_PARTICLE_COUNT,
                                 18.0D,
                                 6.0D,
                                 18.0D,
@@ -364,13 +410,18 @@ public final class UncannyWeatherSystem {
                 }
             }
             case RAIN_SOBBING -> {
-                if (now % 90L == 0L) {
+                {
                     String targetUuid = state.getWeatherTargetPlayerUuid();
                     for (ServerPlayer player : players) {
                         if (!targetUuid.isBlank() && !targetUuid.equals(player.getStringUUID())) {
                             continue;
                         }
                         if (!canPlayRainLikeWeatherFor(player, Event.RAIN_SOBBING, now)) {
+                            continue;
+                        }
+                        // Sparse and irregular (user, 2026-10-08): one sob every 11-18 s, and a silent
+                        // pause of 30-60 s after every two to four sobs.
+                        if (!SobbingCadence.isDue(player.getUUID(), now, player.getRandom())) {
                             continue;
                         }
                         UncannySoundDelivery.playMental(
@@ -508,6 +559,10 @@ public final class UncannyWeatherSystem {
         state.setWeatherNextCheckTick(now + 60L + server.overworld().random.nextInt(81));
         if (activeEvent != null) {
             debugLog("WEATHER stop event={} immediateReset={}", activeEvent.id, immediateReset);
+            UncannyDiagnostics.record(DiagnosticSeverity.INFO, "weather", "weather_stopped", UncannyDiagnostics.fields(
+                    "event_id", activeEvent.id,
+                    "immediate_reset", immediateReset,
+                    "stop_tick", now));
         }
     }
 
@@ -519,29 +574,17 @@ public final class UncannyWeatherSystem {
         }
 
         long cooldownUntil = state.getWeatherCooldownUntilTick();
-        if (cooldownUntil != Long.MIN_VALUE) {
-            long delta = cooldownUntil - now;
-            if (delta > WEATHER_MAX_IDLE_COOLDOWN_TICKS) {
-                state.setWeatherCooldownUntilTick(now + 20L * (20 + server.overworld().random.nextInt(35)));
-                debugLog("WEATHER sanitize cooldown old={} now={} new={}", cooldownUntil, now, state.getWeatherCooldownUntilTick());
-            } else if (delta < 0L) {
-                // Expired cooldown is valid and should allow immediate scheduling checks.
-                state.setWeatherCooldownUntilTick(now);
-                debugLog("WEATHER sanitize cooldown-expired old={} now={} new={}", cooldownUntil, now, state.getWeatherCooldownUntilTick());
-            }
+        if (UncannyWeatherTimingRules.requiresFutureDeadlineRebase(
+                cooldownUntil, now, WEATHER_MAX_IDLE_COOLDOWN_TICKS)) {
+            state.setWeatherCooldownUntilTick(now + 20L * (20 + server.overworld().random.nextInt(35)));
+            debugLog("WEATHER sanitize cooldown old={} now={} new={}", cooldownUntil, now, state.getWeatherCooldownUntilTick());
         }
 
         long nextCheck = state.getWeatherNextCheckTick();
-        if (nextCheck != Long.MIN_VALUE) {
-            long delta = nextCheck - now;
-            if (delta > WEATHER_MAX_IDLE_NEXT_CHECK_TICKS) {
-                state.setWeatherNextCheckTick(now + 20L * (8 + server.overworld().random.nextInt(20)));
-                debugLog("WEATHER sanitize next-check old={} now={} new={}", nextCheck, now, state.getWeatherNextCheckTick());
-            } else if (delta < 0L) {
-                // Expired next-check must not be pushed away indefinitely.
-                state.setWeatherNextCheckTick(now);
-                debugLog("WEATHER sanitize next-check-expired old={} now={} new={}", nextCheck, now, state.getWeatherNextCheckTick());
-            }
+        if (UncannyWeatherTimingRules.requiresFutureDeadlineRebase(
+                nextCheck, now, WEATHER_MAX_IDLE_NEXT_CHECK_TICKS)) {
+            state.setWeatherNextCheckTick(now + 20L * (8 + server.overworld().random.nextInt(20)));
+            debugLog("WEATHER sanitize next-check old={} now={} new={}", nextCheck, now, state.getWeatherNextCheckTick());
         }
 
         long endTick = state.getWeatherEventEndTick();
@@ -688,7 +731,13 @@ public final class UncannyWeatherSystem {
         bolt.moveTo(target.getX() + 0.5D, target.getY(), target.getZ() + 0.5D);
         bolt.setVisualOnly(true);
         bolt.setSilent(true);
-        level.addFreshEntity(bolt);
+        ClientboundAddEntityPacket spawnPacket = new ClientboundAddEntityPacket(bolt, 0, target);
+        ClientboundSetEntityDataPacket silentMetadata = new ClientboundSetEntityDataPacket(
+                bolt.getId(), bolt.getEntityData().getNonDefaultValues());
+        for (ServerPlayer observer : level.players()) {
+            observer.connection.send(spawnPacket);
+            observer.connection.send(silentMetadata);
+        }
     }
 
     private static BlockPos randomOffsetPos(BlockPos origin, ServerLevel level, int minDistance, int maxDistance) {
@@ -944,5 +993,32 @@ public final class UncannyWeatherSystem {
     }
 
     private record WeightedWeatherEvent(Event event, int weight) {
+    }
+
+    /** Per-player timing of the Rain Sobbing whispers. */
+    static final class SobbingCadence {
+        private static final java.util.Map<java.util.UUID, long[]> NEXT = new java.util.HashMap<>();
+
+        private SobbingCadence() {
+        }
+
+        /** Due now? Then schedule the next sob, inserting a longer silence every few sobs. */
+        static boolean isDue(java.util.UUID player, long now, net.minecraft.util.RandomSource random) {
+            long[] state = NEXT.computeIfAbsent(player, ignored -> new long[] {now + 40L + random.nextInt(80), 0L});
+            if (now < state[0]) {
+                return false;
+            }
+            state[1]++;
+            boolean pause = state[1] >= 2 + random.nextInt(3);
+            if (pause) {
+                state[1] = 0L;
+            }
+            state[0] = now + (pause ? 600L + random.nextInt(601) : 220L + random.nextInt(141));
+            return true;
+        }
+
+        static void clear() {
+            NEXT.clear();
+        }
     }
 }

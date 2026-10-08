@@ -2,6 +2,8 @@ package com.eotv.echoofthevoid.command;
 
 import com.eotv.echoofthevoid.EchoOfTheVoid;
 import com.eotv.echoofthevoid.config.UncannyConfig;
+import com.eotv.echoofthevoid.diagnostics.DiagnosticSessionStore;
+import com.eotv.echoofthevoid.diagnostics.UncannyDiagnostics;
 import com.eotv.echoofthevoid.dev.UncannyDevQaStateService;
 import com.eotv.echoofthevoid.entity.UncannyEntityRegistry;
 import com.eotv.echoofthevoid.entity.custom.UncannyDoubleDormantEntity;
@@ -13,6 +15,10 @@ import com.eotv.echoofthevoid.event.UncannyStructureFeatureSystem;
 import com.eotv.echoofthevoid.event.UncannyWatcherSystem;
 import com.eotv.echoofthevoid.event.UncannyWeatherSystem;
 import com.eotv.echoofthevoid.event.special.ApprovedSpecialSystem;
+import com.eotv.echoofthevoid.event.special.DevourerArenaSystem;
+import com.eotv.echoofthevoid.event.special.UncannyDevourerSystem;
+import com.eotv.echoofthevoid.event.special.UncannyHuntingSpecialSystem;
+import com.eotv.echoofthevoid.event.special.UncannyMinerSystem;
 import com.eotv.echoofthevoid.item.UncannyItemRegistry;
 import com.eotv.echoofthevoid.lore.UncannyLoreBookLibrary;
 import com.eotv.echoofthevoid.phase.UncannyPhaseManager;
@@ -139,6 +145,22 @@ public final class UncannyCommandRegistry {
                 .then(Commands.literal("setDebugLogs")
                         .then(Commands.argument("enabled", BoolArgumentType.bool())
                                 .executes(UncannyCommandRegistry::setDebugLogs)))
+                .then(Commands.literal("diagnostics")
+                        .executes(UncannyCommandRegistry::diagnosticsStatus)
+                        .then(Commands.literal("status")
+                                .executes(UncannyCommandRegistry::diagnosticsStatus))
+                        .then(Commands.literal("checkpoint")
+                                .executes(UncannyCommandRegistry::diagnosticsCheckpoint))
+                        .then(Commands.literal("mark")
+                                .then(Commands.argument("note", StringArgumentType.greedyString())
+                                        .executes(UncannyCommandRegistry::diagnosticsMark)))
+                        .then(Commands.literal("list")
+                                .executes(UncannyCommandRegistry::diagnosticsList))
+                        .then(Commands.literal("bundle")
+                                .executes(UncannyCommandRegistry::diagnosticsBundle))
+                        .then(Commands.literal("purge")
+                                .then(Commands.literal("confirm")
+                                        .executes(UncannyCommandRegistry::diagnosticsPurge))))
                 .then(Commands.literal("tensionBuilder")
                         .then(Commands.literal("start")
                                 .executes(context -> tensionBuilderStart(context, getCallerPlayer(context)))
@@ -169,6 +191,17 @@ public final class UncannyCommandRegistry {
                         .executes(context -> openDevMenu(context, getCallerPlayer(context)))
                         .then(Commands.argument("target", EntityArgument.player())
                                 .executes(context -> openDevMenu(context, EntityArgument.getPlayer(context, "target")))))
+                .then(Commands.literal("devRun")
+                        .then(Commands.argument("entry", StringArgumentType.word())
+                                .suggests(UncannyCommandRegistry::suggestDevEntryIds)
+                                .executes(context -> runDevEntry(context, getCallerPlayer(context), 4))
+                                .then(Commands.argument("target", EntityArgument.player())
+                                        .executes(context -> runDevEntry(context, EntityArgument.getPlayer(context, "target"), 4))
+                                        .then(Commands.argument("distance", IntegerArgumentType.integer(1, 64))
+                                                .executes(context -> runDevEntry(
+                                                        context,
+                                                        EntityArgument.getPlayer(context, "target"),
+                                                        IntegerArgumentType.getInteger(context, "distance")))))))
                 .then(Commands.literal("weather")
                         .then(Commands.literal("stop")
                                 .executes(UncannyCommandRegistry::stopWeather))
@@ -250,6 +283,30 @@ public final class UncannyCommandRegistry {
                         .executes(context -> spawnFollower(context, getCallerPlayer(context)))
                         .then(Commands.argument("target", EntityArgument.player())
                                 .executes(context -> spawnFollower(context, EntityArgument.getPlayer(context, "target")))))
+                .then(Commands.literal("spawnMiner")
+                        .executes(context -> spawnMiner(context, getCallerPlayer(context), false))
+                        .then(Commands.literal("emerged")
+                                .executes(context -> spawnMiner(context, getCallerPlayer(context), true)))
+                        .then(Commands.argument("target", EntityArgument.player())
+                                .executes(context -> spawnMiner(context, EntityArgument.getPlayer(context, "target"), false))
+                                .then(Commands.literal("emerged")
+                                        .executes(context -> spawnMiner(
+                                                context, EntityArgument.getPlayer(context, "target"), true)))))
+                .then(Commands.literal("spawnDevourer")
+                        .executes(context -> spawnDevourer(context, getCallerPlayer(context)))
+                        .then(Commands.argument("target", EntityArgument.player())
+                                .executes(context -> spawnDevourer(context, EntityArgument.getPlayer(context, "target")))))
+                .then(Commands.literal("devourerArena")
+                        .then(Commands.literal("enter")
+                                .executes(context -> enterDevourerArena(context, getCallerPlayer(context)))
+                                .then(Commands.argument("target", EntityArgument.player())
+                                        .executes(context -> enterDevourerArena(
+                                                context, EntityArgument.getPlayer(context, "target")))))
+                        .then(Commands.literal("abandon")
+                                .executes(context -> abandonDevourerArena(context, getCallerPlayer(context)))
+                                .then(Commands.argument("target", EntityArgument.player())
+                                        .executes(context -> abandonDevourerArena(
+                                                context, EntityArgument.getPlayer(context, "target"))))))
                 .then(Commands.literal("spawnPhantomLanternEater")
                         .executes(context -> spawnPhantomLanternEater(context, getCallerPlayer(context)))
                         .then(Commands.argument("target", EntityArgument.player())
@@ -536,6 +593,78 @@ public final class UncannyCommandRegistry {
         return 1;
     }
 
+    private static int diagnosticsStatus(CommandContext<CommandSourceStack> context) {
+        context.getSource().sendSuccess(() -> Component.literal(UncannyDiagnostics.statusText()), false);
+        return 1;
+    }
+
+    private static int diagnosticsCheckpoint(CommandContext<CommandSourceStack> context) {
+        boolean completed = UncannyDiagnostics.checkpoint(context.getSource().getServer(), "manual_checkpoint");
+        if (!completed) {
+            context.getSource().sendFailure(Component.literal("Diagnostic checkpoint failed; use /uncanny diagnostics status."));
+            return 0;
+        }
+        context.getSource().sendSuccess(() -> Component.literal("Diagnostic checkpoint written."), false);
+        return 1;
+    }
+
+    private static int diagnosticsMark(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        String note = StringArgumentType.getString(context, "note");
+        UncannyDiagnostics.mark(getCallerPlayer(context), note);
+        context.getSource().sendSuccess(() -> Component.literal("Observation added to the active diagnostic session."), false);
+        return 1;
+    }
+
+    private static int diagnosticsList(CommandContext<CommandSourceStack> context) {
+        try {
+            List<DiagnosticSessionStore.SessionInfo> sessions =
+                    UncannyDiagnostics.listSessions(context.getSource().getServer());
+            if (sessions.isEmpty()) {
+                context.getSource().sendSuccess(() -> Component.literal("No diagnostic sessions found."), false);
+                return 1;
+            }
+            context.getSource().sendSuccess(
+                    () -> Component.literal("Diagnostic sessions (newest first):"), false);
+            sessions.stream().limit(12).forEach(session -> context.getSource().sendSuccess(
+                    () -> Component.literal("- " + session.sessionId() + " [" + session.state() + "]"), false));
+            if (sessions.size() > 12) {
+                context.getSource().sendSuccess(
+                        () -> Component.literal("... and " + (sessions.size() - 12) + " older session(s)."), false);
+            }
+            return sessions.size();
+        } catch (Exception exception) {
+            context.getSource().sendFailure(Component.literal("Unable to list diagnostic sessions: " + exception.getMessage()));
+            return 0;
+        }
+    }
+
+    private static int diagnosticsBundle(CommandContext<CommandSourceStack> context) {
+        try {
+            java.nio.file.Path bundle = UncannyDiagnostics.createBundle(context.getSource().getServer());
+            context.getSource().sendSuccess(
+                    () -> Component.literal("Diagnostic bundle created: " + bundle.toAbsolutePath()), false);
+            return 1;
+        } catch (Exception exception) {
+            context.getSource().sendFailure(Component.literal("Unable to create diagnostic bundle: " + exception.getMessage()));
+            return 0;
+        }
+    }
+
+    private static int diagnosticsPurge(CommandContext<CommandSourceStack> context) {
+        try {
+            DiagnosticSessionStore.PurgeResult result = UncannyDiagnostics.purge(context.getSource().getServer());
+            context.getSource().sendSuccess(
+                    () -> Component.literal("Diagnostic history purged: "
+                            + result.removedSessions() + " session(s), "
+                            + result.removedBundles() + " bundle(s). Active session preserved."),
+                    false);
+            return 1;
+        } catch (Exception exception) {
+            context.getSource().sendFailure(Component.literal("Unable to purge diagnostic history: " + exception.getMessage()));
+            return 0;
+        }
+    }
+
     private static int tensionBuilderStart(CommandContext<CommandSourceStack> context, ServerPlayer target) {
         boolean started = UncannyParanoiaEventSystem.triggerTensionBuilderStart(target);
         if (!started) {
@@ -565,6 +694,33 @@ public final class UncannyCommandRegistry {
         UncannyDevQaStateService.openMenu(target);
         context.getSource().sendSuccess(() -> Component.literal("Opened Uncanny Dev Debug Menu for " + target.getName().getString()), true);
         return 1;
+    }
+
+    private static int runDevEntry(CommandContext<CommandSourceStack> context, ServerPlayer target, int distance) {
+        // Same server path as a devmenu button press, so chat-driven QA exercises the production executor.
+        ServerPlayer requester = context.getSource().getPlayer();
+        if (requester == null) {
+            requester = target;
+        }
+        String entryId = StringArgumentType.getString(context, "entry");
+        boolean success = UncannyDevQaStateService.handleRun(
+                requester, entryId, target.getGameProfile().getName(), distance);
+        if (!success) {
+            context.getSource().sendFailure(Component.literal("Dev entry failed or is unknown: " + entryId));
+            return 0;
+        }
+        context.getSource().sendSuccess(() -> Component.literal(
+                "Ran dev entry " + entryId + " for " + target.getName().getString()), true);
+        return 1;
+    }
+
+    private static CompletableFuture<Suggestions> suggestDevEntryIds(
+            CommandContext<CommandSourceStack> context,
+            SuggestionsBuilder builder) {
+        return SharedSuggestionProvider.suggest(
+                com.eotv.echoofthevoid.dev.UncannyDevCatalog.entries().stream()
+                        .map(com.eotv.echoofthevoid.dev.UncannyDevCatalog.Entry::id),
+                builder);
     }
 
     private static int triggerWeather(CommandContext<CommandSourceStack> context) {
@@ -635,6 +791,28 @@ public final class UncannyCommandRegistry {
             boolean spawned = UncannyParanoiaEventSystem.spawnFollowerForCommand(target);
             return completeSpecialSpawn(context, spawned, "Follower?", target);
         }
+        if (entityType == UncannyEntityRegistry.UNCANNY_MINER.get()) {
+            return completeSpecialSpawn(
+                    context, UncannyMinerSystem.spawnDebugTunnel(target), "Miner?", target);
+        }
+        if (entityType == UncannyEntityRegistry.UNCANNY_DEVOURER.get()) {
+            return completeSpecialSpawn(
+                    context, UncannyDevourerSystem.spawnDebug(target), "Devourer?", target);
+        }
+
+        String huntingSpecialId = normalizedType.startsWith("uncanny_")
+                ? normalizedType.substring("uncanny_".length())
+                : normalizedType;
+        if (switch (huntingSpecialId) {
+            case "echoer", "drifter", "ashwalker", "dredger", "flanker" -> true;
+            default -> false;
+        }) {
+            return completeSpecialSpawn(
+                    context,
+                    UncannyHuntingSpecialSystem.spawnForDebug(target, huntingSpecialId, "normal"),
+                    entityType.getDescription().getString(),
+                    target);
+        }
 
         String approvedSpecialId = normalizedType.startsWith("uncanny_")
                 ? normalizedType.substring("uncanny_".length())
@@ -654,7 +832,12 @@ public final class UncannyCommandRegistry {
         if (entity instanceof UncannyDoubleDormantEntity doubleDormant) {
             doubleDormant.copyTarget(target, target.blockPosition(), target.blockPosition());
         }
-        target.serverLevel().addFreshEntity(entity);
+        boolean added = target.serverLevel().addFreshEntity(entity);
+        UncannyDiagnostics.specialSpawnResult(target, entity, added, "debug_command_generic");
+        if (!added) {
+            context.getSource().sendFailure(Component.literal("The server rejected the entity spawn: " + type));
+            return 0;
+        }
         context.getSource().sendSuccess(() -> Component.literal("Spawned " + entityType.getDescription().getString()), true);
         return 1;
     }
@@ -684,7 +867,10 @@ public final class UncannyCommandRegistry {
     }
 
     private static int forceMimic(CommandContext<CommandSourceStack> context, ServerPlayer target) {
-        UncannyDoubleDormantSystem.forceMimic(target);
+        if (!UncannyDoubleDormantSystem.forceMimicChecked(target)) {
+            context.getSource().sendFailure(Component.literal("Mimic? could not be added to the target level."));
+            return 0;
+        }
         context.getSource().sendSuccess(() -> Component.literal("Forced Mimic event for " + target.getName().getString()), true);
         return 1;
     }
@@ -807,6 +993,44 @@ public final class UncannyCommandRegistry {
             return 0;
         }
         context.getSource().sendSuccess(() -> Component.literal("Spawned Follower? for " + target.getName().getString()), true);
+        return 1;
+    }
+
+    private static int spawnMiner(
+            CommandContext<CommandSourceStack> context,
+            ServerPlayer target,
+            boolean emerged) {
+        boolean spawned = emerged
+                ? UncannyMinerSystem.spawnDebugEmerged(target)
+                : UncannyMinerSystem.spawnDebugTunnel(target);
+        return completeSpecialSpawn(context, spawned, emerged ? "Miner? (emerged)" : "Miner?", target);
+    }
+
+    private static int spawnDevourer(CommandContext<CommandSourceStack> context, ServerPlayer target) {
+        return completeSpecialSpawn(context, UncannyDevourerSystem.spawnDebug(target), "Devourer?", target);
+    }
+
+    private static int enterDevourerArena(CommandContext<CommandSourceStack> context, ServerPlayer target) {
+        boolean entered = DevourerArenaSystem.enterDebugArena(target);
+        if (!entered) {
+            context.getSource().sendFailure(Component.literal(
+                    "Failed to enter the Devourer? arena; check the elsewhere dimension and existing session."));
+            return 0;
+        }
+        context.getSource().sendSuccess(() -> Component.literal(
+                "Started a persisted Devourer? arena session for " + target.getName().getString()), true);
+        return 1;
+    }
+
+    private static int abandonDevourerArena(CommandContext<CommandSourceStack> context, ServerPlayer target) {
+        boolean abandoned = DevourerArenaSystem.abandonSession(target);
+        if (!abandoned) {
+            context.getSource().sendFailure(Component.literal(
+                    target.getName().getString() + " has no Devourer? arena session."));
+            return 0;
+        }
+        context.getSource().sendSuccess(() -> Component.literal(
+                "Abandoned and cleaned the Devourer? arena session for " + target.getName().getString()), true);
         return 1;
     }
 

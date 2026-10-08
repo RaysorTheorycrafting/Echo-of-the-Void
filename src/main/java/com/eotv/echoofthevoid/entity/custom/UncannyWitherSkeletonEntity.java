@@ -97,6 +97,10 @@ public class UncannyWitherSkeletonEntity extends WitherSkeleton implements Uncan
         retreatTicks = Math.max(0, tag.getInt("RetreatTicks"));
     }
 
+    public void setArcherVariantForExpansion(boolean archerVariant) {
+        setArcherVariant(archerVariant);
+    }
+
     private void setArcherVariant(boolean archerVariant) {
         this.entityData.set(ARCHER_VARIANT, archerVariant);
         this.variantInitialized = true;

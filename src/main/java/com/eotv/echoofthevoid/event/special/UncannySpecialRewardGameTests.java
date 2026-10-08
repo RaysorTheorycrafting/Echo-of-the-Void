@@ -43,11 +43,21 @@ public final class UncannySpecialRewardGameTests {
                 UncannyEntityRegistry.UNCANNY_DOUBLER.get(),
                 UncannyEntityRegistry.UNCANNY_FERRYMAN.get(),
                 UncannyEntityRegistry.UNCANNY_LISTENER.get(),
-                UncannyEntityRegistry.UNCANNY_BYSTANDER.get());
+                UncannyEntityRegistry.UNCANNY_BYSTANDER.get(),
+                UncannyEntityRegistry.UNCANNY_MINER.get(),
+                UncannyEntityRegistry.UNCANNY_DEVOURER.get(),
+                UncannyEntityRegistry.UNCANNY_ECHOER.get(),
+                UncannyEntityRegistry.UNCANNY_DRIFTER.get(),
+                UncannyEntityRegistry.UNCANNY_ASHWALKER.get(),
+                UncannyEntityRegistry.UNCANNY_DREDGER.get(),
+                UncannyEntityRegistry.UNCANNY_FLANKER.get());
         for (EntityType<?> type : specialTypes) {
             helper.assertTrue(UncannyEntityRegistry.isSpecialEntity(type),
                     "The common reward handler must classify " + type + " as a Special");
         }
+        helper.assertTrue(!UncannyEntityRegistry.isSpecialEntity(
+                        UncannyEntityRegistry.UNCANNY_ARENA_PURSUER.get()),
+                "Internal arena pursuers must never receive Special combat rewards");
 
         UncannyApprovedSpecialEntity special =
                 UncannyEntityRegistry.UNCANNY_DOUBLER.get().create(helper.getLevel());

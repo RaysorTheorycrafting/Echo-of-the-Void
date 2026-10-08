@@ -8,6 +8,7 @@ import net.minecraft.world.entity.item.ItemEntity;
 import net.minecraft.world.entity.monster.warden.Warden;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.GameRules;
+import com.eotv.echoofthevoid.entity.custom.UncannyFlankerEntity;
 import net.neoforged.neoforge.event.entity.living.LivingDropsEvent;
 
 /** Applies one balanced reward contract to every real Special combat death. */
@@ -20,8 +21,22 @@ public final class UncannySpecialRewardSystem {
     public static void onLivingDrops(LivingDropsEvent event) {
         LivingEntity entity = event.getEntity();
         if (!(entity.level() instanceof ServerLevel level)
-                || !event.isRecentlyHit()
                 || !level.getGameRules().getBoolean(GameRules.RULE_DOMOBLOOT)) {
+            return;
+        }
+
+        if (entity instanceof UncannyFlankerEntity flanker) {
+            if (UncannyHuntingSpecialSystem.claimFlankerReward(level, flanker.pairId())) {
+                addRewards(
+                        event,
+                        UncannySpecialRewardRules.resolve(
+                                entity.getRandom().nextFloat(),
+                                entity.getRandom().nextFloat()));
+            }
+            return;
+        }
+
+        if (!event.isRecentlyHit()) {
             return;
         }
 

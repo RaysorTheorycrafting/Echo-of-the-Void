@@ -8,7 +8,6 @@ import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.monster.Ghast;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
-import net.minecraft.world.phys.Vec3;
 
 public class UncannyGhastEntity extends Ghast implements UncannyEntityMarker {
     public UncannyGhastEntity(EntityType<? extends Ghast> entityType, Level level) {
@@ -31,9 +30,9 @@ public class UncannyGhastEntity extends Ghast implements UncannyEntityMarker {
             return;
         }
 
-        Vec3 toPlayer = player.position().subtract(this.position()).normalize();
-        this.setDeltaMovement(this.getDeltaMovement().add(toPlayer.scale(0.04D)));
-
+        // Vanilla flight and fireball acquisition remain authoritative. The former unbounded
+        // per-tick acceleration toward the player was another instance of the unfair homing
+        // effect removed from Magma Cube?, Drowned?, Endermite? and Phantom?.
         if (this.tickCount % 200 == 0) {
             this.level().playSound(null, this.blockPosition(), SoundEvents.GHAST_SCREAM, this.getSoundSource(), 1.15F, 0.9F);
         }

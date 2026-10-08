@@ -19,7 +19,7 @@ import org.junit.jupiter.api.Test;
 class ApprovedVanillaVariantCatalogTest {
     private static final Path JAVA_ROOT = Path.of(
             "src", "main", "java", "com", "eotv", "echoofthevoid");
-    private static final List<String> IDS = List.of(
+    private static final List<String> ORIGINAL_APPROVED_IDS = List.of(
             "bee_false_hive", "bat_wrong_roost", "rabbit_return_to_cover", "goat_echo_ram",
             "horse_empty_rider", "allay_wrong_recipient", "axolotl_healthy_feign",
             "dolphin_blindside_escort", "frog_empty_tongue", "turtle_false_nest",
@@ -29,14 +29,30 @@ class ApprovedVanillaVariantCatalogTest {
             "zombified_piglin_procession");
 
     @Test
-    void catalogContainsTheTwentyApprovedIdsExactlyOnce() {
-        assertEquals(20, ApprovedVanillaVariantCatalog.variants().size());
-        assertEquals(IDS, ApprovedVanillaVariantCatalog.variants().stream()
-                .map(ApprovedVanillaVariantCatalog.Variant::id)
-                .toList());
-        assertEquals(20, new HashSet<>(ApprovedVanillaVariantCatalog.variants().stream()
-                .map(ApprovedVanillaVariantCatalog.Variant::typeKey)
+    void everyAdditiveSpeciesHasFiveDistinctVariantsAndTheOriginalIdsRemainStable() {
+        assertEquals(41, ApprovedVanillaVariantCatalog.species().size());
+        assertEquals(205, ApprovedVanillaVariantCatalog.variants().size());
+        assertEquals(41, new HashSet<>(ApprovedVanillaVariantCatalog.species().stream()
+                .map(ApprovedVanillaVariantCatalog.Species::typeKey)
                 .toList()).size());
+
+        for (ApprovedVanillaVariantCatalog.Species species : ApprovedVanillaVariantCatalog.species()) {
+            assertEquals(5, species.variants().size(), species.typeKey());
+            assertEquals(List.of(1, 2, 3, 4, 5),
+                    species.variants().stream().map(ApprovedVanillaVariantCatalog.Variant::index).toList(),
+                    species.typeKey());
+            assertEquals(5, new HashSet<>(species.variants().stream()
+                    .map(ApprovedVanillaVariantCatalog.Variant::behavior)
+                    .toList()).size(), species.typeKey());
+            assertTrue(species.variants().stream().allMatch(variant -> !variant.description().isBlank()));
+        }
+
+        for (String id : ORIGINAL_APPROVED_IDS) {
+            ApprovedVanillaVariantCatalog.Variant variant = ApprovedVanillaVariantCatalog.byId(id);
+            assertNotNull(variant, id);
+            assertEquals(1, variant.index(), id);
+            assertEquals(ApprovedVanillaVariantCatalog.BehaviorKind.SPECIALIZED, variant.behaviorKind(), id);
+        }
     }
 
     @Test
@@ -69,8 +85,9 @@ class ApprovedVanillaVariantCatalogTest {
                 assertTrue(arguments.add(entry.actionArg()), entry.actionArg());
             }
         }
-        assertEquals(20, arguments.size());
-        for (String id : IDS) {
+        assertEquals(205, arguments.size());
+        for (ApprovedVanillaVariantCatalog.Variant variant : ApprovedVanillaVariantCatalog.variants()) {
+            String id = variant.id();
             UncannyDevCatalog.Entry entry = UncannyDevCatalog.byId("entity_vv_" + id);
             assertNotNull(entry, id);
             assertEquals("approved|" + id, entry.actionArg());
@@ -78,6 +95,35 @@ class ApprovedVanillaVariantCatalogTest {
             assertEquals(UncannyDevMetadataCatalog.ImplementationStatus.WORKING_BUILD, info.implementation(), id);
             assertEquals(UncannyDevMetadataCatalog.Authority.SHARED, info.authority(), id);
         }
+        for (ApprovedVanillaVariantCatalog.Species species : ApprovedVanillaVariantCatalog.species()) {
+            UncannyDevCatalog.Entry random =
+                    UncannyDevCatalog.byId("entity_vv_" + species.typeKey() + "_spawn");
+            assertNotNull(random, species.typeKey());
+            assertEquals("approved_random|" + species.typeKey(), random.actionArg());
+        }
+    }
+
+    @Test
+    void weightedSelectionIsDeterministicAndPitchBlackSilenceStaysExceptionalAndHarmless() {
+        for (ApprovedVanillaVariantCatalog.Species species : ApprovedVanillaVariantCatalog.species()) {
+            for (long ticket = -25; ticket <= 25; ticket++) {
+                assertEquals(
+                        ApprovedVanillaVariantCatalog.selectVariant(species.typeKey(), 4, ticket),
+                        ApprovedVanillaVariantCatalog.selectVariant(species.typeKey(), 4, ticket));
+            }
+        }
+
+        List<ApprovedVanillaVariantCatalog.Variant> black =
+                ApprovedVanillaVariantCatalog.pitchBlackSilentVariants();
+        assertEquals(10, black.size());
+        assertTrue(black.size() * 20 < ApprovedVanillaVariantCatalog.variants().size());
+        assertTrue(black.stream().allMatch(ApprovedVanillaVariantCatalog.Variant::silent));
+        assertTrue(black.stream().allMatch(variant -> variant.danger() == 0));
+        assertTrue(black.stream().allMatch(variant -> variant.naturalWeight() == 1));
+        assertTrue(ApprovedVanillaVariantCatalog.variants().stream()
+                .filter(ApprovedVanillaVariantCatalog.Variant::silent)
+                .allMatch(variant -> variant.visualStyle()
+                        == ApprovedVanillaVariantCatalog.VisualStyle.PITCH_BLACK));
     }
 
     @Test
@@ -85,7 +131,7 @@ class ApprovedVanillaVariantCatalogTest {
         String runtime = read(JAVA_ROOT.resolve(Path.of(
                 "event", "passive", "ApprovedVanillaVariantSystem.java")));
         assertTrue(runtime.contains("type.create(level)"));
-        assertTrue(runtime.contains("isNaturalSpawn(event.getSpawnType())"));
+        assertTrue(runtime.contains("isNaturalSpawn(mob, event.getSpawnType())"));
         assertTrue(runtime.contains("SPAWN_EGG, COMMAND, DISPENSER, TRIAL_SPAWNER, BUCKET, BREEDING"));
         assertTrue(runtime.contains("mob.getPersistentData().getBoolean(LEGACY_PASSIVE_TAG)"));
         assertFalse(runtime.contains("setCustomName("));
@@ -96,6 +142,15 @@ class ApprovedVanillaVariantCatalogTest {
         assertFalse(runtime.contains("kill("));
         assertFalse(runtime.contains("setBlock("));
         assertFalse(runtime.contains("setBlockAndUpdate("));
+
+        String genericRuntime = read(JAVA_ROOT.resolve(Path.of(
+                "event", "passive", "VanillaVariantBehaviorRuntime.java")));
+        assertFalse(genericRuntime.contains("setHealth("));
+        assertFalse(genericRuntime.contains("setAttributeBaseValue"));
+        assertFalse(genericRuntime.contains("discard("));
+        assertFalse(genericRuntime.contains("kill("));
+        assertFalse(genericRuntime.contains("setBlock("));
+        assertFalse(genericRuntime.contains("destroyBlock("));
     }
 
     @Test
@@ -113,6 +168,18 @@ class ApprovedVanillaVariantCatalogTest {
         assertTrue(config.contains("\"package\": \"com.eotv.echoofthevoid.client.variant_mixin\""));
         assertTrue(config.contains("\"UncannyShulkerPeekAccessor\""));
         assertTrue(mods.contains("config=\"${mod_id}.variant.mixins.json\""));
+    }
+
+    @Test
+    void visualMorphologiesNeverExtendBeyondTheVanillaHitbox() {
+        for (ApprovedVanillaVariantCatalog.VisualStyle style
+                : ApprovedVanillaVariantCatalog.VisualStyle.values()) {
+            ApprovedVanillaVariantCatalog.VisualScale scale =
+                    ApprovedVanillaVariantCatalog.visualScale(style);
+            assertTrue(scale.x() > 0.7F && scale.x() <= 1.0F, style.name());
+            assertTrue(scale.y() > 0.7F && scale.y() <= 1.0F, style.name());
+            assertTrue(scale.z() > 0.7F && scale.z() <= 1.0F, style.name());
+        }
     }
 
     private static String read(Path path) throws IOException {

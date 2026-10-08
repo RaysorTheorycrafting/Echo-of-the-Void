@@ -36,7 +36,8 @@ class UncannyJournalCatalogTest {
                         .map(UncannyJournalCatalog.Journal::windowEndDay).toList());
         assertTrue(UncannyJournalCatalog.journal(2).pages().get(2)
                 .contains("There was no wind mod. I checked my mod list twice anyway."));
-        assertTrue(UncannyJournalCatalog.journal(4).pages().stream().anyMatch(page -> page.contains("NEI")));
+        assertTrue(UncannyJournalCatalog.journal(4).pages().stream().anyMatch(page -> page.contains("JEI"))
+                && UncannyJournalCatalog.journal(4).pages().stream().noneMatch(page -> page.contains("NEI")));
         assertTrue(UncannyJournalCatalog.journal(1).pages().get(0).startsWith("i had 5 torches"));
         assertTrue(UncannyJournalCatalog.journal(6).pages().get(8).equals("lou did not write on this page"));
         assertFalse(UncannyJournalCatalog.journals().stream()
@@ -49,7 +50,8 @@ class UncannyJournalCatalogTest {
     void everyValidatedTitleAndPageIsLockedAsOneExactCatalog() throws NoSuchAlgorithmException {
         byte[] content = UncannyJournalCatalog.journals().toString().getBytes(StandardCharsets.UTF_8);
         String digest = HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(content));
-        assertEquals("2c3948f524563eb3173f2ec316b06339187507015e07dc9a0b7412419340d23f", digest);
+        // 2026-10-06: journal IV "NEI" -> "JEI", explicitly validated by the user (D-80).
+        assertEquals("33e87e409f733d3e4c4c9ead2469f9b9001f8b7faac232e130e4c2c906773468", digest);
     }
 
     @Test

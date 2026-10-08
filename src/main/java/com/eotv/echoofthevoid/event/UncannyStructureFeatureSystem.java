@@ -5,6 +5,7 @@ import com.eotv.echoofthevoid.block.UncannyBlockRegistry;
 import com.eotv.echoofthevoid.campaign.CampaignDirectorRules;
 import com.eotv.echoofthevoid.campaign.UncannyCampaignDirector;
 import com.eotv.echoofthevoid.config.UncannyConfig;
+import com.eotv.echoofthevoid.diagnostics.UncannyDiagnostics;
 import com.eotv.echoofthevoid.entity.UncannyEntityRegistry;
 import com.eotv.echoofthevoid.entity.custom.UncannyStructureVillagerEntity;
 import com.eotv.echoofthevoid.item.UncannyItemRegistry;
@@ -1124,7 +1125,11 @@ public final class UncannyStructureFeatureSystem {
         }
 
         terror.moveTo(spawnPos.getX() + 0.5D, spawnPos.getY(), spawnPos.getZ() + 0.5D, player.getYRot(), 0.0F);
-        level.addFreshEntity(terror);
+        boolean added = level.addFreshEntity(terror);
+        UncannyDiagnostics.specialSpawnResult(player, terror, added, "secret_house_lock");
+        if (!added) {
+            debugLog("FEATURE secret_house terror spawn rejected player={} pos={}", player.getGameProfile().getName(), spawnPos);
+        }
     }
 
     private static boolean isValidTerrorSpawnPos(ServerLevel level, BlockPos candidate, ServerPlayer targetPlayer) {

@@ -24,43 +24,80 @@ public final class ParanoiaMessageService {
 
     private static final Map<UUID, Long> NEXT_GLOBAL_MESSAGE_TICKS = new HashMap<>();
     private static final Map<UUID, Map<ParanoiaMessageContext, Long>> NEXT_CONTEXT_MESSAGE_TICKS = new HashMap<>();
-    private static final Map<UUID, Map<ParanoiaMessageContext, Deque<String>>> MESSAGE_DECKS = new HashMap<>();
+    private static final Map<UUID, Map<String, Deque<String>>> MESSAGE_DECKS = new HashMap<>();
     private static final Map<UUID, String> LAST_MESSAGES = new HashMap<>();
+    // At most one pending line per player: it waits for the event's effect to be perceived.
+    private static final Map<UUID, PendingMessage> PENDING_MESSAGES = new HashMap<>();
+    /** A queued line is dropped rather than delivered long after its event. */
+    public static final long MAXIMUM_PENDING_LATENESS_TICKS = 20L * 10L;
 
     private ParanoiaMessageService() {
     }
 
-    public static Optional<String> maybeSendForEvent(ServerPlayer player, String eventId, long now) {
+    /**
+     * Rolls a natural message for an event that has just started. The line itself is only drawn
+     * and shown once the rule's delay has elapsed, so it follows the effect it describes.
+     */
+    public static boolean maybeQueueForEvent(ServerPlayer player, String eventId, long now) {
         Optional<ParanoiaMessageCatalog.MessageRule> optionalRule = ParanoiaMessageCatalog.ruleForEvent(eventId);
         if (optionalRule.isEmpty() || !canReceiveNaturalMessage(player)) {
-            return Optional.empty();
+            return false;
         }
 
         ParanoiaMessageCatalog.MessageRule rule = optionalRule.get();
         UUID playerId = player.getUUID();
         if (now < NEXT_GLOBAL_MESSAGE_TICKS.getOrDefault(playerId, Long.MIN_VALUE)) {
-            return Optional.empty();
+            return false;
         }
         long contextUntil = NEXT_CONTEXT_MESSAGE_TICKS
                 .getOrDefault(playerId, Map.of())
                 .getOrDefault(rule.context(), Long.MIN_VALUE);
-        if (now < contextUntil || player.getRandom().nextDouble() >= rule.naturalChance()) {
-            return Optional.empty();
+        if (now < contextUntil || player.getRandom().nextDouble() >= rule.naturalChance()
+                || PENDING_MESSAGES.containsKey(playerId)) {
+            return false;
         }
 
-        String text = draw(player, rule.context());
-        if (text == null) {
-            return Optional.empty();
-        }
-        sendStyled(player, text);
-
+        PENDING_MESSAGES.put(playerId, new PendingMessage(eventId, now + rule.delayTicks(), player.level().dimension()));
         long cooldownRange = GLOBAL_MAXIMUM_COOLDOWN_TICKS - GLOBAL_MINIMUM_COOLDOWN_TICKS;
         long globalCooldown = GLOBAL_MINIMUM_COOLDOWN_TICKS
                 + (cooldownRange <= 0L ? 0L : player.getRandom().nextInt((int) cooldownRange + 1));
         NEXT_GLOBAL_MESSAGE_TICKS.put(playerId, now + globalCooldown);
         NEXT_CONTEXT_MESSAGE_TICKS.computeIfAbsent(playerId, ignored -> new HashMap<>())
                 .put(rule.context(), now + CONTEXT_COOLDOWN_TICKS);
+        return true;
+    }
+
+    /** Delivers a queued event line once due; returns it so callers can arm follow-ups. */
+    public static Optional<String> tickPending(ServerPlayer player, long now) {
+        PendingMessage pending = player == null ? null : PENDING_MESSAGES.get(player.getUUID());
+        if (pending == null || now < pending.deliverTick()) {
+            return Optional.empty();
+        }
+        if (now - pending.deliverTick() > MAXIMUM_PENDING_LATENESS_TICKS
+                || !player.level().dimension().equals(pending.dimension())
+                || !player.isAlive()) {
+            PENDING_MESSAGES.remove(player.getUUID());
+            return Optional.empty();
+        }
+        if (!canReceiveNaturalMessage(player)) {
+            // Wait out a menu or a fight instead of interrupting it, within the lateness bound.
+            return Optional.empty();
+        }
+        PENDING_MESSAGES.remove(player.getUUID());
+        ParanoiaMessageCatalog.MessageRule rule = ParanoiaMessageCatalog.ruleForEvent(pending.eventId()).orElse(null);
+        if (rule == null) {
+            return Optional.empty();
+        }
+        String text = draw(player, "event:" + pending.eventId(), rule.lines());
+        if (text == null) {
+            return Optional.empty();
+        }
+        sendStyled(player, text);
         return Optional.of(text);
+    }
+
+    public static boolean hasPending(UUID playerId) {
+        return playerId != null && PENDING_MESSAGES.containsKey(playerId);
     }
 
     /** Developer/test delivery: bypass pacing while retaining context and deck rules. */
@@ -68,7 +105,21 @@ public final class ParanoiaMessageService {
         if (player == null || context == null || !player.isAlive()) {
             return Optional.empty();
         }
-        String text = draw(player, context);
+        String text = draw(player, "context:" + context.name(), ParanoiaMessageCatalog.messages(context));
+        if (text == null) {
+            return Optional.empty();
+        }
+        sendStyled(player, text);
+        return Optional.of(text);
+    }
+
+    /** Developer/test delivery of one event's own lines, bypassing pacing and delay. */
+    public static Optional<String> sendForcedForEvent(ServerPlayer player, String eventId) {
+        ParanoiaMessageCatalog.MessageRule rule = ParanoiaMessageCatalog.ruleForEvent(eventId).orElse(null);
+        if (player == null || rule == null || !player.isAlive()) {
+            return Optional.empty();
+        }
+        String text = draw(player, "event:" + eventId, rule.lines());
         if (text == null) {
             return Optional.empty();
         }
@@ -92,6 +143,7 @@ public final class ParanoiaMessageService {
         NEXT_CONTEXT_MESSAGE_TICKS.remove(playerId);
         MESSAGE_DECKS.remove(playerId);
         LAST_MESSAGES.remove(playerId);
+        PENDING_MESSAGES.remove(playerId);
     }
 
     private static boolean canReceiveNaturalMessage(ServerPlayer player) {
@@ -108,15 +160,14 @@ public final class ParanoiaMessageService {
         return !recentlyHurt && !recentlyAttacked;
     }
 
-    private static String draw(ServerPlayer player, ParanoiaMessageContext context) {
-        List<String> source = ParanoiaMessageCatalog.messages(context);
-        if (source.isEmpty()) {
+    private static String draw(ServerPlayer player, String deckKey, List<String> source) {
+        if (source == null || source.isEmpty()) {
             return null;
         }
 
-        Map<ParanoiaMessageContext, Deque<String>> perContext = MESSAGE_DECKS
+        Map<String, Deque<String>> perDeck = MESSAGE_DECKS
                 .computeIfAbsent(player.getUUID(), ignored -> new HashMap<>());
-        Deque<String> deck = perContext.computeIfAbsent(context, ignored -> new ArrayDeque<>());
+        Deque<String> deck = perDeck.computeIfAbsent(deckKey, ignored -> new ArrayDeque<>());
         if (deck.isEmpty()) {
             refillDeck(player, source, deck);
         }
@@ -169,5 +220,11 @@ public final class ParanoiaMessageService {
             case "MAGENTA" -> ChatFormatting.LIGHT_PURPLE;
             default -> ChatFormatting.DARK_RED;
         };
+    }
+
+    private record PendingMessage(
+            String eventId,
+            long deliverTick,
+            net.minecraft.resources.ResourceKey<net.minecraft.world.level.Level> dimension) {
     }
 }

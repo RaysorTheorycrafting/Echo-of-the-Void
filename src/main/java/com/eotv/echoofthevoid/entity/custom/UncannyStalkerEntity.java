@@ -2,7 +2,13 @@ package com.eotv.echoofthevoid.entity.custom;
 
 import com.eotv.echoofthevoid.entity.UncannyEntityMarker;
 import com.eotv.echoofthevoid.entity.UncannyEntityUtil;
+import com.eotv.echoofthevoid.diagnostics.DiagnosticSeverity;
+import com.eotv.echoofthevoid.diagnostics.UncannyDiagnostics;
 import com.eotv.echoofthevoid.event.special.ApprovedSpecialBehaviorRules;
+import com.eotv.echoofthevoid.event.special.AdaptiveSpecialEquipment;
+import com.eotv.echoofthevoid.event.special.AdaptiveSpecialCombatProfile;
+import com.eotv.echoofthevoid.event.special.CombatParity;
+import com.eotv.echoofthevoid.event.special.CombatParityRules;
 import com.eotv.echoofthevoid.sound.UncannySoundRegistry;
 import java.util.Optional;
 import java.util.UUID;
@@ -103,12 +109,22 @@ public class UncannyStalkerEntity extends Monster implements UncannyEntityMarker
         this.setSilent(false);
         UncannyEntityUtil.enableDoorNavigation(this);
 
-        if (this.level().isClientSide() || !(this.level() instanceof ServerLevel serverLevel)) {
+        // Miner? needs LivingEntity's real travel/jump pipeline while tunnelling, but must not run
+        // Attacker?'s targeting, threat cues or path recovery until it has physically emerged.
+        if (!runsStalkerHuntLogic()) {
+            return;
+        }
+
+        if (this.level().isClientSide() || !(this.level() instanceof ServerLevel serverLevel)
+                || this.isDeadOrDying()) {
             return;
         }
 
         ServerPlayer targetPlayer = resolveTargetPlayer(serverLevel);
         if (targetPlayer != null && targetPlayer.isAlive()) {
+            if (this.tickCount % CombatParityRules.REFRESH_INTERVAL_TICKS == 0) {
+                CombatParity.apply(this, targetPlayer, combatParity(), false);
+            }
             if (this.hiddenTicks > 0) {
                 tickHiddenState(targetPlayer);
                 return;
@@ -129,7 +145,15 @@ public class UncannyStalkerEntity extends Monster implements UncannyEntityMarker
                 if (!canPathTo(targetPlayer)) {
                     this.noPathTicks += 20;
                     if (this.noPathTicks >= 80) {
-                        enterHiddenState(targetPlayer);
+                        if (usesHiddenPathRecovery()) {
+                            enterHiddenState(targetPlayer);
+                        } else {
+                            // Miner? has already revealed itself by physically excavating a
+                            // tunnel. Reusing Attacker?'s long hidden recovery made it appear to
+                            // vanish and kept an unseen live entity blocking every later QA test.
+                            this.noPathTicks = 40;
+                            onVisiblePathFailure(targetPlayer);
+                        }
                         return;
                     }
                 } else {
@@ -230,35 +254,50 @@ public class UncannyStalkerEntity extends Monster implements UncannyEntityMarker
         }
     }
 
-    private ServerPlayer resolveTargetPlayer(ServerLevel level) {
+    protected final ServerPlayer resolveTargetPlayer(ServerLevel level) {
         Optional<UUID> targetUuid = this.entityData.get(TARGET_PLAYER);
         return targetUuid.map(uuid -> level.getServer().getPlayerList().getPlayer(uuid)).orElse(null);
     }
 
-    private void syncStatsFromPlayer(ServerPlayer player) {
-        if (this.getAttribute(Attributes.MAX_HEALTH) != null) {
-            double maxHealth = Math.max(20.0D, player.getMaxHealth() * 0.9D);
-            this.getAttribute(Attributes.MAX_HEALTH).setBaseValue(maxHealth);
-            this.setHealth((float) maxHealth);
-        }
+    protected final void syncStatsFromPlayer(ServerPlayer player) {
+        AdaptiveSpecialEquipment.Snapshot loadout = AdaptiveSpecialEquipment.select(player);
+        AdaptiveSpecialCombatProfile.attacker(
+                        player.getMaxHealth(),
+                        player.getAttributeValue(Attributes.MOVEMENT_SPEED),
+                        loadout.attackDamage(),
+                        loadout.armorValue(),
+                        loadout.armorToughness())
+                .applyTo(this, true);
+        // The mirrored profile keeps its speed; health, damage and armour follow duel parity.
+        CombatParity.apply(this, player, combatParity(), true);
+        UncannyDiagnostics.recordForPlayer(
+                player,
+                DiagnosticSeverity.INFO,
+                "special",
+                "adaptive_loadout_selected",
+                UncannyDiagnostics.fields(
+                        "special", "attacker",
+                        "weapon", loadout.weapon().isEmpty() ? "none" : loadout.weapon().getItem().toString(),
+                        "attack_damage", loadout.attackDamage(),
+                        "armor", loadout.armorValue(),
+                        "armor_toughness", loadout.armorToughness()));
+    }
 
-        if (this.getAttribute(Attributes.ATTACK_DAMAGE) != null) {
-            double attack = Math.max(4.0D, player.getAttributeValue(Attributes.ATTACK_DAMAGE));
-            this.getAttribute(Attributes.ATTACK_DAMAGE).setBaseValue(Math.min(12.0D, attack));
-        }
+    /** Duel parity of this hunter: Attacker? here, Miner? overrides it. */
+    protected CombatParityRules.Profile combatParity() {
+        return CombatParityRules.ATTACKER;
+    }
 
-        if (this.getAttribute(Attributes.MOVEMENT_SPEED) != null) {
-            double speed = Math.max(0.34D, player.getAttributeValue(Attributes.MOVEMENT_SPEED) * 1.35D);
-            this.getAttribute(Attributes.MOVEMENT_SPEED).setBaseValue(Math.min(0.50D, speed));
-        }
+    protected boolean usesHiddenPathRecovery() {
+        return true;
+    }
 
-        if (this.getAttribute(Attributes.ARMOR) != null) {
-            this.getAttribute(Attributes.ARMOR).setBaseValue(Math.min(20.0D, player.getAttributeValue(Attributes.ARMOR)));
-        }
+    protected boolean runsStalkerHuntLogic() {
+        return true;
+    }
 
-        if (this.getAttribute(Attributes.ARMOR_TOUGHNESS) != null) {
-            this.getAttribute(Attributes.ARMOR_TOUGHNESS).setBaseValue(Math.min(12.0D, player.getAttributeValue(Attributes.ARMOR_TOUGHNESS)));
-        }
+    protected void onVisiblePathFailure(ServerPlayer targetPlayer) {
+        this.getNavigation().moveTo(targetPlayer, 1.28D);
     }
 
     private boolean canPathTo(ServerPlayer player) {
@@ -279,9 +318,8 @@ public class UncannyStalkerEntity extends Monster implements UncannyEntityMarker
         }
     }
 
-    private void playThreatCue(ServerLevel level) {
+    protected final void playForcedThreatCue(ServerLevel level, boolean aggressiveScream) {
         this.threatCuePlayed = true;
-        boolean aggressiveScream = this.threatCueMode >= 2;
         level.playSound(
                 null,
                 this,
@@ -293,6 +331,10 @@ public class UncannyStalkerEntity extends Monster implements UncannyEntityMarker
                 aggressiveScream
                         ? 0.92F + this.random.nextFloat() * 0.08F
                         : 0.88F + this.random.nextFloat() * 0.10F);
+    }
+
+    private void playThreatCue(ServerLevel level) {
+        playForcedThreatCue(level, this.threatCueMode >= 2);
     }
 
     private void enterHiddenState(ServerPlayer player) {

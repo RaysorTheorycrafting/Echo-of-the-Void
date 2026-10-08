@@ -133,14 +133,21 @@ class ParanoiaEventCatalogTest {
                         DOUBLER,
                         FERRYMAN,
                         LISTENER,
-                        BYSTANDER),
+                        BYSTANDER,
+                        MINER,
+                        DEVOURER,
+                        ECHOER,
+                        DRIFTER,
+                        ASHWALKER,
+                        DREDGER,
+                        FLANKER),
                 ids(ParanoiaEventCatalog.specialEvents()));
     }
 
     @Test
     void catalogContainsEveryCanonicalTriggerIdentifierExactlyOnce() {
-        assertEquals(87, ParanoiaEventCatalog.byId().size());
-        assertEquals(87, Set.copyOf(ParanoiaEventCatalog.byId().keySet()).size());
+        assertEquals(95, ParanoiaEventCatalog.byId().size());
+        assertEquals(95, Set.copyOf(ParanoiaEventCatalog.byId().keySet()).size());
         assertTrue(ParanoiaEventCatalog.byId().keySet().stream()
                 .allMatch(id -> id.matches("[a-z][a-z0-9_]*")));
         assertThrows(UnsupportedOperationException.class,
@@ -205,12 +212,20 @@ class ParanoiaEventCatalogTest {
                         EXTRA_IN_THE_HERD,
                         LAVA_WAKE,
                         FALSE_LID,
+                        DEBUG_BOUNDS,
                         SURVEYOR,
                         MOURNER,
                         DOUBLER,
                         FERRYMAN,
                         LISTENER,
-                        BYSTANDER),
+                        BYSTANDER,
+                        MINER,
+                        DEVOURER,
+                        ECHOER,
+                        DRIFTER,
+                        ASHWALKER,
+                        DREDGER,
+                        FLANKER),
                 ParanoiaEventCatalog.post111EventIds());
         assertEquals(Set.of(
                         ORPHAN_SHADOW, GHOST_BREAKING, COLD_FURNACE, EMPTY_TELEPORT,
@@ -250,6 +265,11 @@ class ParanoiaEventCatalogTest {
         assertEquals(2400, ParanoiaEventCatalog.require(EXTRA_IN_THE_HERD).eventCooldownSeconds());
         assertEquals(1200, ParanoiaEventCatalog.require(LAVA_WAKE).eventCooldownSeconds());
         assertEquals(1800, ParanoiaEventCatalog.require(FALSE_LID).ambientCooldownSeconds());
+        assertSpecial(ECHOER, 2, 3, 3, ParanoiaEventSeverity.HIGH);
+        assertSpecial(DRIFTER, 2, 3, 3, ParanoiaEventSeverity.HIGH);
+        assertSpecial(ASHWALKER, 2, 3, 4, ParanoiaEventSeverity.HIGH);
+        assertSpecial(DREDGER, 3, 4, 2, ParanoiaEventSeverity.HIGH);
+        assertSpecial(FLANKER, 3, 4, 2, ParanoiaEventSeverity.EXTREME);
     }
 
     @Test
@@ -262,7 +282,7 @@ class ParanoiaEventCatalogTest {
         assertEquals(8, availableSpecial(2, 0));
         assertEquals(15, availableSpecial(3, 0));
         assertEquals(15, availableSpecial(3, 1));
-        assertEquals(16, availableSpecial(3, 2));
+        assertEquals(17, availableSpecial(3, 2));
     }
 
     @Test
@@ -286,5 +306,19 @@ class ParanoiaEventCatalogTest {
         return ParanoiaEventCatalog.specialEvents().stream()
                 .filter(event -> event.isAvailable(phase, danger))
                 .count();
+    }
+
+    private static void assertSpecial(
+            String id,
+            int phase,
+            int danger,
+            int weight,
+            ParanoiaEventSeverity severity) {
+        ParanoiaEventDescriptor descriptor = ParanoiaEventCatalog.require(id);
+        assertEquals(phase, descriptor.minimumPhase(), id);
+        assertEquals(danger, descriptor.minimumDanger(), id);
+        assertEquals(weight, descriptor.specialWeight(), id);
+        assertEquals(severity, descriptor.severity(), id);
+        assertEquals(Set.of(ParanoiaEventLane.SPECIAL), descriptor.lanes(), id);
     }
 }

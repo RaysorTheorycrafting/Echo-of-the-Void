@@ -3,6 +3,7 @@ package com.eotv.echoofthevoid.block.entity;
 import com.eotv.echoofthevoid.EchoOfTheVoid;
 import com.eotv.echoofthevoid.block.UncannyBlockRegistry;
 import com.eotv.echoofthevoid.block.entity.custom.UncannyAltarBlockEntity;
+import com.eotv.echoofthevoid.block.entity.custom.UncannyRestorationPlaceholderBlockEntity;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.world.level.block.entity.BlockEntityType;
 import net.neoforged.bus.api.IEventBus;
@@ -21,6 +22,14 @@ public final class UncannyBlockEntityRegistry {
                                     UncannyBlockRegistry.UNCANNY_ALTAR.get())
                             .build(null));
 
+    public static final DeferredHolder<BlockEntityType<?>, BlockEntityType<UncannyRestorationPlaceholderBlockEntity>>
+            UNCANNY_RESTORATION_PLACEHOLDER = BLOCK_ENTITY_TYPES.register(
+                    "uncanny_restoration_placeholder",
+                    () -> BlockEntityType.Builder.of(
+                                    UncannyRestorationPlaceholderBlockEntity::new,
+                                    UncannyBlockRegistry.UNCANNY_RESTORATION_PLACEHOLDER.get())
+                            .build(null));
+
     private UncannyBlockEntityRegistry() {
     }
 
@@ -28,4 +37,3 @@ public final class UncannyBlockEntityRegistry {
         BLOCK_ENTITY_TYPES.register(modEventBus);
     }
 }
-

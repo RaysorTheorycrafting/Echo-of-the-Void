@@ -2,6 +2,7 @@ package com.eotv.echoofthevoid.entity.custom;
 
 import com.eotv.echoofthevoid.entity.UncannyEntityMarker;
 import com.eotv.echoofthevoid.entity.UncannyEntityUtil;
+import com.eotv.echoofthevoid.sound.KnockerSoundSequence;
 import com.eotv.echoofthevoid.sound.UncannySoundRegistry;
 import java.util.Optional;
 import java.util.UUID;
@@ -46,6 +47,9 @@ public class UncannyKnockerEntity extends Monster implements UncannyEntityMarker
     private int attackCooldownTicks;
     private boolean droppedShard;
     private boolean knockPlayed;
+    private int knocksPlayed;
+    private int secondKnockTick;
+    private int knockSequenceEndTick;
     private boolean canAttack = true;
     private int openDoorAttackChancePercent = 20;
     private boolean sinking;
@@ -71,6 +75,9 @@ public class UncannyKnockerEntity extends Monster implements UncannyEntityMarker
         this.attackCooldownTicks = 0;
         this.droppedShard = false;
         this.knockPlayed = false;
+        this.knocksPlayed = 0;
+        this.secondKnockTick = -1;
+        this.knockSequenceEndTick = -1;
         this.sinking = false;
         this.sinkTicks = 0;
         this.setTarget(null);
@@ -166,6 +173,9 @@ public class UncannyKnockerEntity extends Monster implements UncannyEntityMarker
         tag.putInt("AttackCooldownTicks", this.attackCooldownTicks);
         tag.putBoolean("DroppedShard", this.droppedShard);
         tag.putBoolean("KnockPlayed", this.knockPlayed);
+        tag.putInt("KnocksPlayed", this.knocksPlayed);
+        tag.putInt("SecondKnockTick", this.secondKnockTick);
+        tag.putInt("KnockSequenceEndTick", this.knockSequenceEndTick);
         tag.putBoolean("CanAttack", this.canAttack);
         tag.putInt("OpenDoorAttackChancePercent", this.openDoorAttackChancePercent);
         tag.putBoolean("Sinking", this.sinking);
@@ -190,6 +200,22 @@ public class UncannyKnockerEntity extends Monster implements UncannyEntityMarker
         this.attackCooldownTicks = Math.max(0, tag.getInt("AttackCooldownTicks"));
         this.droppedShard = tag.getBoolean("DroppedShard");
         this.knockPlayed = tag.getBoolean("KnockPlayed");
+        if (tag.contains("KnocksPlayed", 3)) {
+            this.knocksPlayed = Mth.clamp(tag.getInt("KnocksPlayed"), 0, 2);
+            this.secondKnockTick = tag.getInt("SecondKnockTick");
+            this.knockSequenceEndTick = tag.getInt("KnockSequenceEndTick");
+        } else {
+            // Worlds saved by an older build only know whether the original single cue played.
+            this.knocksPlayed = this.knockPlayed ? 1 : 0;
+            this.secondKnockTick = this.knocksPlayed == 0
+                    ? -1
+                    : Math.max(
+                            this.knockTicks + KnockerSoundSequence.MINIMUM_PAUSE_TICKS,
+                            KnockerSoundSequence.secondKnockTick(0));
+            this.knockSequenceEndTick = this.secondKnockTick < 0
+                    ? -1
+                    : KnockerSoundSequence.sequenceEndTick(this.secondKnockTick);
+        }
         if (tag.contains("CanAttack", 1)) {
             this.canAttack = tag.getBoolean("CanAttack");
         } else {
@@ -218,6 +244,9 @@ public class UncannyKnockerEntity extends Monster implements UncannyEntityMarker
             this.state = KnockerState.KNOCK;
             this.knockTicks = 0;
             this.knockPlayed = false;
+            this.knocksPlayed = 0;
+            this.secondKnockTick = -1;
+            this.knockSequenceEndTick = -1;
             this.getNavigation().stop();
         }
     }
@@ -240,18 +269,23 @@ public class UncannyKnockerEntity extends Monster implements UncannyEntityMarker
         }
 
         this.getNavigation().moveTo(this.doorPos.getX() + 0.5D, this.doorPos.getY(), this.doorPos.getZ() + 0.5D, 1.0D);
-        if (!this.knockPlayed) {
-            this.level().playSound(
-                    null,
-                    this.doorPos,
-                    UncannySoundRegistry.UNCANNY_KNOCKER_KNOCK.get(),
-                    SoundSource.HOSTILE,
-                    1.0F,
-                    0.94F + this.random.nextFloat() * 0.08F);
+        if (this.knocksPlayed == 0) {
+            playKnockCue();
+            this.knocksPlayed = 1;
             this.knockPlayed = true;
+            this.secondKnockTick = KnockerSoundSequence.secondKnockTick(
+                    this.random.nextInt(
+                            KnockerSoundSequence.MAXIMUM_PAUSE_TICKS
+                                    - KnockerSoundSequence.MINIMUM_PAUSE_TICKS
+                                    + 1));
+            this.knockSequenceEndTick = KnockerSoundSequence.sequenceEndTick(this.secondKnockTick);
+        } else if (this.knocksPlayed == 1 && this.knockTicks >= this.secondKnockTick) {
+            playKnockCue();
+            this.knocksPlayed = 2;
         }
 
-        if (++this.knockTicks >= 20 * 6) {
+        this.knockTicks++;
+        if (this.knocksPlayed >= 2 && this.knockTicks >= this.knockSequenceEndTick) {
             if (isIronDoor(doorState)) {
                 startFlee();
                 return;
@@ -263,6 +297,17 @@ public class UncannyKnockerEntity extends Monster implements UncannyEntityMarker
                 startFlee();
             }
         }
+    }
+
+    private void playKnockCue() {
+        this.level().playSound(
+                null,
+                this.doorPos,
+                UncannySoundRegistry.UNCANNY_KNOCKER_KNOCK.get(),
+                SoundSource.HOSTILE,
+                KnockerSoundSequence.VOLUME,
+                KnockerSoundSequence.MINIMUM_PITCH
+                        + this.random.nextFloat() * KnockerSoundSequence.PITCH_SPREAD);
     }
 
     private void onDoorOpened(ServerPlayer targetPlayer) {
@@ -365,10 +410,15 @@ public class UncannyKnockerEntity extends Monster implements UncannyEntityMarker
     private void tickSinking() {
         this.setNoGravity(true);
         this.noPhysics = true;
-        this.setDeltaMovement(0.0D, -0.05D, 0.0D);
-        this.setPos(this.getX(), this.getY() - 0.05D, this.getZ());
+        double step = UncannySinkTransition.step(this, 0.05D, 34);
+        this.setDeltaMovement(0.0D, -step, 0.0D);
+        this.setPos(this.getX(), this.getY() - step, this.getZ());
+        if (UncannySinkTransition.breaksIntoOpenSpace(this)) {
+            UncannySinkTransition.vanish(this);
+            return;
+        }
         if (--this.sinkTicks <= 0) {
-            this.discard();
+            UncannySinkTransition.vanish(this);
         }
     }
 

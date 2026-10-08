@@ -73,6 +73,7 @@ public class UncannyApprovedSpecialEntity extends Monster implements UncannyEnti
     private Vec3 doublerPlaneNormal = Vec3.ZERO;
     private Vec3 lastDoublerFocusPosition;
     private boolean surveyorFleeing;
+    private double sinkSpeed = 0.065D;
     private final ArrayDeque<MirrorSample> mirrorSamples = new ArrayDeque<>();
 
     public UncannyApprovedSpecialEntity(EntityType<? extends Monster> type, Level level) {
@@ -103,6 +104,10 @@ public class UncannyApprovedSpecialEntity extends Monster implements UncannyEnti
         });
         this.goalSelector.addGoal(6, new LookAtPlayerGoal(this, Player.class, 24.0F));
         this.goalSelector.addGoal(7, new RandomLookAroundGoal(this));
+    }
+
+    public boolean isSinkingAway() {
+        return this.state == 99;
     }
 
     public void setup(ServerPlayer focus, BlockPos anchor) {
@@ -260,9 +265,13 @@ public class UncannyApprovedSpecialEntity extends Monster implements UncannyEnti
             return;
         }
 
-        if (this.distanceToSqr(focus) <= 8.0D * 8.0D
+        boolean spotted = this.distanceToSqr(focus) <= 8.0D * 8.0D
                 && isFocusLookingAt(focus, 0.91D)
-                && hasCompletelyOpenLineFrom(focus)) {
+                && hasCompletelyOpenLineFrom(focus);
+        // Brushing past it is no longer safe either: close enough to touch, it turns on the player.
+        boolean brushedPast = this.distanceToSqr(focus) <= ApprovedSpecialBehaviorRules.SURVEYOR_CLOSE_TRIGGER
+                * ApprovedSpecialBehaviorRules.SURVEYOR_CLOSE_TRIGGER && this.hasLineOfSight(focus);
+        if (spotted || brushedPast) {
             this.state = 3;
             this.stateTicks = 0;
             this.surveyorFleeing = true;
@@ -306,19 +315,48 @@ public class UncannyApprovedSpecialEntity extends Monster implements UncannyEnti
         }
     }
 
+    /**
+     * Spotted up close, the Surveyor? does not slip past: it rushes the player, strikes once
+     * without ever killing, then laughs softly and sinks fast (user, 2026-10-08).
+     */
     private void tickSurveyorFlee(ServerPlayer focus) {
         this.stateTicks++;
-        Vec3 away = this.position().subtract(focus.position());
-        away = new Vec3(away.x, 0.0D, away.z);
-        if (away.lengthSqr() < 0.01D) {
-            away = new Vec3(1.0D, 0.0D, 0.0D);
+        this.lookAt(focus, 80.0F, 60.0F);
+        this.getNavigation().moveTo(focus, ApprovedSpecialBehaviorRules.SURVEYOR_RUSH_SPEED);
+        boolean inReach = this.distanceToSqr(focus) <= ApprovedSpecialBehaviorRules.SURVEYOR_STRIKE_REACH
+                * ApprovedSpecialBehaviorRules.SURVEYOR_STRIKE_REACH;
+        if (inReach && this.hasLineOfSight(focus)) {
+            strikeOnceWithoutKilling(focus);
+            laughAndSink();
+            return;
         }
-        Vec3 destination = this.position().add(away.normalize().scale(14.0D));
-        this.getNavigation().moveTo(destination.x, destination.y, destination.z, 1.22D);
-        this.lookAt(focus, 70.0F, 45.0F);
-        if (this.distanceToSqr(focus) >= 18.0D * 18.0D || this.stateTicks >= 80) {
-            beginSinking(38);
+        if (this.stateTicks >= ApprovedSpecialBehaviorRules.SURVEYOR_RUSH_TICKS) {
+            laughAndSink();
         }
+    }
+
+    private void strikeOnceWithoutKilling(ServerPlayer focus) {
+        float damage = ApprovedSpecialBehaviorRules.surveyorStrikeDamage(focus.getHealth());
+        if (damage > 0.0F) {
+            // Keep the player's own motion: a "never lethal" blow must not shove anyone off a ledge.
+            Vec3 motion = focus.getDeltaMovement();
+            focus.hurt(this.level().damageSources().mobAttack(this), damage);
+            focus.setDeltaMovement(motion);
+            focus.hurtMarked = true;
+        } else {
+            // Too weak to take even a scratch: the hurt shake alone must still be felt.
+            focus.connection.send(new net.minecraft.network.protocol.game.ClientboundHurtAnimationPacket(focus));
+        }
+        this.swing(net.minecraft.world.InteractionHand.MAIN_HAND);
+    }
+
+    private void laughAndSink() {
+        if (this.level() instanceof ServerLevel level) {
+            // Physical, shared and traced: the laugh is part of the encounter, never optional.
+            UncannyPhysicalSoundDelivery.playFromEntity(level, this, UncannySoundRegistry.UNCANNY_SCARY_LAUGH.get(),
+                    SoundSource.HOSTILE, ApprovedSpecialBehaviorRules.SURVEYOR_LAUGH_VOLUME, 1.18F);
+        }
+        beginSinking(ApprovedSpecialBehaviorRules.SURVEYOR_QUICK_SINK_TICKS, 0.12D);
     }
 
     private void tickMourner(ServerPlayer focus) {
@@ -833,11 +871,16 @@ public class UncannyApprovedSpecialEntity extends Monster implements UncannyEnti
     }
 
     private void beginSinking(int durationTicks) {
+        beginSinking(durationTicks, 0.065D);
+    }
+
+    private void beginSinking(int durationTicks, double speed) {
         if (this.state == 99) {
             return;
         }
         this.state = 99;
         this.stateTicks = Math.max(1, durationTicks);
+        this.sinkSpeed = UncannySinkTransition.step(this, speed, this.stateTicks);
         this.getNavigation().stop();
         this.setNoGravity(true);
         this.noPhysics = true;
@@ -846,9 +889,13 @@ public class UncannyApprovedSpecialEntity extends Monster implements UncannyEnti
 
     private void tickSinking() {
         this.setDeltaMovement(Vec3.ZERO);
-        this.setPos(this.getX(), this.getY() - 0.065D, this.getZ());
+        this.setPos(this.getX(), this.getY() - this.sinkSpeed, this.getZ());
+        if (UncannySinkTransition.breaksIntoOpenSpace(this)) {
+            UncannySinkTransition.vanish(this);
+            return;
+        }
         if (--this.stateTicks <= 0) {
-            this.discard();
+            UncannySinkTransition.vanish(this);
         }
     }
 
@@ -909,20 +956,47 @@ public class UncannyApprovedSpecialEntity extends Monster implements UncannyEnti
             }
             return super.hurt(source, amount);
         }
-        if (!this.level().isClientSide()) {
+        if (this.level().isClientSide() || this.state == 99) {
+            return false;
+        }
+        // A blow is felt (red flash, knockback) but never kills: sinking away is the escape.
+        boolean hurt = super.hurt(source, Math.min(amount, Math.max(0.0F, this.getHealth() - 1.0F)));
+        if ("surveyor".equals(kind().id())) {
+            laughAndSink();
+        } else {
             beginSinking();
         }
-        return false;
+        return hurt;
     }
 
     @Override
     public boolean isInvulnerableTo(DamageSource source) {
-        return !"doubler".equals(kind().id()) || super.isInvulnerableTo(source);
+        if ("doubler".equals(kind().id())) {
+            return super.isInvulnerableTo(source);
+        }
+        // Players can reach these scenes; the world itself (falls, lava, walls) never ends them.
+        return this.state == 99 || !isPlayerCaused(source) || super.isInvulnerableTo(source);
+    }
+
+    private static boolean isPlayerCaused(DamageSource source) {
+        return source.getEntity() instanceof Player;
     }
 
     @Override
     public boolean canBeHitByProjectile() {
-        return true;
+        return this.state != 99 && super.canBeHitByProjectile();
+    }
+
+    @Override
+    public boolean isAttackable() {
+        return this.state != 99 && super.isAttackable();
+    }
+
+    @Override
+    public boolean canBeSeenAsEnemy() {
+        // Surveyor, Mourner, Ferryman, Listener and Bystander are bounded scenes, not combat mobs.
+        // This predicate is what Vanilla Iron/Snow Golem targeting ultimately consults.
+        return "doubler".equals(kind().id()) && super.canBeSeenAsEnemy();
     }
 
     @Override

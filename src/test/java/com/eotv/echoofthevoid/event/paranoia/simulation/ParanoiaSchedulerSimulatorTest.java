@@ -14,7 +14,7 @@ import org.junit.jupiter.api.Test;
 
 class ParanoiaSchedulerSimulatorTest {
     private static final String EXPECTED_ACTIVE_REPORT_SHA256 =
-            "3D48CE1A14C28B82DE5CA2308BD66CFF032659429C33996075CD559CCE942301";
+            "8A7E10E2C834901D8E6055D4180863A96C676CA60004A22AA4A4A88341D3767F";
     private static final String EXPECTED_111_REPORT_SHA256 =
             "17F0D33F0317DC49E55CCDD3E30F7CF7D20B6ADA7185ED63486DAC0818AFE9AC";
 
@@ -45,6 +45,21 @@ class ParanoiaSchedulerSimulatorTest {
     }
 
     @Test
+    void activeBlackoutIsAtLeastTwiceAsRareAsIn111() {
+        ParanoiaSchedulerSimulator.SimulationReport active = ParanoiaSchedulerSimulator.simulate(
+                ParanoiaSchedulerSimulator.Scenario.reference(4, 3, 3, 25.0D, 0xE07F0111L));
+        ParanoiaSchedulerSimulator.SimulationReport historical = ParanoiaSchedulerSimulator.simulate(
+                ParanoiaSchedulerSimulator.Scenario.reference111(4, 3, 3, 25.0D, 0xE07F0111L));
+        long activeCount = active.countsByEvent().getOrDefault("blackout", 0L);
+        long historicalCount = historical.countsByEvent().getOrDefault("blackout", 0L);
+        assertTrue(historicalCount >= 3, "the reference scenario must exercise Blackout: " + historicalCount);
+        // The simulation models weight and spacing only; the runtime also removes the forced-fallback
+        // Blackout and adds a 30-minute join grace, which this scheduler model cannot represent.
+        assertTrue(activeCount * 2 <= historicalCount,
+                "Blackout must be at least twice as rare: " + activeCount + " vs " + historicalCount);
+    }
+
+    @Test
     void retiredEventsAreAbsentFromTheActiveSimulation() {
         ParanoiaSchedulerSimulator.SimulationReport report = ParanoiaSchedulerSimulator.simulate(
                 ParanoiaSchedulerSimulator.Scenario.reference(4, 3, 3, 100.0D / 3.0D, 0xE07F0111L));
@@ -58,6 +73,16 @@ class ParanoiaSchedulerSimulatorTest {
         assertFalse(report.countsByEvent().containsKey("giant_sun"));
         assertFalse(report.countsByEvent().containsKey("corrupt_message"));
         assertFalse(report.countsByEvent().containsKey("climber"));
+    }
+
+    @Test
+    void approvedHuntingSpecialsAreRepresentedByTheLiveSimulation() {
+        ParanoiaSchedulerSimulator.SimulationReport report = ParanoiaSchedulerSimulator.simulate(
+                ParanoiaSchedulerSimulator.Scenario.reference(4, 3, 5, 50.0D, 0x48554E544552L));
+        for (String id : java.util.List.of("echoer", "drifter", "ashwalker", "dredger", "flanker")) {
+            assertTrue(report.effectiveWeights().containsKey("special:" + id), id);
+            assertFalse(report.ineligibleEvents().contains("special:" + id), id);
+        }
     }
 
     private static String snapshot(ParanoiaSchedulerSimulator.SimulationReport report) {
@@ -108,7 +133,7 @@ class ParanoiaSchedulerSimulatorTest {
         ParanoiaSchedulerSimulator.SimulationReport historical = ParanoiaSchedulerSimulator.simulate(
                 ParanoiaSchedulerSimulator.Scenario.reference111(2, 3, 3, 10.0D, 0xE07F0111L));
 
-        assertEquals(8, active.effectiveWeights().get("primary:bell"));
+        assertEquals(6, active.effectiveWeights().get("primary:bell"));
         assertEquals(3, active.effectiveWeights().get("primary:hotbar_wrong_count"));
         assertEquals(1, active.effectiveWeights().get("primary:corrupt_toast"));
         assertEquals(2, active.effectiveWeights().get("special:hurler"));

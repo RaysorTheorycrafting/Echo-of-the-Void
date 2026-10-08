@@ -30,8 +30,13 @@ public final class CampaignGameTests {
                 "A legacy world must not invent elapsed campaign time");
         helper.assertTrue(legacy.getCampaignRecentFamilies().isEmpty(),
                 "A legacy world must begin with no anti-repetition memory");
+        helper.assertTrue(CampaignBeat.UNEASE.name().equals(legacy.getCampaignBeat()),
+                "A legacy world without campaign fields must keep the safe default beat");
         helper.assertTrue(legacy.getCampaignCulminationState() == CampaignCulminationState.UNINITIALIZED,
                 "A legacy world must defer culmination scheduling to the director");
+        helper.assertTrue(!legacy.isDevourerGlobalCooldownActive()
+                        && legacy.getDevourerGlobalCooldownRemainingTicks() == 0L,
+                "A legacy world must not invent a Devourer? cooldown");
 
         UncannyWorldState original = UncannyWorldState.create();
         original.initializeCampaignDirector(240_000L, 258_000L, 0x454F5456L,
@@ -43,6 +48,7 @@ public final class CampaignGameTests {
         original.rememberCampaignFamily("SOUND_TRAIL", 6);
         original.scheduleCampaignCulmination(1_050_000L);
         original.postponeCampaignCulmination(1_056_000L);
+        original.startDevourerGlobalCooldown(144_000L);
 
         CompoundTag saved = original.save(new CompoundTag(), helper.getLevel().registryAccess());
         UncannyWorldState restored = UncannyWorldState.load(saved, helper.getLevel().registryAccess());
@@ -63,6 +69,9 @@ public final class CampaignGameTests {
                 "Culmination schedule must survive NBT");
         helper.assertTrue(restored.getCampaignCulminationRetryTick() == 1_056_000L,
                 "Culmination retry must survive NBT");
+        helper.assertTrue(restored.isDevourerGlobalCooldownActive()
+                        && restored.getDevourerGlobalCooldownRemainingTicks() == 144_000L,
+                "The global Devourer? cooldown must survive NBT without changing duration");
         helper.succeed();
     }
 
@@ -96,6 +105,40 @@ public final class CampaignGameTests {
                 "A major event before 80% must not consume the one campaign culmination");
         helper.assertTrue(state.getCampaignLastStrongEventTick() == dayThirtyNine,
                 "Early major events must still feed strong-event spacing memory");
+        helper.succeed();
+    }
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 10)
+    public static void staleTensionBuilderDeadlineFromAnOldWorldCannotLockANewSession(GameTestHelper helper) {
+        CompoundTag affectedWorld = new CompoundTag();
+        affectedWorld.putInt("phase", 2);
+        affectedWorld.putLong("tensionBuilderEndTick", 82_860L);
+        affectedWorld.putLong("tensionBuilderLastUpdateTick", 1_665L);
+        affectedWorld.putLong("tensionBuilderPendingGrandEventStartTick", 72_000L);
+        affectedWorld.putString("tensionBuilderPendingGrandEventDimension", "minecraft:overworld");
+        affectedWorld.putBoolean("tensionBuilderPendingGrandEventForced", true);
+        affectedWorld.putBoolean("tensionBuilderPendingGrandEventWarningSent", true);
+        affectedWorld.putLong("tensionBuilderPendingGrandEventWarningTick", 71_900L);
+        affectedWorld.putLong("tensionBuilderPendingGrandEventDelayTicks", 140L);
+
+        UncannyWorldState restored = UncannyWorldState.load(affectedWorld, helper.getLevel().registryAccess());
+        boolean invalidActiveLockCleared = restored.prepareForServerSession(0L);
+
+        helper.assertTrue(invalidActiveLockCleared,
+                "The exact stale active deadline reported by the old world must be repaired");
+        helper.assertTrue(restored.getTensionBuilderEndTick() == Long.MIN_VALUE,
+                "A stale Tension Builder must not pause every event after reconnecting");
+        helper.assertTrue(restored.getTensionBuilderPendingGrandEventStartTick() == Long.MIN_VALUE,
+                "An equally stale delayed Grand Warden must not start after migration");
+        helper.assertTrue(restored.getTensionBuilderPendingGrandEventDimension().isBlank(),
+                "Clearing a stale delayed Grand Warden must clear its dimension too");
+        helper.assertTrue(!restored.isTensionBuilderPendingGrandEventForced()
+                        && !restored.isTensionBuilderPendingGrandEventWarningSent(),
+                "Clearing a stale delayed Grand Warden must clear its flags");
+
+        CompoundTag repaired = restored.save(new CompoundTag(), helper.getLevel().registryAccess());
+        helper.assertTrue(repaired.getLong("tensionBuilderEndTick") == Long.MIN_VALUE,
+                "The repair must survive the next save instead of recurring at every launch");
         helper.succeed();
     }
 }

@@ -1,0 +1,12 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "com.eotv.echoofthevoid.world.lifecycle_mixin",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "WorldDimensionsLifecycleMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

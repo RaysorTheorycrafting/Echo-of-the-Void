@@ -12,7 +12,9 @@ public final class ParanoiaPacingRules {
     public static final int AUTO_CHECK_INTERVAL_MAX_TICKS = 34;
     /** Prevents two independent scheduler lanes from producing an accidental combined scare. */
     public static final int CROSS_LANE_BURST_GUARD_TICKS = 10 * TICKS_PER_SECOND + 1;
-    public static final int PHASE_2_BELL_COOLDOWN_SECONDS = 12 * 60;
+    public static final int PHASE_2_BELL_COOLDOWN_SECONDS = 20 * 60;
+    public static final int PHASE_3_BELL_COOLDOWN_SECONDS = 18 * 60;
+    public static final int PHASE_4_BELL_COOLDOWN_SECONDS = 16 * 60;
     public static final int PHASE_2_HURLER_COOLDOWN_SECONDS = 20 * 60;
 
     private static final double[] PROFILE_TRIGGER_MULTIPLIER = {0.34D, 0.58D, 0.92D, 1.48D, 2.20D};
@@ -35,7 +37,12 @@ public final class ParanoiaPacingRules {
     private static final double[] DANGER_SPECIAL_ENTITY_COOLDOWN_MULTIPLIER = {1.35D, 1.22D, 1.10D, 1.00D, 0.92D, 0.84D};
     private static final double[] DANGER_SPECIAL_ENTITY_TRIGGER_MULTIPLIER = {0.70D, 0.82D, 0.92D, 1.00D, 1.08D, 1.16D};
     private static final double[] SLEEP_DISTURB_PHASE_CHANCE = {0.0D, 0.055D, 0.078D, 0.105D};
+    private static final double[] ACTIVE_SLEEP_DISTURB_PHASE_CHANCE = {0.0D, 0.012D, 0.020D, 0.030D};
     private static final double[] SLEEP_DISTURB_PROFILE_MULTIPLIER = {0.72D, 0.88D, 1.00D, 1.14D, 1.30D};
+    public static final int ACTIVE_BLACKOUT_BASE_WEIGHT = 2;
+    /** Natural Blackouts stay at least two hours of play apart for one player. */
+    public static final int ACTIVE_BLACKOUT_MINIMUM_SPACING_SECONDS = 2 * 60 * 60;
+    private static final double[] ACTIVE_BELL_WAVE_PROFILE_CHANCE = {0.26D, 0.30D, 0.35D, 0.40D, 0.45D};
 
     private ParanoiaPacingRules() {
     }
@@ -160,10 +167,19 @@ public final class ParanoiaPacingRules {
             int danger) {
         validate(phase, profile, danger);
         int activeBaseWeight = catalogBaseWeight;
-        if (phase == 2) {
-            if (BELL.equals(eventId)) {
-                activeBaseWeight = Math.min(activeBaseWeight, 7);
-            } else if (HURLER.equals(eventId)) {
+        if (BELL.equals(eventId)) {
+            activeBaseWeight = Math.min(activeBaseWeight, switch (phase) {
+                case 2 -> 5;
+                case 3 -> 7;
+                case 4 -> 9;
+                default -> activeBaseWeight;
+            });
+        } else if (BLACKOUT.equals(eventId)) {
+            // Blinding and slowing is a rare climax, not a routine scare (user, 2026-10-08):
+            // base 7 becomes 2, about three and a half times rarer at every profile.
+            activeBaseWeight = Math.min(activeBaseWeight, ACTIVE_BLACKOUT_BASE_WEIGHT);
+        } else if (phase == 2) {
+            if (HURLER.equals(eventId)) {
                 activeBaseWeight = Math.min(activeBaseWeight, 2);
             }
         }
@@ -174,10 +190,42 @@ public final class ParanoiaPacingRules {
     public static long activeEventCooldownTicks(String eventId, int phase, long sampledCooldownTicks) {
         validatePhase(phase);
         long nonNegativeCooldown = Math.max(0L, sampledCooldownTicks);
-        if (phase == 2 && BELL.equals(eventId)) {
-            return Math.max(nonNegativeCooldown, PHASE_2_BELL_COOLDOWN_SECONDS * (long) TICKS_PER_SECOND);
+        if (BELL.equals(eventId)) {
+            int minimumSeconds = switch (phase) {
+                case 2 -> PHASE_2_BELL_COOLDOWN_SECONDS;
+                case 3 -> PHASE_3_BELL_COOLDOWN_SECONDS;
+                case 4 -> PHASE_4_BELL_COOLDOWN_SECONDS;
+                default -> 0;
+            };
+            return Math.max(nonNegativeCooldown, minimumSeconds * (long) TICKS_PER_SECOND);
+        }
+        if (BLACKOUT.equals(eventId)) {
+            return Math.max(nonNegativeCooldown, ACTIVE_BLACKOUT_MINIMUM_SPACING_SECONDS * (long) TICKS_PER_SECOND);
         }
         return nonNegativeCooldown;
+    }
+
+    /** Bell remains mostly an uncanny sound; a hostile answer is deliberately the minority branch. */
+    public static double activeBellMonsterWaveChance(int phase, int profile, int danger) {
+        validate(phase, profile, danger);
+        if (phase < 2) {
+            return 0.0D;
+        }
+        double chance = ACTIVE_BELL_WAVE_PROFILE_CHANCE[profile - 1];
+        chance *= switch (danger) {
+            case 0 -> 0.12D;
+            case 1 -> 0.32D;
+            case 2 -> 0.65D;
+            case 4 -> 1.20D;
+            case 5 -> 1.40D;
+            default -> 1.00D;
+        };
+        chance *= switch (phase) {
+            case 2 -> 0.10D;
+            case 3 -> 0.18D;
+            default -> 1.00D;
+        };
+        return clamp(chance, 0.0D, 0.70D);
     }
 
     public static double dangerWeightMultiplier(String eventId, int danger) {
@@ -328,6 +376,12 @@ public final class ParanoiaPacingRules {
             case KEEPER -> 2400.0D / Math.max(1.0D, base / 20.0D);
             case KNOCKER, HURLER, SHADOW -> 0.85D;
             case STALKER -> 1.80D;
+            case MINER -> 2400.0D / Math.max(1.0D, base / 20.0D);
+            case DEVOURER -> 7200.0D / Math.max(1.0D, base / 20.0D);
+            case ECHOER -> 2400.0D / Math.max(1.0D, base / 20.0D);
+            case DRIFTER, ASHWALKER -> 1800.0D / Math.max(1.0D, base / 20.0D);
+            case DREDGER -> 2700.0D / Math.max(1.0D, base / 20.0D);
+            case FLANKER -> 3600.0D / Math.max(1.0D, base / 20.0D);
             default -> 1.00D;
         };
         return Math.max(30L * TICKS_PER_SECOND, (long) Math.round(base * keyMultiplier));
@@ -361,6 +415,14 @@ public final class ParanoiaPacingRules {
                 * SLEEP_DISTURB_PROFILE_MULTIPLIER[profile - 1], 0.0D, 0.24D);
     }
 
+    /** Work-build pacing: the full bed disturbance should remain exceptional across a campaign. */
+    public static double activeSleepDisturbChance(int phase, int profile) {
+        validatePhase(phase);
+        validateProfile(profile);
+        return clamp(ACTIVE_SLEEP_DISTURB_PHASE_CHANCE[phase - 1]
+                * SLEEP_DISTURB_PROFILE_MULTIPLIER[profile - 1], 0.0D, 0.06D);
+    }
+
     public static long sleepDisturbCooldownTicks(int phase, int profile, int sampledBaseSeconds) {
         validatePhase(phase);
         validateProfile(profile);
@@ -383,6 +445,31 @@ public final class ParanoiaPacingRules {
             default -> throw new IllegalArgumentException("profile must be in [1, 5]");
         };
         int seconds = Math.max(9 * 60, (int) Math.round(sampledBaseSeconds * phaseScale * profileScale));
+        return seconds * (long) TICKS_PER_SECOND;
+    }
+
+    public static long activeSleepDisturbCooldownTicks(int phase, int profile, int sampledBaseSeconds) {
+        validatePhase(phase);
+        validateProfile(profile);
+        if (sampledBaseSeconds < 45 * 60 || sampledBaseSeconds > 75 * 60) {
+            throw new IllegalArgumentException("sampledBaseSeconds must be in [2700, 4500]");
+        }
+        double phaseScale = switch (phase) {
+            case 1 -> 1.35D;
+            case 2 -> 1.12D;
+            case 3 -> 1.00D;
+            case 4 -> 0.92D;
+            default -> throw new IllegalArgumentException("phase must be in [1, 4]");
+        };
+        double profileScale = switch (profile) {
+            case 1 -> 1.35D;
+            case 2 -> 1.15D;
+            case 3 -> 1.00D;
+            case 4 -> 0.90D;
+            case 5 -> 0.82D;
+            default -> throw new IllegalArgumentException("profile must be in [1, 5]");
+        };
+        int seconds = Math.max(30 * 60, (int) Math.round(sampledBaseSeconds * phaseScale * profileScale));
         return seconds * (long) TICKS_PER_SECOND;
     }
 

@@ -13,9 +13,9 @@ public final class TensionPacingRules {
     public static final int GRAND_BOOST_MAX_SECONDS = 110;
     public static final int GRAND_ROLL_MIN_SECONDS = 10;
     public static final int GRAND_ROLL_MAX_SECONDS = 24;
-    public static final int GRAND_COOLDOWN_SECONDS = 35 * 60;
+    public static final int GRAND_COOLDOWN_SECONDS = 150 * 60;
     public static final double GRAND_BASE_CHANCE = 0.0D;
-    public static final double GRAND_POST_TENSION_CHANCE = 0.22D;
+    public static final double GRAND_POST_TENSION_CHANCE = 0.08D;
 
     private TensionPacingRules() {
     }

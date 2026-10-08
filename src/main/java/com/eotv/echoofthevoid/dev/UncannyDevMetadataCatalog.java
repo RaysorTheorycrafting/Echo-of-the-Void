@@ -5,6 +5,7 @@ import com.eotv.echoofthevoid.event.paranoia.ParanoiaEventDescriptor;
 import com.eotv.echoofthevoid.event.paranoia.ParanoiaEventSeverity;
 import com.eotv.echoofthevoid.event.passive.ApprovedVanillaVariantCatalog;
 import com.eotv.echoofthevoid.event.special.ApprovedSpecialCatalog;
+import com.eotv.echoofthevoid.entity.variant.ReplacementVariantExpansionCatalog;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
@@ -28,7 +29,8 @@ public final class UncannyDevMetadataCatalog {
             "corrupt_toast",
             "false_recipe_toast",
             "asphyxia",
-            "hunter_fog");
+            "hunter_fog",
+            "debug_bounds");
 
     private static final Set<String> BLOCK_MUTATING_EVENT_IDS = Set.of(
             "door_inversion", "phantom_harvest", "living_ore", "misplaced_light");
@@ -49,12 +51,26 @@ public final class UncannyDevMetadataCatalog {
                     "Vanilla step sounds; basic, echo, sprint, heavy and ladder patterns.",
                     "Subtlety and perceived direction cannot be unit-tested.")),
             Map.entry("bell", text(
-                    "Runs the dangerous Bell event and may create an Uncanny entity wave.",
+                    "Runs the dangerous Bell event; only a minority of occurrences create an Uncanny entity wave.",
                     "Natural use starts in phase 2 and is affected by profile and danger.",
                     "A real nearby bell changes the audio route; Tension Builder blocks natural use.",
                     "Physical bell and spawned danger are shared; a bell without a source becomes private mental audio.",
                     "Bell block, entity-wave scheduler and mental sound delivery.",
                     "Wave size, fairness and routing need a two-player test.")),
+            Map.entry("bed", text(
+                    "Runs one of twelve three-part sleep disturbances, including the original bed message sequence.",
+                    "Natural use starts in phase 2, only after an eligible sleep interaction, with a long dedicated cooldown.",
+                    "One occurrence keeps the same sequence across its three interactions; it never ejects, harms or moves the sleeper.",
+                    "The messages are deliberately private to the affected sleeper.",
+                    "Sleep-interaction state, thirty-six distinct message lines and private chat delivery.",
+                    "The forced action validates one sequence, not the deliberately exceptional natural frequency.")),
+            Map.entry("grand_event_warden", text(
+                    "Runs the Grand Warden encounter only after a valid hidden spawn position has been reserved.",
+                    "Natural use is a single eight-percent post-Tension roll with a 150-minute minimum cooldown.",
+                    "A warning is never sent for a failed preflight; a post-warning invalidation is consumed rather than warned twice.",
+                    "The real entity and danger are shared while warning audio is delivered to the encounter target.",
+                    "Spawn preflight, one warning, a five-to-seven-second reaction window and the Grand Warden lifecycle.",
+                    "The forced action bypasses natural rarity and therefore only validates staging and cleanup.")),
             Map.entry("asphyxia", text(
                     "Runs one of three bounded breathing/drowning illusions selected by danger.",
                     "Natural use is phase 4; terrain and health guards decide available variants.",
@@ -278,7 +294,14 @@ public final class UncannyDevMetadataCatalog {
                     "No menu, lock, inventory, opener count or comparator output changes on the server.",
                     "Nearby witnesses receive the same vanilla block-entity animation.",
                     "Presentation-only block-event packets followed by an explicit close.",
-                    "Double chests are excluded; shulker collision and resource packs need live QA.")));
+                    "Double chests are excluded; shulker collision and resource packs need live QA.")),
+            Map.entry("debug_bounds", text(
+                    "Turns F3+B into a private ring of thirty-six entity-style hitboxes that slowly closes around the player.",
+                    "Natural use starts once per player/server run when entity hitboxes are first enabled in phase 2 or later.",
+                    "No entity, AI, collision, save data, loot or server hitbox is created; disabling F3+B stops the scene.",
+                    "Deliberately private because the debug option is client-local and the event exists to unsettle its user.",
+                    "Vanilla line rendering, one looping stress bed and intermittent spatial sounds at the apparent bounds.",
+                    "F3+B must be enabled to see it; sound balance and visibility through shaders require live QA.")));
 
     private static final Map<String, Text> SPECIAL_TEXT = Map.ofEntries(
             Map.entry("watcher", text("Observes from long range and flees after sustained recognition.", "Natural: outdoor Overworld night from phase 2, plus the first-night guarantee; never while the target sleeps.", "Invulnerable encounter; no boats, water traps or sleeping gaze progress.", "One server entity shared by all nearby players.", "Watcher renderer, awake gaze timer and observation advancement.", "Night/sky placement remains context-sensitive.")),
@@ -290,7 +313,8 @@ public final class UncannyDevMetadataCatalog {
             Map.entry("usher", text("Guides toward a lore marker, then usually disappears when understood.", "Natural: phase 3 in current code with a nearby lore marker.", "Marker fallback and the known weight/cooldown conflict are unresolved.", "Shared entity anchored to one target route.", "Lore markers, compass fallback and rare attack branch.", "Catalog documentation historically disagrees about its numbers.")),
             Map.entry("keeper", text("Occupies the outside of a base and manipulates a nearby container role.", "Natural: phase 3, outside near a known base and container.", "Container contents must never be changed by the encounter.", "Shared entity; observation outcome is common.", "Base memory, container search and silhouette renderer.", "Private audio delivery still needs a dedicated audit.")),
             Map.entry("tenant", text("Appears inside a base after a long absence and withdraws after discovery.", "Natural: phase 3 with base memory and at least 180 seconds away.", "Never traps a player inside; bounded linger and water exit.", "Shared entity tied to a world-level base context.", "Door/interior checks and absence memory.", "Restart behavior of active timers is not persisted.")),
-            Map.entry("follower", text("Tracks the player for several minutes, approaching only when unobserved.", "Natural: phase 2+ with a long explicit cooldown.", "Observation, distance, water and bounded attack provide exits.", "Shared entity with one primary target.", "Long-lived follow state, footsteps and sink cleanup.", "Long duration, unload and remaining loud audio need manual validation.")),
+            Map.entry("follower", text("Tracks the player for several minutes, softly seeks the player's rear while unobserved and evades sustained pursuit.", "Natural: phase 2+ with a long explicit cooldown.", "Projectiles are ignored; repeated direct melee remains lethal. Repositioning requires measured pursuit followed by lost sight and is limited to two attempts.", "Shared entity with one primary target; any nearby witness, including one looking through glass, prevents movement or visible reposition.", "Rear-position navigation, pursuit evidence, a one-second particle-free cloak around teleportation, footsteps, attack and sink cleanup.", "Pursuit around obstacles, two-player observation and perceived persistence need manual validation.")),
+            Map.entry("ambusher", text("Materializes behind a grounded player after an exceptionally rare False Fall, attempts one hit, then sinks.", "Natural: one-percent follow-up to eligible False Fall occurrences from phase 2 with danger enabled; the direct QA action bypasses the roll.", "Never follows a real fall, sleep, vehicle or water context; an open route and safe ground are mandatory.", "One server-authoritative entity is shared by nearby observers.", "False Fall mental cue, short telegraph, one melee attempt and collisionless sink cleanup.", "Surprise timing, shield readability and terrain pathing require live QA.")),
             Map.entry("knocker", text("Announces itself at a real door and reacts differently to open, wood and iron doors.", "Natural: phase 2 near a base, under cover and beside a door.", "Door context is mandatory and attack chance is danger-bounded.", "Shared physical entity and door audio.", "Door scanner, knocks, attack branch and shard drop.", "Door changes during the sequence are a race-condition risk.")));
 
     private UncannyDevMetadataCatalog() {
@@ -369,6 +393,9 @@ public final class UncannyDevMetadataCatalog {
         if (entry.actionArg().startsWith("approved|")) {
             return describeApprovedVanillaVariant(entry);
         }
+        if (entry.actionArg().endsWith("|replacement")) {
+            return describeReplacementVariant(entry);
+        }
         ApprovedSpecialCatalog.Definition approvedSpecial = ApprovedSpecialCatalog.byId(entry.groupKey());
         if (approvedSpecial != null) {
             return describeApprovedSpecial(approvedSpecial);
@@ -381,9 +408,12 @@ public final class UncannyDevMetadataCatalog {
         };
         ParanoiaEventDescriptor descriptor = ParanoiaEventCatalog.byId().get(specialId);
         Text special = SPECIAL_TEXT.get(specialId);
-        int phase = descriptor == null ? variantMinimumPhase(entry) : descriptor.minimumPhase();
-        Danger danger = descriptor == null ? Danger.VARIABLE : danger(descriptor.severity());
-        Rarity rarity = descriptor == null ? Rarity.REPLACEMENT : rarity(descriptor);
+        int phase = "ambusher".equals(group)
+                ? 2 : descriptor == null ? variantMinimumPhase(entry) : descriptor.minimumPhase();
+        Danger danger = "ambusher".equals(group)
+                ? Danger.MEDIUM : descriptor == null ? Danger.VARIABLE : danger(descriptor.severity());
+        Rarity rarity = "ambusher".equals(group)
+                ? Rarity.EXCEPTIONAL : descriptor == null ? Rarity.REPLACEMENT : rarity(descriptor);
         String behavior = special == null
                 ? "Spawns " + entry.groupLabel() + " using the exact QA action “" + entry.label() + "”."
                 : special.description();
@@ -402,16 +432,7 @@ public final class UncannyDevMetadataCatalog {
         String limitations = special == null
                 ? "The 3D preview proves renderer availability, not AI, sounds, collisions or persistence."
                 : special.limitations();
-        boolean attackerAnimationStudy = "attacker_crawl".equals(entry.actionArg())
-                || "attacker_outstretched".equals(entry.actionArg());
-        if (attackerAnimationStudy) {
-            behavior = "Spawns Attacker? with the selected movement-pose study while preserving its real chase and combat AI.";
-            conditions = "Developer-only comparison route; natural Attacker? spawns keep the standard pose until one study is approved.";
-            restrictions = "The study changes rendering only. Hitbox, speed, pathfinding, reach, damage and sound timing are unchanged.";
-            associated = "Synced animation-style byte, dedicated silhouette model and the existing Attacker? renderer texture.";
-            limitations = "Judge ground contact, silhouette readability, limb clipping and whether the unchanged standing hitbox remains acceptable.";
-        }
-        ImplementationStatus status = attackerAnimationStudy
+        ImplementationStatus status = "ambusher".equals(group)
                 ? ImplementationStatus.WORKING_BUILD
                 : "terror".equals(group)
                 ? ImplementationStatus.DEBUG_ONLY
@@ -462,12 +483,56 @@ public final class UncannyDevMetadataCatalog {
                 Authority.SHARED,
                 ImplementationStatus.WORKING_BUILD,
                 ValidationNeed.MANUAL_REQUIRED,
-                variant.displayName() + " — " + variant.behavior() + ".",
+                variant.displayName() + " — " + variant.behavior() + ": " + variant.description(),
                 "The actual Vanilla " + variant.typeKey() + " must spawn naturally; the QA action creates the same tagged Vanilla entity.",
                 "The added cue yields to combat, flight, breeding, taming, riding and other genuine Vanilla priorities.",
                 "One real server entity and every presentation cue are shared with nearby players.",
-                "Vanilla entity type, its original AI/attributes/loot and a bounded behavioral tag.",
+                "Vanilla entity type, its original AI/attributes/loot, a bounded behavioral tag and the "
+                        + variant.visualStyle().name().toLowerCase(Locale.ROOT) + " presentation profile.",
                 "Animation timing, interruption and multiplayer agreement still require live validation.",
+                true,
+                true);
+    }
+
+    private static Info describeReplacementVariant(UncannyDevCatalog.Entry entry) {
+        String[] parts = entry.actionArg().split("\\|");
+        if (parts.length != 4) {
+            return Info.unknown();
+        }
+        int index;
+        try {
+            index = Integer.parseInt(parts[2]);
+        } catch (NumberFormatException exception) {
+            return Info.unknown();
+        }
+        ReplacementVariantExpansionCatalog.Variant variant =
+                ReplacementVariantExpansionCatalog.variant(parts[0], index);
+        if (variant == null) {
+            return Info.unknown();
+        }
+        Danger danger = switch (variant.vanillaTypeKey()) {
+            case "ghast", "ravager", "evoker", "vindicator", "piglin_brute" -> Danger.HIGH;
+            case "drowned", "stray", "pillager", "blaze", "wither_skeleton", "hoglin",
+                    "magma_cube" -> Danger.MEDIUM;
+            default -> Danger.LOW;
+        };
+        return new Info(
+                ContentType.ENTITY,
+                variant.minimumPhase(),
+                "Phase " + variant.minimumPhase() + "+ naturally",
+                Rarity.REPLACEMENT,
+                danger,
+                Authority.SHARED,
+                ImplementationStatus.WORKING_BUILD,
+                ValidationNeed.MANUAL_REQUIRED,
+                variant.displayName() + " — " + variant.label() + ": " + variant.description(),
+                "The ordinary replacement roll must select the " + variant.vanillaTypeKey()
+                        + " family; this QA action forces only its profile.",
+                "Its inherited Vanilla combat, loot, equipment and sound contracts stay authoritative; the extra cue is bounded.",
+                "A real server replacement entity and its presentation are shared with nearby players.",
+                "Existing replacement class, persistent variant index, bounded behavior primitive and the "
+                        + variant.visualStyle().name().toLowerCase(Locale.ROOT) + " presentation profile.",
+                "The 3D preview confirms the profile tag, but combat interruption, movement and sound still need live validation.",
                 true,
                 true);
     }

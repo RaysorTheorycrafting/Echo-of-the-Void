@@ -38,6 +38,17 @@ public final class UncannyWeatherTimingRules {
         return interpolateBounded(DRY_RAIN_MIN_PITCH, DRY_RAIN_MAX_PITCH, randomSample);
     }
 
+    /**
+     * Persisted weather deadlines are only unsafe when they are implausibly far in
+     * the future for the current server session. A deadline in the past is a valid
+     * runnable state and must not be rewritten every tick.
+     */
+    public static boolean requiresFutureDeadlineRebase(long deadline, long currentTick, long maximumFutureTicks) {
+        return deadline != Long.MIN_VALUE
+                && maximumFutureTicks >= 0L
+                && deadline - currentTick > maximumFutureTicks;
+    }
+
     /** Chooses one occurrence-wide audience: everyone, or one stable eligible player. */
     public static SobbingRainAudience sobbingRainAudience(int eligiblePlayerCount, int randomSample) {
         if (eligiblePlayerCount <= 1) {

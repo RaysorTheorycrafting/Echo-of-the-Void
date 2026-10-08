@@ -32,6 +32,15 @@ class ApprovedSpecialBehaviorRulesTest {
     }
 
     @Test
+    void deferredFerrymanNavigationAlwaysLastsTenToFifteenSeconds() {
+        assertEquals(200, ApprovedSpecialBehaviorRules.ferrymanRequiredNavigationTicks(-4));
+        assertEquals(200, ApprovedSpecialBehaviorRules.ferrymanRequiredNavigationTicks(0));
+        assertEquals(250, ApprovedSpecialBehaviorRules.ferrymanRequiredNavigationTicks(50));
+        assertEquals(300, ApprovedSpecialBehaviorRules.ferrymanRequiredNavigationTicks(100));
+        assertEquals(300, ApprovedSpecialBehaviorRules.ferrymanRequiredNavigationTicks(999));
+    }
+
+    @Test
     void mournerAlwaysHasTimeToSobBeforeAcknowledgingItsObserver() {
         assertTrue(25 < ApprovedSpecialBehaviorRules.MOURNER_MIN_OBSERVATION_TICKS);
         assertEquals(18, ApprovedSpecialBehaviorRules.MOURNER_REQUIRED_GAZE_TICKS);
@@ -66,5 +75,84 @@ class ApprovedSpecialBehaviorRulesTest {
         assertTrue(ApprovedSpecialBehaviorRules.shouldPlayAttackerCue(2, 7.0D * 7.0D, true, false));
         assertFalse(ApprovedSpecialBehaviorRules.shouldPlayAttackerCue(3, 1.0D, true, false));
         assertTrue(ApprovedSpecialBehaviorRules.shouldPlayAttackerCue(3, 1.0D, true, true));
+    }
+
+    @Test
+    void followerMeleeRemainsPossibleButCannotRemoveItInOneHit() {
+        assertEquals(0.0F, ApprovedSpecialBehaviorRules.followerPlayerMeleeDamage(-1.0F));
+        assertEquals(2.5F, ApprovedSpecialBehaviorRules.followerPlayerMeleeDamage(2.5F));
+        assertEquals(ApprovedSpecialBehaviorRules.FOLLOWER_PLAYER_MELEE_DAMAGE_CAP,
+                ApprovedSpecialBehaviorRules.followerPlayerMeleeDamage(100.0F));
+        assertTrue(ApprovedSpecialBehaviorRules.FOLLOWER_PLAYER_MELEE_DAMAGE_CAP < 20.0F);
+    }
+
+    @Test
+    void followerOnlyRepositionsOffscreenWithBudgetAndCooldown() {
+        long now = 1_000L;
+        long enoughUnobserved = ApprovedSpecialBehaviorRules.FOLLOWER_UNOBSERVED_REPOSITION_TICKS;
+        assertEquals(2, ApprovedSpecialBehaviorRules.FOLLOWER_INITIAL_REPOSITIONS);
+        assertEquals(8, ApprovedSpecialBehaviorRules.FOLLOWER_UNOBSERVED_REPOSITION_TICKS);
+        assertEquals(16.0D, ApprovedSpecialBehaviorRules.FOLLOWER_REPOSITION_MIN_DISTANCE);
+        assertEquals(8.0D, ApprovedSpecialBehaviorRules.FOLLOWER_REPOSITION_DISTANCE_SPAN);
+        assertEquals(60, ApprovedSpecialBehaviorRules.FOLLOWER_POST_REPOSITION_ATTACK_GRACE_TICKS);
+        assertEquals(96.0D, ApprovedSpecialBehaviorRules.FOLLOWER_OBSERVER_RANGE);
+        assertEquals(20, ApprovedSpecialBehaviorRules.FOLLOWER_REPOSITION_CLOAK_TICKS);
+        assertEquals(3, ApprovedSpecialBehaviorRules.FOLLOWER_REPOSITION_TELEPORT_DELAY_TICKS);
+        assertTrue(ApprovedSpecialBehaviorRules.followerCanAttemptReposition(
+                1, true, false, enoughUnobserved, now, now));
+        assertFalse(ApprovedSpecialBehaviorRules.followerCanAttemptReposition(
+                0, true, false, enoughUnobserved, now, now));
+        assertFalse(ApprovedSpecialBehaviorRules.followerCanAttemptReposition(
+                1, false, false, enoughUnobserved, now, now));
+        assertFalse(ApprovedSpecialBehaviorRules.followerCanAttemptReposition(
+                1, true, true, enoughUnobserved, now, now));
+        assertFalse(ApprovedSpecialBehaviorRules.followerCanAttemptReposition(
+                1, true, false, enoughUnobserved - 1L, now, now));
+        assertFalse(ApprovedSpecialBehaviorRules.followerCanAttemptReposition(
+                1, true, false, enoughUnobserved, now, now + 1L));
+    }
+
+    @Test
+    void followerNeverRaycastsAcrossAnUnboundedTeleport() {
+        double range = ApprovedSpecialBehaviorRules.FOLLOWER_OBSERVER_RANGE;
+        assertTrue(ApprovedSpecialBehaviorRules.followerOwnerWithinTrackingRange(range * range));
+        assertFalse(ApprovedSpecialBehaviorRules.followerOwnerWithinTrackingRange((range + 0.01D) * (range + 0.01D)));
+        assertFalse(ApprovedSpecialBehaviorRules.followerOwnerWithinTrackingRange(Double.POSITIVE_INFINITY));
+        assertFalse(ApprovedSpecialBehaviorRules.followerOwnerWithinTrackingRange(Double.NaN));
+    }
+
+    @Test
+    void followerTeleportRequiresEvidenceOfAnActualVisiblePursuit() {
+        assertEquals(8, ApprovedSpecialBehaviorRules.FOLLOWER_PURSUIT_REQUIRED_TICKS);
+        assertTrue(ApprovedSpecialBehaviorRules.followerPursuitEvidence(
+                true, 12.0D, 0.08D, 0.04D));
+        assertFalse(ApprovedSpecialBehaviorRules.followerPursuitEvidence(
+                false, 12.0D, 0.08D, 0.04D));
+        assertFalse(ApprovedSpecialBehaviorRules.followerPursuitEvidence(
+                true, 18.01D, 0.08D, 0.04D));
+        assertFalse(ApprovedSpecialBehaviorRules.followerPursuitEvidence(
+                true, 12.0D, 0.0D, 0.04D));
+        assertFalse(ApprovedSpecialBehaviorRules.followerPursuitEvidence(
+                true, 12.0D, 0.08D, 0.0D));
+        assertTrue(ApprovedSpecialBehaviorRules.FOLLOWER_UNSEEN_FAR_SPEED < 0.60D);
+        assertTrue(ApprovedSpecialBehaviorRules.FOLLOWER_UNSEEN_NEAR_SPEED
+                < ApprovedSpecialBehaviorRules.FOLLOWER_UNSEEN_FAR_SPEED);
+    }
+
+    @Test
+    void followerPostRepositionGracePreventsAnImmediateUnseenAttack() {
+        long now = 400L;
+        assertFalse(ApprovedSpecialBehaviorRules.followerCanStartUnseenAttack(1.7D, now, now + 1L));
+        assertTrue(ApprovedSpecialBehaviorRules.followerCanStartUnseenAttack(1.7D, now, now));
+        assertFalse(ApprovedSpecialBehaviorRules.followerCanStartUnseenAttack(1.7001D, now, now));
+    }
+    @Test
+    void surveyorStrikesOnceButNeverKills() {
+        assertEquals(4.0F, ApprovedSpecialBehaviorRules.surveyorStrikeDamage(20.0F), 1.0E-6F);
+        assertEquals(1.0F, ApprovedSpecialBehaviorRules.surveyorStrikeDamage(3.0F), 1.0E-6F);
+        assertEquals(0.0F, ApprovedSpecialBehaviorRules.surveyorStrikeDamage(1.5F), 1.0E-6F);
+        for (float health = 0.5F; health <= 20.0F; health += 0.5F) {
+            assertTrue(health - ApprovedSpecialBehaviorRules.surveyorStrikeDamage(health) >= Math.min(health, 2.0F));
+        }
     }
 }

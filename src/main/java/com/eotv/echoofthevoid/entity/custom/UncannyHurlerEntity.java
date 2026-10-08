@@ -297,10 +297,15 @@ public class UncannyHurlerEntity extends Monster implements UncannyEntityMarker 
     private void tickSinking() {
         this.setNoGravity(true);
         this.noPhysics = true;
-        this.setDeltaMovement(0.0D, -0.05D, 0.0D);
-        this.setPos(this.getX(), this.getY() - 0.05D, this.getZ());
+        double step = UncannySinkTransition.step(this, 0.05D, 34);
+        this.setDeltaMovement(0.0D, -step, 0.0D);
+        this.setPos(this.getX(), this.getY() - step, this.getZ());
+        if (UncannySinkTransition.breaksIntoOpenSpace(this)) {
+            UncannySinkTransition.vanish(this);
+            return;
+        }
         if (--this.sinkTicks <= 0) {
-            this.discard();
+            UncannySinkTransition.vanish(this);
         }
     }
 

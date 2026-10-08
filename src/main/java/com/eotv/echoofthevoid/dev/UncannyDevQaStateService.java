@@ -53,13 +53,13 @@ public final class UncannyDevQaStateService {
         handleRun(player, entryId, player == null ? "" : player.getGameProfile().getName(), 4);
     }
 
-    public static synchronized void handleRun(
+    public static synchronized boolean handleRun(
             ServerPlayer requester,
             String entryId,
             String requestedTargetName,
             int requestedSpawnDistance) {
         if (!isAuthorized(requester) || entryId == null) {
-            return;
+            return false;
         }
         ensureLoaded();
 
@@ -68,14 +68,14 @@ public final class UncannyDevQaStateService {
         if (entry == null) {
             sendResult(requester, normalized, false, "Unknown dev entry: " + entryId, requester);
             syncToPlayer(requester, false);
-            return;
+            return false;
         }
 
         ServerPlayer target = resolveTarget(requester, requestedTargetName);
         if (target == null) {
             sendResult(requester, normalized, false, "Target player is not online: " + requestedTargetName, requester);
             syncToPlayer(requester, false);
-            return;
+            return false;
         }
 
         Set<UUID> before = snapshotNearbyMobIds(target);
@@ -97,6 +97,7 @@ public final class UncannyDevQaStateService {
                     "Dev action failed [" + entry.id() + "]: " + result.message()));
         }
         syncToPlayer(requester, false);
+        return result.success();
     }
 
     public static synchronized void updateStatus(ServerPlayer player, String entryId, boolean validatedGreen) {

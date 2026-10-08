@@ -2,6 +2,7 @@ package com.eotv.echoofthevoid.entity.custom;
 
 import com.eotv.echoofthevoid.entity.UncannyEntityMarker;
 import com.eotv.echoofthevoid.entity.UncannyEntityUtil;
+import com.eotv.echoofthevoid.entity.variant.ReplacementVariantExpansionSystem;
 import com.eotv.echoofthevoid.phase.UncannyPhase;
 import com.eotv.echoofthevoid.state.UncannyWorldState;
 import net.minecraft.core.BlockPos;
@@ -12,6 +13,7 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.Blocks;
 import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.world.phys.Vec3;
 
 public class UncannyPhantomEntity extends Phantom implements UncannyEntityMarker {
@@ -41,7 +43,6 @@ public class UncannyPhantomEntity extends Phantom implements UncannyEntityMarker
     public void aiStep() {
         super.aiStep();
         this.setSilent(false);
-        this.setNoGravity(false);
 
         if (level().isClientSide()) {
             return;
@@ -69,19 +70,30 @@ public class UncannyPhantomEntity extends Phantom implements UncannyEntityMarker
         }
 
         if (this.lanternEaterMode) {
+            this.setNoGravity(false);
             tickLanternEaterBehavior();
             return;
         }
 
-        Vec3 horizontal = player.position().subtract(this.position());
-        horizontal = new Vec3(horizontal.x, 0.0D, horizontal.z);
-        if (horizontal.lengthSqr() > 0.01D) {
-            double desiredY = this.onGround() ? 0.0D : Math.max(-0.35D, this.getDeltaMovement().y - 0.12D);
-            this.setDeltaMovement(horizontal.normalize().scale(0.55D).add(0.0D, desiredY, 0.0D));
+        if (!ReplacementVariantExpansionSystem.usesHistoricalSpecializedBehavior(this)) {
+            // The remaining expansion variants are Vanilla Phantoms plus their advertised,
+            // bounded catalog cue. They must not inherit Grounded Hunter's forced fall/chase.
+            return;
         }
-
-        if (this.onGround() && this.horizontalCollision) {
-            this.setDeltaMovement(this.getDeltaMovement().x, 0.24D, this.getDeltaMovement().z);
+        // Keep the historical ID for saved entities, but not its forced ground-homing motion.
+        // Sparse ash beneath the real Vanilla flight path preserves the uncanny presentation
+        // without changing a Phantom's readable swoop, speed or counter-play.
+        if (this.tickCount % 12 == 0 && this.level() instanceof net.minecraft.server.level.ServerLevel serverLevel) {
+            serverLevel.sendParticles(
+                    ParticleTypes.ASH,
+                    this.getX(),
+                    this.getY() - 0.35D,
+                    this.getZ(),
+                    2,
+                    0.15D,
+                    0.05D,
+                    0.15D,
+                    0.002D);
         }
     }
 
@@ -103,7 +115,9 @@ public class UncannyPhantomEntity extends Phantom implements UncannyEntityMarker
         Vec3 delta = target.subtract(this.position());
         if (delta.lengthSqr() > 0.0001D) {
             Vec3 normalized = delta.normalize();
-            this.setDeltaMovement(normalized.scale(0.62D));
+            Vec3 desired = normalized.scale(0.28D);
+            Vec3 current = this.getDeltaMovement();
+            this.setDeltaMovement(current.add(desired.subtract(current).scale(0.32D)));
         }
 
         if (this.distanceToSqr(target.x, target.y, target.z) <= 3.0D && this.tickCount >= this.nextLanternEatTick) {
