@@ -50,7 +50,10 @@ public final class UncannySpecialRewardGameTests {
                 UncannyEntityRegistry.UNCANNY_DRIFTER.get(),
                 UncannyEntityRegistry.UNCANNY_ASHWALKER.get(),
                 UncannyEntityRegistry.UNCANNY_DREDGER.get(),
-                UncannyEntityRegistry.UNCANNY_FLANKER.get());
+                UncannyEntityRegistry.UNCANNY_FLANKER.get(),
+                UncannyEntityRegistry.UNCANNY_PERCHER.get(),
+                UncannyEntityRegistry.UNCANNY_BLUR.get(),
+                UncannyEntityRegistry.UNCANNY_SLEEPER.get());
         for (EntityType<?> type : specialTypes) {
             helper.assertTrue(UncannyEntityRegistry.isSpecialEntity(type),
                     "The common reward handler must classify " + type + " as a Special");

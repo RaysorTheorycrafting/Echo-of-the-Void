@@ -468,8 +468,9 @@ public final class HuntingSpecialGameTests {
         opposite.moveTo(player.getX(), player.getY(), player.getZ() - 12.0D, 0.0F, 0.0F);
 
         helper.runAtTickTime(35, () -> {
-            helper.assertTrue(watched.distanceTo(player) >= 8.0D,
-                    "A directly watched close Flanker? must use its Follower-like speed to leave melee range");
+            // The member looked at is the bait: it never stays within reach of the target's sword.
+            helper.assertTrue(watched.distanceTo(player) >= 5.0D,
+                    "A directly watched close Flanker? must back out of melee range: " + watched.distanceTo(player));
             helper.assertTrue(watched.getAttributeValue(net.minecraft.world.entity.ai.attributes.Attributes.FOLLOW_RANGE)
                             >= HuntingSpecialRules.FLANKER_FOLLOW_RANGE,
                     "Flanker? must retain the long focus range used by its coordinated hunt");
@@ -597,6 +598,106 @@ public final class HuntingSpecialGameTests {
         helper.assertTrue(restoredReward != null && restoredReward.rewardClaimed(),
                 "A completed pair cannot gain a second reward after reload");
         helper.succeed();
+    }
+
+    /**
+     * Flanker? rework (2026-10-09): while the target watches the bait in front, the blade circles round
+     * and every blow it lands comes from behind; the pair never lands more than one blow per Attacker?
+     * cadence, a pincer (two blows together) then waiting twice as long.
+     */
+    @GameTest(template = TEMPLATE, timeoutTicks = 420, batch = "flanker_pincer_isolated")
+    public static void flankerBladeStrikesFromBehindWhileTheBaitIsWatched(GameTestHelper helper) {
+        fillFloor(helper, 0, 15);
+        ServerPlayer player = playerAt(helper, new Vec3(8.5D, 1.0D, 8.5D));
+        for (ServerPlayer other : helper.getLevel().players()) {
+            if (other != player) {
+                other.setGameMode(GameType.SPECTATOR);
+            }
+        }
+        helper.assertTrue(UncannyHuntingSpecialSystem.spawnForDebug(player, "flanker", "normal"),
+                "A wide open floor must admit a Flanker? pair");
+        Vec3 spot = player.position().add(-3.0D, 0.0D, -3.0D);
+        player.moveTo(spot.x, spot.y, spot.z, -45.0F, 0.0F);
+        player.setYHeadRot(-45.0F);
+        Vec3 view = player.getViewVector(1.0F).multiply(1.0D, 0.0D, 1.0D).normalize();
+        Vec3 side = new Vec3(-view.z, 0.0D, view.x);
+        List<UncannyFlankerEntity> pair = helper.getLevel().getEntitiesOfClass(
+                UncannyFlankerEntity.class, new AABB(player.blockPosition()).inflate(32.0D), Entity::isAlive);
+        helper.assertTrue(pair.size() == 2, "The complete pair must exist");
+        UncannyFlankerEntity blade = pair.stream().filter(member -> member.memberIndex() == 0).findFirst().orElseThrow();
+        UncannyFlankerEntity bait = pair.stream().filter(member -> member.memberIndex() == 1).findFirst().orElseThrow();
+        Vec3 ahead = player.position().add(view.scale(7.0D));
+        Vec3 beside = player.position().add(side.scale(6.0D));
+        bait.moveTo(ahead.x, ahead.y, ahead.z, 0.0F, 0.0F);
+        blade.moveTo(beside.x, beside.y, beside.z, 0.0F, 0.0F);
+
+        java.util.List<Integer> hitTicks = new java.util.ArrayList<>();
+        int[] fromBehind = {0};
+        float[] lastHealth = {player.getHealth()};
+        int[] tick = {0};
+        helper.onEachTick(() -> {
+            tick[0]++;
+            // Mock players are never ticked: no invulnerability frames run out, no knockback moves them.
+            player.invulnerableTime = 0;
+            player.moveTo(spot.x, spot.y, spot.z, -45.0F, 0.0F);
+            player.setYHeadRot(-45.0F);
+            float health = player.getHealth();
+            if (health < lastHealth[0] - 0.01F) {
+                hitTicks.add(tick[0]);
+                if (player.getLastHurtByMob() instanceof UncannyFlankerEntity hitter) {
+                    double angle = com.eotv.echoofthevoid.event.special.FlankerRules.signedAngleFromView(
+                            view.x, view.z, hitter.getX() - player.getX(), hitter.getZ() - player.getZ());
+                    if (Math.abs(angle) >= 90.0D) {
+                        fromBehind[0]++;
+                    }
+                }
+                player.setHealth(player.getMaxHealth());
+                health = player.getHealth();
+            }
+            lastHealth[0] = health;
+        });
+        helper.runAtTickTime(400, () -> {
+            helper.assertTrue(fromBehind[0] >= 2, "The blade must get round and strike from behind: "
+                    + fromBehind[0] + " of " + hitTicks.size());
+            int gap = com.eotv.echoofthevoid.event.special.FlankerRules.pairStrikeGapTicks();
+            for (int i = 1; i < hitTicks.size(); i++) {
+                int between = hitTicks.get(i) - hitTicks.get(i - 1);
+                boolean pincer = between <= com.eotv.echoofthevoid.event.special.FlankerRules.PINCER_WINDOW_TICKS + 1;
+                helper.assertTrue(pincer || between >= gap - 1,
+                        "The pair shares one strike rhythm: blows " + between + " ticks apart at " + hitTicks);
+                if (pincer && i + 1 < hitTicks.size()) {
+                    helper.assertTrue(hitTicks.get(i + 1) - hitTicks.get(i) >= 2 * gap - 2,
+                            "After a pincer the pair waits twice as long: " + hitTicks);
+                }
+            }
+            pair.forEach(Entity::discard);
+            helper.succeed();
+        });
+    }
+
+    /** Alone, a Flanker? keeps its own half of the pair's toughness: losing the partner halves the danger. */
+    @GameTest(template = TEMPLATE, timeoutTicks = 40)
+    public static void aLoneFlankerKeepsHalfThePairsToughness(GameTestHelper helper) {
+        fillFloor(helper, 0, 15);
+        ServerPlayer player = playerAt(helper, new Vec3(8.5D, 1.0D, 8.5D));
+        player.setInvulnerable(true);
+        helper.assertTrue(UncannyHuntingSpecialSystem.spawnForDebug(player, "flanker", "normal"),
+                "A wide open floor must admit a Flanker? pair");
+        List<UncannyFlankerEntity> pair = helper.getLevel().getEntitiesOfClass(
+                UncannyFlankerEntity.class, new AABB(player.blockPosition()).inflate(32.0D), Entity::isAlive);
+        helper.assertTrue(pair.size() == 2, "The complete pair must exist");
+        UncannyFlankerEntity first = pair.get(0);
+        UncannyFlankerEntity second = pair.get(1);
+        float before = second.getMaxHealth();
+        first.hurt(helper.getLevel().damageSources().playerAttack(player), 1_000.0F);
+        helper.runAtTickTime(25, () -> {
+            helper.assertTrue(second.isAlive() && second.flankerRole() == UncannyFlankerEntity.Role.SURVIVOR,
+                    "The other one hunts on alone");
+            helper.assertTrue(Math.abs(second.getMaxHealth() - before) < 0.5F,
+                    "It keeps half an Attacker?'s toughness, not a whole one: " + before + " -> " + second.getMaxHealth());
+            second.discard();
+            helper.succeed();
+        });
     }
 
     private static ServerPlayer playerAt(GameTestHelper helper, Vec3 relativePosition) {

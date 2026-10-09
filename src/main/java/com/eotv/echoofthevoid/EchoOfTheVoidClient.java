@@ -90,6 +90,7 @@ public class EchoOfTheVoidClient {
         NeoForge.EVENT_BUS.addListener(UncannyPassiveClientEffects::onRenderNameTag);
         NeoForge.EVENT_BUS.addListener(UncannyPassiveClientEffects::onClientTick);
         NeoForge.EVENT_BUS.addListener(UncannyClientEventEffects::onRenderGuiPost);
+        NeoForge.EVENT_BUS.addListener(com.eotv.echoofthevoid.client.SleeperClientEffects::onRenderGuiLayer);
         NeoForge.EVENT_BUS.addListener(UncannyClientUiEffects::onRenderGuiPost);
         NeoForge.EVENT_BUS.addListener(UncannyClientUiEffects::onRenderGuiLayerPost);
         NeoForge.EVENT_BUS.addListener(UncannyClientUiEffects::onClientTick);
@@ -152,6 +153,10 @@ public class EchoOfTheVoidClient {
         event.registerEntityRenderer(UncannyEntityRegistry.UNCANNY_SLIME.get(), SlimeRenderer::new);
         event.registerEntityRenderer(UncannyEntityRegistry.UNCANNY_MAGMA_CUBE.get(), MagmaCubeRenderer::new);
         event.registerEntityRenderer(UncannyEntityRegistry.UNCANNY_WATCHER.get(), UncannyWatcherRenderer::new);
+        event.registerEntityRenderer(UncannyEntityRegistry.UNCANNY_SLEEPER.get(), com.eotv.echoofthevoid.client.UncannySleeperRenderer::new);
+        event.registerEntityRenderer(UncannyEntityRegistry.UNCANNY_BLUR.get(), com.eotv.echoofthevoid.client.UncannyBlurRenderer::new);
+        event.registerEntityRenderer(UncannyEntityRegistry.UNCANNY_FRIEND.get(), com.eotv.echoofthevoid.client.UncannyFriendRenderer::new);
+        event.registerEntityRenderer(UncannyEntityRegistry.UNCANNY_PERCHER.get(), com.eotv.echoofthevoid.client.UncannyPercherRenderer::new);
         event.registerEntityRenderer(UncannyEntityRegistry.UNCANNY_STALKER.get(), context -> new UncannySilhouetteRenderer<>(context));
         event.registerEntityRenderer(UncannyEntityRegistry.UNCANNY_HURLER.get(), context -> new UncannySilhouetteRenderer<>(context));
         event.registerEntityRenderer(UncannyEntityRegistry.UNCANNY_SHADOW.get(), context -> new UncannySilhouetteRenderer<>(context));
@@ -186,6 +191,8 @@ public class EchoOfTheVoidClient {
 
     private void onRegisterLayerDefinitions(EntityRenderersEvent.RegisterLayerDefinitions event) {
         event.registerLayerDefinition(UncannyDevourerModel.LAYER, UncannyDevourerModel::createBodyLayer);
+        event.registerLayerDefinition(com.eotv.echoofthevoid.client.UncannySleeperModel.LAYER,
+                com.eotv.echoofthevoid.client.UncannySleeperModel::createBodyLayer);
     }
 
     private void onRegisterMenuScreens(RegisterMenuScreensEvent event) {

@@ -96,6 +96,8 @@ public class UncannyWorldState extends SavedData {
     private final List<StructureMarker> structureMarkers = new ArrayList<>();
     private final List<Long> playerPlacedLights = new ArrayList<>();
     private final List<String> campaignRecentFamilies = new ArrayList<>();
+    private final List<WanderingTreeRecord> wanderingTrees = new ArrayList<>();
+    private OldFriendRecord oldFriend;
     private transient boolean sessionRelativeTimersPrepared;
 
     public static UncannyWorldState create() {
@@ -189,6 +191,8 @@ public class UncannyWorldState extends SavedData {
                 0L, tag.getLong("devourerGlobalCooldownUntilCampaignTick"));
         readStructureMarkers(tag, data.structureMarkers);
         readStringList(tag, "campaignRecentFamilies", data.campaignRecentFamilies, 6);
+        readWanderingTrees(tag, data.wanderingTrees);
+        data.oldFriend = tag.contains("oldFriend") ? OldFriendRecord.load(tag.getCompound("oldFriend")) : null;
         for (long packedPos : tag.getLongArray("playerPlacedLights")) {
             if (!data.playerPlacedLights.contains(packedPos) && data.playerPlacedLights.size() < 256) {
                 data.playerPlacedLights.add(packedPos);
@@ -333,6 +337,10 @@ public class UncannyWorldState extends SavedData {
         tag.putLong("devourerGlobalCooldownUntilCampaignTick", devourerGlobalCooldownUntilCampaignTick);
         writeStructureMarkers(tag, structureMarkers);
         writeStringList(tag, "campaignRecentFamilies", campaignRecentFamilies);
+        writeWanderingTrees(tag, wanderingTrees);
+        if (oldFriend != null) {
+            tag.put("oldFriend", oldFriend.save());
+        }
         tag.putLongArray("playerPlacedLights", playerPlacedLights);
         return tag;
     }
@@ -985,6 +993,46 @@ public class UncannyWorldState extends SavedData {
         return deathSites.get(playerId);
     }
 
+    /** The world's single old friend, or null if the event never happened. DONE stays forever. */
+    public OldFriendRecord getOldFriend() {
+        return oldFriend;
+    }
+
+    public void setOldFriend(OldFriendRecord record) {
+        this.oldFriend = record;
+        this.setDirty();
+    }
+
+    public List<WanderingTreeRecord> getWanderingTrees() {
+        return List.copyOf(wanderingTrees);
+    }
+
+    /** Inserts or replaces (same id) a wandering tree; refuses new entries beyond the global bound. */
+    public boolean putWanderingTree(WanderingTreeRecord record) {
+        if (record == null) {
+            return false;
+        }
+        for (int index = 0; index < wanderingTrees.size(); index++) {
+            if (wanderingTrees.get(index).id().equals(record.id())) {
+                wanderingTrees.set(index, record);
+                this.setDirty();
+                return true;
+            }
+        }
+        if (wanderingTrees.size() >= com.eotv.echoofthevoid.event.paranoia.nativeevent.WanderingTreeRules.MAX_RECORDS) {
+            return false;
+        }
+        wanderingTrees.add(record);
+        this.setDirty();
+        return true;
+    }
+
+    public void removeWanderingTree(UUID id) {
+        if (wanderingTrees.removeIf(record -> record.id().equals(id))) {
+            this.setDirty();
+        }
+    }
+
     public void markMournerUsed(UUID playerId) {
         boolean changed = false;
         if (!mournerOccurred) {
@@ -1428,6 +1476,26 @@ public class UncannyWorldState extends SavedData {
             sites.put(item.getUUID("player"), new DeathSite(
                     item.getString("dimension"), item.getLong("pos"), item.getLong("tick"),
                     item.getBoolean("mournerUsed")));
+        }
+    }
+
+    private static void writeWanderingTrees(CompoundTag parent, List<WanderingTreeRecord> trees) {
+        ListTag list = new ListTag();
+        for (WanderingTreeRecord record : trees) {
+            list.add(record.save());
+        }
+        parent.put("wanderingTrees", list);
+    }
+
+    private static void readWanderingTrees(CompoundTag parent, List<WanderingTreeRecord> trees) {
+        trees.clear();
+        ListTag list = parent.getList("wanderingTrees", Tag.TAG_COMPOUND);
+        for (int index = 0; index < list.size()
+                && trees.size() < com.eotv.echoofthevoid.event.paranoia.nativeevent.WanderingTreeRules.MAX_RECORDS; index++) {
+            WanderingTreeRecord record = WanderingTreeRecord.load(list.getCompound(index));
+            if (record != null) {
+                trees.add(record);
+            }
         }
     }
 

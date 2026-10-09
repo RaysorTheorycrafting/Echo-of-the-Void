@@ -9,6 +9,7 @@ import com.eotv.echoofthevoid.entity.variant.ReplacementVariantExpansionSystem;
 import com.eotv.echoofthevoid.event.UncannyDoubleDormantSystem;
 import com.eotv.echoofthevoid.event.UncannyDebugBoundsEventSystem;
 import com.eotv.echoofthevoid.event.UncannyParanoiaEventSystem;
+import com.eotv.echoofthevoid.event.paranoia.nativeevent.WanderingTreeSystem;
 import com.eotv.echoofthevoid.event.UncannyPassiveVariantSystem;
 import com.eotv.echoofthevoid.event.passive.ApprovedVanillaVariantSystem;
 import com.eotv.echoofthevoid.event.special.ApprovedSpecialSystem;
@@ -205,6 +206,9 @@ public final class UncannyDevActionExecutor {
         }
         return switch (specialId) {
             case "watcher" -> UncannyWatcherSystem.forceSpawnWatcher(target);
+            case "sleeper" -> com.eotv.echoofthevoid.event.special.SleeperSystem.spawnForDebug(target);
+            case "blur" -> com.eotv.echoofthevoid.event.special.BlurSystem.spawnForDebug(target);
+            case "percher" -> com.eotv.echoofthevoid.event.special.PercherSystem.spawnForDebug(target);
             case "shadow" -> UncannyParanoiaEventSystem.spawnShadowForCommand(target);
             case "hurler" -> UncannyParanoiaEventSystem.spawnHurlerForCommand(target);
             case "attacker" -> UncannyParanoiaEventSystem.spawnStalkerForCommand(target);
@@ -353,14 +357,36 @@ public final class UncannyDevActionExecutor {
                     "returned_drop", "ghost_cart", "misdirected_enchantment", "orphan_signal",
                     "cauldron_echo", "map_intruder", "empty_wake", "countercurrent_column",
                     "false_sculk_vibration", "watching_arrow", "suspended_fall", "beacon_fragment",
-                    "stray_experience", "extra_in_the_herd", "lava_wake", "false_lid" ->
+                    "stray_experience", "extra_in_the_herd", "lava_wake", "false_lid",
+                    "wandering_tree",
+                    "animal_circle", "animal_grid", "animal_death_circle", "animal_wake_circle", "restored_block", "missing_block", "joined_game", "old_friend" ->
                     UncannyParanoiaEventSystem.triggerMinecraftNativeAnomalyForDebug(target, eventId);
+            case "wandering_tree_step" -> reportWanderingTree(target,
+                    WanderingTreeSystem.forceStep(target) == WanderingTreeSystem.MoveOutcome.MOVED);
+            case "wandering_tree_arm" -> reportWanderingTree(target, WanderingTreeSystem.arm(target));
+            case "old_friend_attack" -> reportOldFriend(target, com.eotv.echoofthevoid.event.special.OldFriendSystem.forceAttack(target));
+            case "old_friend_reset" -> reportOldFriend(target, target.getServer() != null && com.eotv.echoofthevoid.event.special.OldFriendSystem.reset(target.getServer()));
             case "grand_event", "grand_event_warden" -> UncannyParanoiaEventSystem.triggerGrandEventWarden(target);
             case "grand_event_stop" -> UncannyParanoiaEventSystem.triggerGrandEventStop(target);
             case "tension_builder_start" -> UncannyParanoiaEventSystem.triggerTensionBuilderStart(target);
             case "tension_builder_stop" -> UncannyParanoiaEventSystem.triggerTensionBuilderStop(target);
             default -> false;
         };
+    }
+
+    /** QA feedback: the move outcome and trap state are otherwise invisible by design. */
+    private static boolean reportWanderingTree(ServerPlayer target, boolean success) {
+        target.sendSystemMessage(net.minecraft.network.chat.Component.literal(
+                WanderingTreeSystem.describeFor(target)));
+        return success;
+    }
+
+    private static boolean reportOldFriend(ServerPlayer target, boolean success) {
+        if (target.getServer() != null) {
+            target.sendSystemMessage(net.minecraft.network.chat.Component.literal(
+                    com.eotv.echoofthevoid.event.special.OldFriendSystem.describe(target.getServer())));
+        }
+        return success;
     }
 
     private static boolean triggerVariant(ServerPlayer target, String variantArg) {

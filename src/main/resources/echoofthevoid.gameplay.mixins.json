@@ -1,0 +1,18 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "com.eotv.echoofthevoid.mixin.common",
+  "compatibilityLevel": "JAVA_21",
+  "mixins": [
+    "PlayerInfoUpdatePacketAccessor",
+    "SleeperPinnedPlayerMixin",
+    "SleeperPinnedServerPlayerMixin"
+  ],
+  "client": [
+    "client.MinecraftMultiplayerInvoker",
+    "client.SocialInteractionsKeyMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}

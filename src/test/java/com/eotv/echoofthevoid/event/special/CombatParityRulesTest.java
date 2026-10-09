@@ -43,7 +43,7 @@ class CombatParityRulesTest {
     void thePlayerAlwaysWinsAPerfectlyTradedDuel() {
         for (CombatParityRules.Profile profile : new CombatParityRules.Profile[] {
                 CombatParityRules.ATTACKER, CombatParityRules.MINER, CombatParityRules.ECHOER,
-                CombatParityRules.FLANKER_SURVIVOR, CombatParityRules.DRIFTER,
+                CombatParityRules.DRIFTER,
                 CombatParityRules.ASHWALKER, CombatParityRules.DREDGER}) {
             double creatureSeconds = CombatParityRules.hitsToKillPlayer(profile) * profile.monsterCadenceSeconds();
             assertTrue(creatureSeconds > profile.playerSeconds() * 1.2D, profile.id());
@@ -56,6 +56,20 @@ class CombatParityRulesTest {
         // User feedback 2026-10-08: about one heart per hit felt harmless.
         assertTrue(CombatParityRules.effectiveDamagePerHit(CombatParityRules.ATTACKER, 20.0D) >= 3.9D);
         assertTrue(CombatParityRules.hitsToKillPlayer(CombatParityRules.ATTACKER) <= 5);
+    }
+
+    /** Rework 2026-10-09 (user): the pair together is exactly one Attacker?. */
+    @Test
+    void aFlankerPairIsOneAttackerSplitInTwo() {
+        CombatParityRules.Profile member = CombatParityRules.FLANKER_PAIR_MEMBER;
+        CombatParityRules.Profile attacker = CombatParityRules.ATTACKER;
+        assertEquals(attacker.playerSeconds(), member.playerSeconds(), 1.0E-9D);
+        assertEquals(attacker.monsterCadenceSeconds(), member.monsterCadenceSeconds(), 1.0E-9D);
+        assertEquals(0.5D, member.healthShare(), 1.0E-9D);
+        assertEquals(CombatParityRules.effectiveDamagePerHit(attacker, 20.0D),
+                CombatParityRules.effectiveDamagePerHit(member, 20.0D), 1.0E-9D, "the same blow");
+        assertEquals(CombatParityRules.maxHealth(attacker, 7.0D, 1.6D),
+                2.0D * CombatParityRules.maxHealth(member, 7.0D, 1.6D), 1.0E-6D, "half the toughness each");
     }
 
     @Test

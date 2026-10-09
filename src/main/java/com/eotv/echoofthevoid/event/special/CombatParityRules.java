@@ -30,10 +30,12 @@ public final class CombatParityRules {
     public static final Profile ATTACKER = new Profile("attacker", 6.0D, 1.8D, 1.0D);
     public static final Profile MINER = new Profile("miner", 6.0D, 1.8D, 1.0D);
     public static final Profile ECHOER = new Profile("echoer", 5.0D, 1.4D, 1.0D);
-    /** Each Flanker? carries half of the pair's toughness; only one strikes at a time. */
-    public static final Profile FLANKER_PAIR_MEMBER = new Profile("flanker", 7.0D, 1.6D, 0.5D);
-    /** A Flanker? whose partner is gone hunts alone with a whole hunter's toughness. */
-    public static final Profile FLANKER_SURVIVOR = new Profile("flanker_survivor", 5.0D, 1.4D, 1.0D);
+    /**
+     * The pair together is one Attacker? (rework, 2026-10-09): each member carries half its toughness
+     * and the same blow, and the pair shares one strike rhythm at the Attacker? cadence. Its danger is
+     * the pincer, not its numbers. A lone survivor keeps its half.
+     */
+    public static final Profile FLANKER_PAIR_MEMBER = new Profile("flanker", 6.0D, 1.8D, 0.5D);
     public static final Profile DRIFTER = new Profile("drifter", 6.0D, 1.8D, 1.0D);
     public static final Profile ASHWALKER = new Profile("ashwalker", 5.0D, 2.0D, 1.0D);
     public static final Profile DREDGER = new Profile("dredger", 7.0D, 1.5D, 1.0D);

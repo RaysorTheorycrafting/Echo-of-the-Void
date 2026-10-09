@@ -54,7 +54,15 @@ class ParanoiaEventCatalogTest {
                         SUSPENDED_FALL,
                         BEACON_FRAGMENT,
                         STRAY_EXPERIENCE,
-                        EXTRA_IN_THE_HERD),
+                        EXTRA_IN_THE_HERD,
+                        WANDERING_TREE,
+                        JOINED_GAME,
+                        OLD_FRIEND,
+                        RESTORED_BLOCK,
+                        MISSING_BLOCK,
+                        ANIMAL_CIRCLE,
+                        ANIMAL_GRID,
+                        ANIMAL_DEATH_CIRCLE),
                 ids(ParanoiaEventCatalog.primaryEvents()));
     }
 
@@ -140,14 +148,17 @@ class ParanoiaEventCatalogTest {
                         DRIFTER,
                         ASHWALKER,
                         DREDGER,
-                        FLANKER),
+                        FLANKER,
+                        SLEEPER,
+                        BLUR,
+                        PERCHER),
                 ids(ParanoiaEventCatalog.specialEvents()));
     }
 
     @Test
     void catalogContainsEveryCanonicalTriggerIdentifierExactlyOnce() {
-        assertEquals(95, ParanoiaEventCatalog.byId().size());
-        assertEquals(95, Set.copyOf(ParanoiaEventCatalog.byId().keySet()).size());
+        assertEquals(107, ParanoiaEventCatalog.byId().size());
+        assertEquals(107, Set.copyOf(ParanoiaEventCatalog.byId().keySet()).size());
         assertTrue(ParanoiaEventCatalog.byId().keySet().stream()
                 .allMatch(id -> id.matches("[a-z][a-z0-9_]*")));
         assertThrows(UnsupportedOperationException.class,
@@ -212,6 +223,15 @@ class ParanoiaEventCatalogTest {
                         EXTRA_IN_THE_HERD,
                         LAVA_WAKE,
                         FALSE_LID,
+                        WANDERING_TREE,
+                        JOINED_GAME,
+                        OLD_FRIEND,
+                        RESTORED_BLOCK,
+                        MISSING_BLOCK,
+                        ANIMAL_CIRCLE,
+                        ANIMAL_GRID,
+                        ANIMAL_DEATH_CIRCLE,
+                        ANIMAL_WAKE_CIRCLE,
                         DEBUG_BOUNDS,
                         SURVEYOR,
                         MOURNER,
@@ -225,7 +245,10 @@ class ParanoiaEventCatalogTest {
                         DRIFTER,
                         ASHWALKER,
                         DREDGER,
-                        FLANKER),
+                        FLANKER,
+                        PERCHER,
+                        BLUR,
+                        SLEEPER),
                 ParanoiaEventCatalog.post111EventIds());
         assertEquals(Set.of(
                         ORPHAN_SHADOW, GHOST_BREAKING, COLD_FURNACE, EMPTY_TELEPORT,
@@ -234,7 +257,15 @@ class ParanoiaEventCatalogTest {
                         RETURNED_DROP, GHOST_CART, MISDIRECTED_ENCHANTMENT, ORPHAN_SIGNAL,
                         CAULDRON_ECHO, MAP_INTRUDER, EMPTY_WAKE, COUNTERCURRENT_COLUMN,
                         FALSE_SCULK_VIBRATION, WATCHING_ARROW, SUSPENDED_FALL, BEACON_FRAGMENT,
-                        STRAY_EXPERIENCE, EXTRA_IN_THE_HERD, LAVA_WAKE, FALSE_LID),
+                        STRAY_EXPERIENCE, EXTRA_IN_THE_HERD, LAVA_WAKE, FALSE_LID,
+                        WANDERING_TREE,
+                        ANIMAL_CIRCLE,
+                        ANIMAL_GRID,
+                        ANIMAL_DEATH_CIRCLE,
+                        RESTORED_BLOCK,
+                        MISSING_BLOCK,
+                        JOINED_GAME,
+                        OLD_FRIEND),
                 ParanoiaEventCatalog.validatedNativeEventIds());
         assertEquals(2, ParanoiaEventCatalog.require(ORPHAN_SHADOW).minimumPhase());
         assertEquals(5, ParanoiaEventCatalog.require(ORPHAN_SHADOW).primaryWeight());
@@ -265,24 +296,38 @@ class ParanoiaEventCatalogTest {
         assertEquals(2400, ParanoiaEventCatalog.require(EXTRA_IN_THE_HERD).eventCooldownSeconds());
         assertEquals(1200, ParanoiaEventCatalog.require(LAVA_WAKE).eventCooldownSeconds());
         assertEquals(1800, ParanoiaEventCatalog.require(FALSE_LID).ambientCooldownSeconds());
+        assertEquals(2, ParanoiaEventCatalog.require(WANDERING_TREE).minimumPhase());
+        assertEquals(1, ParanoiaEventCatalog.require(WANDERING_TREE).primaryWeight());
+        assertEquals(7200, ParanoiaEventCatalog.require(WANDERING_TREE).eventCooldownSeconds());
+        assertEquals(ParanoiaEventSeverity.MEDIUM, ParanoiaEventCatalog.require(WANDERING_TREE).severity());
+        assertEquals(ParanoiaEventSeverity.EXTREME, ParanoiaEventCatalog.require(OLD_FRIEND).severity());
+        assertEquals(7200, ParanoiaEventCatalog.require(JOINED_GAME).eventCooldownSeconds());
+        assertEquals(1200, ParanoiaEventCatalog.require(RESTORED_BLOCK).eventCooldownSeconds());
+        assertEquals(3, ParanoiaEventCatalog.require(MISSING_BLOCK).minimumPhase());
+        assertEquals(2400, ParanoiaEventCatalog.require(ANIMAL_CIRCLE).eventCooldownSeconds());
+        assertEquals(3, ParanoiaEventCatalog.require(ANIMAL_DEATH_CIRCLE).minimumPhase());
+        assertTrue(ParanoiaEventCatalog.require(ANIMAL_WAKE_CIRCLE).lanes().equals(java.util.Set.of(ParanoiaEventLane.CONTEXTUAL)));
         assertSpecial(ECHOER, 2, 3, 3, ParanoiaEventSeverity.HIGH);
         assertSpecial(DRIFTER, 2, 3, 3, ParanoiaEventSeverity.HIGH);
         assertSpecial(ASHWALKER, 2, 3, 4, ParanoiaEventSeverity.HIGH);
         assertSpecial(DREDGER, 3, 4, 2, ParanoiaEventSeverity.HIGH);
         assertSpecial(FLANKER, 3, 4, 2, ParanoiaEventSeverity.EXTREME);
+        assertSpecial(PERCHER, 2, 0, 6, ParanoiaEventSeverity.LIGHT);
+        assertSpecial(BLUR, 2, 0, 5, ParanoiaEventSeverity.MEDIUM);
+        assertSpecial(SLEEPER, 3, 2, 4, ParanoiaEventSeverity.HIGH);
     }
 
     @Test
     void phaseAvailabilityCountsAreStable() {
         assertEquals(10, availablePrimary(1));
-        assertEquals(24, availablePrimary(2));
-        assertEquals(37, availablePrimary(3));
-        assertEquals(41, availablePrimary(4));
+        assertEquals(29, availablePrimary(2));
+        assertEquals(45, availablePrimary(3));
+        assertEquals(49, availablePrimary(4));
 
-        assertEquals(8, availableSpecial(2, 0));
-        assertEquals(15, availableSpecial(3, 0));
-        assertEquals(15, availableSpecial(3, 1));
-        assertEquals(17, availableSpecial(3, 2));
+        assertEquals(10, availableSpecial(2, 0));
+        assertEquals(17, availableSpecial(3, 0));
+        assertEquals(17, availableSpecial(3, 1));
+        assertEquals(20, availableSpecial(3, 2));
     }
 
     @Test

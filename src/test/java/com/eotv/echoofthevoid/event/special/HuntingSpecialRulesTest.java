@@ -16,6 +16,15 @@ class HuntingSpecialRulesTest {
         assertEquals(72_000L, HuntingSpecialRules.fixedCooldownTicks("flanker"));
     }
 
+    /** Live QA 2026-10-09 (user): the lone Flanker? killed far too fast. */
+    @Test
+    void flankerBlowsLandAtTheCadenceTheirDamageWasCalibratedFor() {
+        // The pair shares one rhythm: one landed blow per Attacker? cadence (1.8 s).
+        assertEquals(36, HuntingSpecialRules.flankerAttackIntervalTicks(CombatParityRules.FLANKER_PAIR_MEMBER));
+        // A player reaches 3 blocks: alone and face to face, it must come within that reach to strike.
+        assertTrue(HuntingSpecialRules.FLANKER_SURVIVOR_STRIKE_DISTANCE < 3.0D);
+    }
+
     @Test
     void adaptiveProfilesApplyApprovedScalingAndBounds() {
         AdaptiveSpecialCombatProfile attacker = new AdaptiveSpecialCombatProfile(30.0D, 10.0D, 0.50D, 12.0D, 6.0D);

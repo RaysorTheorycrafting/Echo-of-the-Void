@@ -7,6 +7,15 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.Test;
 
 class ApprovedSpecialBehaviorRulesTest {
+    /** Live QA 2026-10-09: far away, a path search that cannot reach is no reason to hide. */
+    @Test
+    void attackerOnlyJudgesMissingPathsWithinSearchReach() {
+        org.junit.jupiter.api.Assertions.assertTrue(ApprovedSpecialBehaviorRules.attackerJudgesPathAt(12.0D));
+        org.junit.jupiter.api.Assertions.assertFalse(ApprovedSpecialBehaviorRules.attackerJudgesPathAt(86.0D),
+                "the Flash event spawns it up to 120 blocks off; its follow range is 64");
+        org.junit.jupiter.api.Assertions.assertTrue(ApprovedSpecialBehaviorRules.ATTACKER_PATH_JUDGEMENT_RANGE < 64.0D);
+    }
+
     @Test
     void ferrymanRequiresRealMovementAndDeepWater() {
         assertEquals(4, ApprovedSpecialBehaviorRules.FERRYMAN_MIN_WATER_DEPTH);

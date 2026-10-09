@@ -14,7 +14,7 @@ import org.junit.jupiter.api.Test;
 
 class ParanoiaSchedulerSimulatorTest {
     private static final String EXPECTED_ACTIVE_REPORT_SHA256 =
-            "8A7E10E2C834901D8E6055D4180863A96C676CA60004A22AA4A4A88341D3767F";
+            "E101FAED13790FDAC725D8BE96E220743D67F80E4FBFDB6593A67E525F4A699A";
     private static final String EXPECTED_111_REPORT_SHA256 =
             "17F0D33F0317DC49E55CCDD3E30F7CF7D20B6ADA7185ED63486DAC0818AFE9AC";
 
@@ -46,12 +46,18 @@ class ParanoiaSchedulerSimulatorTest {
 
     @Test
     void activeBlackoutIsAtLeastTwiceAsRareAsIn111() {
-        ParanoiaSchedulerSimulator.SimulationReport active = ParanoiaSchedulerSimulator.simulate(
-                ParanoiaSchedulerSimulator.Scenario.reference(4, 3, 3, 25.0D, 0xE07F0111L));
-        ParanoiaSchedulerSimulator.SimulationReport historical = ParanoiaSchedulerSimulator.simulate(
-                ParanoiaSchedulerSimulator.Scenario.reference111(4, 3, 3, 25.0D, 0xE07F0111L));
-        long activeCount = active.countsByEvent().getOrDefault("blackout", 0L);
-        long historicalCount = historical.countsByEvent().getOrDefault("blackout", 0L);
+        // Rarity is an expectation: a single seed swings with every new candidate added to the pool,
+        // so the counts are summed over several seeded runs.
+        long activeCount = 0L;
+        long historicalCount = 0L;
+        for (long seed = 0xE07F0111L; seed < 0xE07F0111L + 8L; seed++) {
+            activeCount += ParanoiaSchedulerSimulator.simulate(
+                    ParanoiaSchedulerSimulator.Scenario.reference(4, 3, 3, 25.0D, seed))
+                    .countsByEvent().getOrDefault("blackout", 0L);
+            historicalCount += ParanoiaSchedulerSimulator.simulate(
+                    ParanoiaSchedulerSimulator.Scenario.reference111(4, 3, 3, 25.0D, seed))
+                    .countsByEvent().getOrDefault("blackout", 0L);
+        }
         assertTrue(historicalCount >= 3, "the reference scenario must exercise Blackout: " + historicalCount);
         // The simulation models weight and spacing only; the runtime also removes the forced-fallback
         // Blackout and adds a 30-minute join grace, which this scheduler model cannot represent.

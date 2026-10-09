@@ -11,7 +11,12 @@ public final class UncannyDimensionRules {
             ParanoiaEventIds.AQUATIC_STEPS);
     private static final Set<String> OVERWORLD_EVENT_ONLY = Set.of(
             ParanoiaEventIds.COMPASS_LIAR,
-            ParanoiaEventIds.BEACON_FRAGMENT);
+            ParanoiaEventIds.BEACON_FRAGMENT,
+            ParanoiaEventIds.WANDERING_TREE,
+            ParanoiaEventIds.ANIMAL_CIRCLE,
+            ParanoiaEventIds.ANIMAL_GRID,
+            ParanoiaEventIds.ANIMAL_DEATH_CIRCLE,
+            ParanoiaEventIds.ANIMAL_WAKE_CIRCLE);
     private static final Set<String> END_SPECIALS = Set.of(
             ParanoiaEventIds.FOLLOWER,
             ParanoiaEventIds.PULSE,
@@ -26,7 +31,10 @@ public final class UncannyDimensionRules {
     private static final Set<String> OVERWORLD_SPECIAL_ONLY = Set.of(
             ParanoiaEventIds.WATCHER,
             ParanoiaEventIds.USHER,
-            ParanoiaEventIds.FERRYMAN);
+            ParanoiaEventIds.FERRYMAN,
+            ParanoiaEventIds.PERCHER,
+            ParanoiaEventIds.BLUR,
+            ParanoiaEventIds.SLEEPER);
 
     private UncannyDimensionRules() {
     }

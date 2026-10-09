@@ -115,6 +115,35 @@ public final class UncannySoundRegistry {
             "uncanny_terror_lock",
             () -> SoundEvent.createVariableRangeEvent(ResourceLocation.fromNamespaceAndPath(EchoOfTheVoid.MODID, "uncanny_terror_lock")));
 
+    // Sleeper?: original rush, jaw and bite, physical and spatial.
+    public static final DeferredHolder<SoundEvent, SoundEvent> UNCANNY_SLEEPER_RUSH = SOUND_EVENTS.register(
+            "uncanny_sleeper_rush",
+            () -> SoundEvent.createVariableRangeEvent(ResourceLocation.fromNamespaceAndPath(EchoOfTheVoid.MODID, "uncanny_sleeper_rush")));
+    public static final DeferredHolder<SoundEvent, SoundEvent> UNCANNY_SLEEPER_JAW = SOUND_EVENTS.register(
+            "uncanny_sleeper_jaw",
+            () -> SoundEvent.createVariableRangeEvent(ResourceLocation.fromNamespaceAndPath(EchoOfTheVoid.MODID, "uncanny_sleeper_jaw")));
+    public static final DeferredHolder<SoundEvent, SoundEvent> UNCANNY_SLEEPER_BITE = SOUND_EVENTS.register(
+            "uncanny_sleeper_bite",
+            () -> SoundEvent.createVariableRangeEvent(ResourceLocation.fromNamespaceAndPath(EchoOfTheVoid.MODID, "uncanny_sleeper_bite")));
+    // Sleeper? in a fight: rattling breath, teeth snapping on each blow, shrieks when hurt, death rattle.
+    public static final DeferredHolder<SoundEvent, SoundEvent> UNCANNY_SLEEPER_GROWL = SOUND_EVENTS.register(
+            "uncanny_sleeper_growl",
+            () -> SoundEvent.createVariableRangeEvent(ResourceLocation.fromNamespaceAndPath(EchoOfTheVoid.MODID, "uncanny_sleeper_growl")));
+    public static final DeferredHolder<SoundEvent, SoundEvent> UNCANNY_SLEEPER_SNAP = SOUND_EVENTS.register(
+            "uncanny_sleeper_snap",
+            () -> SoundEvent.createVariableRangeEvent(ResourceLocation.fromNamespaceAndPath(EchoOfTheVoid.MODID, "uncanny_sleeper_snap")));
+    public static final DeferredHolder<SoundEvent, SoundEvent> UNCANNY_SLEEPER_HURT = SOUND_EVENTS.register(
+            "uncanny_sleeper_hurt",
+            () -> SoundEvent.createVariableRangeEvent(ResourceLocation.fromNamespaceAndPath(EchoOfTheVoid.MODID, "uncanny_sleeper_hurt")));
+    public static final DeferredHolder<SoundEvent, SoundEvent> UNCANNY_SLEEPER_DEATH = SOUND_EVENTS.register(
+            "uncanny_sleeper_death",
+            () -> SoundEvent.createVariableRangeEvent(ResourceLocation.fromNamespaceAndPath(EchoOfTheVoid.MODID, "uncanny_sleeper_death")));
+
+    // Wandering tree: original shriek with a detuned echo, played where the tree vanished.
+    public static final DeferredHolder<SoundEvent, SoundEvent> UNCANNY_WANDERING_TREE_SCREAM = SOUND_EVENTS.register(
+            "uncanny_wandering_tree_scream",
+            () -> SoundEvent.createVariableRangeEvent(ResourceLocation.fromNamespaceAndPath(EchoOfTheVoid.MODID, "uncanny_wandering_tree_scream")));
+
     public static final DeferredHolder<SoundEvent, SoundEvent> UNCANNY_PSSS = SOUND_EVENTS.register(
             "uncanny_psss",
             () -> SoundEvent.createVariableRangeEvent(ResourceLocation.fromNamespaceAndPath(EchoOfTheVoid.MODID, "uncanny_psss")));

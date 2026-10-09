@@ -10,6 +10,10 @@ public final class UncannyConfig {
             .comment("Enable verbose debug logs for uncanny systems.")
             .define("uncanny.debugLogs", false);
 
+    public static final ModConfigSpec.BooleanValue OLD_FRIEND_ENABLED = BUILDER
+            .comment("Allow the very rare event that borrows the name and skin of a player found in another local save.")
+            .define("uncanny.events.oldFriendEnabled", true);
+
     public static final ModConfigSpec.BooleanValue DARKNESS_ENABLED = BUILDER
             .comment("Enable progressive darkness rendering.")
             .define("uncanny.darkness.enabled", true);

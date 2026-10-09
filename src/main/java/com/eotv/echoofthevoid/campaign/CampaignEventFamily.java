@@ -26,20 +26,20 @@ public enum CampaignEventFamily {
             "empty_lead", "empty_wake", "borrowed_painting", "returned_drop",
             "countercurrent_column", "false_sculk_vibration", "watching_arrow",
             "suspended_fall", "beacon_fragment", "stray_experience", "extra_in_the_herd",
-            "living_ore", "door_inversion", "misplaced_light", "phantom_harvest");
+            "living_ore", "door_inversion", "misplaced_light", "phantom_harvest", "wandering_tree", "restored_block", "missing_block");
     private static final Set<String> OBSERVATIONS = Set.of(
             "flash_red", "orphan_shadow", "stolen_pose", "map_intruder", "projected_shadow",
-            "empty_congregation", "animal_stare_lock", "pet_refusal", "compass_liar");
+            "empty_congregation", "animal_stare_lock", "pet_refusal", "compass_liar", "animal_circle", "animal_grid", "animal_death_circle", "animal_wake_circle");
     private static final Set<String> BODY_DOUBTS = Set.of(
             "false_fall", "flash", "false_injury", "hotbar_wrong_count", "corrupt_toast",
-            "fishing_tug", "corrupt_message");
+            "fishing_tug", "corrupt_message", "joined_game");
     private static final Set<String> ENVIRONMENTAL_THREATS = Set.of(
             "blackout", "asphyxia", "hunter_fog", "forced_fallback");
     private static final Set<String> PRESENCES = Set.of(
             "watcher", "pulse", "follower", "knocker", "hurler", "usher", "keeper",
             "tenant", "stalker", "shadow", "surveyor", "mourner", "doubler", "ferryman",
             "listener", "bystander", "miner", "devourer", "echoer", "drifter", "ashwalker",
-            "dredger", "flanker", "double_dormant");
+            "dredger", "flanker", "double_dormant", "percher", "old_friend", "blur", "sleeper");
 
     public static CampaignEventFamily forEvent(String eventId) {
         if (eventId == null || eventId.isBlank()) {

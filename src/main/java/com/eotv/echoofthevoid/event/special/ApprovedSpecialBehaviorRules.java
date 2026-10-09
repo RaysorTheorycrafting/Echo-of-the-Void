@@ -160,6 +160,16 @@ public final class ApprovedSpecialBehaviorRules {
     }
 
     /**
+     * Within this distance a missing full path means the target is out of reach (a pillar, a moat) and
+     * Attacker? may go into hiding. Farther away no path search can reach it anyway: it keeps coming.
+     */
+    public static final double ATTACKER_PATH_JUDGEMENT_RANGE = 32.0D;
+
+    public static boolean attackerJudgesPathAt(double distanceToTarget) {
+        return distanceToTarget <= ATTACKER_PATH_JUDGEMENT_RANGE;
+    }
+
+    /**
      * Attacker? intentionally has four equally selectable cue modes: silent, distant line-of-sight,
      * close line-of-sight, or a cue only after its first successful hit.
      */

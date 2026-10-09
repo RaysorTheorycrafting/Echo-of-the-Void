@@ -140,6 +140,57 @@
       "echoofthevoid:uncanny/terror/terror_lock_1"
     ]
   },
+  "uncanny_sleeper_rush": {
+    "subtitle": "subtitle.echoofthevoid.sleeper_rush",
+    "sounds": [
+      "echoofthevoid:uncanny/sleeper/sleeper_rush"
+    ]
+  },
+  "uncanny_sleeper_jaw": {
+    "subtitle": "subtitle.echoofthevoid.sleeper_jaw",
+    "sounds": [
+      "echoofthevoid:uncanny/sleeper/sleeper_jaw"
+    ]
+  },
+  "uncanny_sleeper_bite": {
+    "subtitle": "subtitle.echoofthevoid.sleeper_bite",
+    "sounds": [
+      "echoofthevoid:uncanny/sleeper/sleeper_bite"
+    ]
+  },
+  "uncanny_sleeper_growl": {
+    "subtitle": "subtitle.echoofthevoid.sleeper_growl",
+    "sounds": [
+      "echoofthevoid:uncanny/sleeper/sleeper_growl_1",
+      "echoofthevoid:uncanny/sleeper/sleeper_growl_2"
+    ]
+  },
+  "uncanny_sleeper_snap": {
+    "subtitle": "subtitle.echoofthevoid.sleeper_snap",
+    "sounds": [
+      "echoofthevoid:uncanny/sleeper/sleeper_snap"
+    ]
+  },
+  "uncanny_sleeper_hurt": {
+    "subtitle": "subtitle.echoofthevoid.sleeper_hurt",
+    "sounds": [
+      "echoofthevoid:uncanny/sleeper/sleeper_hurt_1",
+      "echoofthevoid:uncanny/sleeper/sleeper_hurt_2"
+    ]
+  },
+  "uncanny_sleeper_death": {
+    "subtitle": "subtitle.echoofthevoid.sleeper_death",
+    "sounds": [
+      "echoofthevoid:uncanny/sleeper/sleeper_death"
+    ]
+  },
+  "uncanny_wandering_tree_scream": {
+    "subtitle": "subtitle.echoofthevoid.wandering_tree_scream",
+    "sounds": [
+      "echoofthevoid:uncanny/wandering_tree/wandering_tree_scream_1",
+      "echoofthevoid:uncanny/wandering_tree/wandering_tree_scream_2"
+    ]
+  },
   "uncanny_terror_scream": {
     "subtitle": "subtitle.echoofthevoid.terror_scream",
     "sounds": [

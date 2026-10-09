@@ -18,6 +18,9 @@ public final class UncannyDevCatalog {
     static {
         // Entity: specials and unique threats
         addGrouped(Category.ENTITIES, "watcher", "Watcher?", "entity_watcher_spawn", "Spawn", ActionKind.SPAWN_SPECIAL, "watcher");
+        addGrouped(Category.ENTITIES, "sleeper", "Sleeper?", "entity_sleeper_spawn", "Spawn", ActionKind.SPAWN_SPECIAL, "sleeper");
+        addGrouped(Category.ENTITIES, "blur", "Blur?", "entity_blur_spawn", "Spawn", ActionKind.SPAWN_SPECIAL, "blur");
+        addGrouped(Category.ENTITIES, "percher", "Percher?", "entity_percher_spawn", "Spawn", ActionKind.SPAWN_SPECIAL, "percher");
         addGrouped(Category.ENTITIES, "shadow", "Shadow?", "entity_shadow_spawn", "Spawn", ActionKind.SPAWN_SPECIAL, "shadow");
         addGrouped(Category.ENTITIES, "hurler", "Hurler?", "entity_hurler_spawn", "Spawn", ActionKind.SPAWN_SPECIAL, "hurler");
         addGrouped(Category.ENTITIES, "attacker", "Attacker?", "entity_attacker_spawn", "Spawn", ActionKind.SPAWN_SPECIAL, "attacker");
@@ -374,6 +377,19 @@ public final class UncannyDevCatalog {
         addGrouped(Category.EVENTS, "extra_in_the_herd", "Extra in the Herd", "event_extra_in_the_herd", "Trigger", ActionKind.TRIGGER_EVENT, "extra_in_the_herd");
         addGrouped(Category.EVENTS, "lava_wake", "Lava Wake", "event_lava_wake", "Trigger", ActionKind.TRIGGER_EVENT, "lava_wake");
         addGrouped(Category.EVENTS, "false_lid", "False Lid", "event_false_lid", "Trigger", ActionKind.TRIGGER_EVENT, "false_lid");
+        addGrouped(Category.EVENTS, "wandering_tree", "Wandering Tree", "event_wandering_tree", "Adopt Nearby Tree", ActionKind.TRIGGER_EVENT, "wandering_tree");
+        addGrouped(Category.EVENTS, "wandering_tree", "Wandering Tree", "event_wandering_tree_step", "Move Now (if unseen)", ActionKind.TRIGGER_EVENT, "wandering_tree_step");
+        addGrouped(Category.EVENTS, "wandering_tree", "Wandering Tree", "event_wandering_tree_arm", "Arm Trap (3 moves)", ActionKind.TRIGGER_EVENT, "wandering_tree_arm");
+        addGrouped(Category.EVENTS, "animal_circle", "Animal Circle", "event_animal_circle", "Trigger - Circle", ActionKind.TRIGGER_EVENT, "animal_circle");
+        addGrouped(Category.EVENTS, "animal_grid", "Animal Grid", "event_animal_grid", "Trigger - Pen Grid", ActionKind.TRIGGER_EVENT, "animal_grid");
+        addGrouped(Category.EVENTS, "animal_death_circle", "Animal Death Circle", "event_animal_death_circle", "Trigger - Death Site", ActionKind.TRIGGER_EVENT, "animal_death_circle");
+        addGrouped(Category.EVENTS, "animal_wake_circle", "Animal Wake Circle", "event_animal_wake_circle", "Trigger - Around the Bed", ActionKind.TRIGGER_EVENT, "animal_wake_circle");
+        addGrouped(Category.EVENTS, "restored_block", "Restored Block", "event_restored_block", "Trigger - Mined Block Returns", ActionKind.TRIGGER_EVENT, "restored_block");
+        addGrouped(Category.EVENTS, "missing_block", "Missing Block", "event_missing_block", "Trigger - Hole in the Wall", ActionKind.TRIGGER_EVENT, "missing_block");
+        addGrouped(Category.EVENTS, "joined_game", "Joined the Game", "event_joined_game", "Trigger - Own Name", ActionKind.TRIGGER_EVENT, "joined_game");
+        addGrouped(Category.EVENTS, "old_friend", "Old Friend", "event_old_friend", "Trigger - Join", ActionKind.TRIGGER_EVENT, "old_friend");
+        addGrouped(Category.EVENTS, "old_friend", "Old Friend", "event_old_friend_attack", "Attack Now", ActionKind.TRIGGER_EVENT, "old_friend_attack");
+        addGrouped(Category.EVENTS, "old_friend", "Old Friend", "event_old_friend_reset", "Reset (QA)", ActionKind.TRIGGER_EVENT, "old_friend_reset");
         addGrouped(Category.EVENTS, "debug_bounds", "Debug Bounds", "event_debug_bounds", "Trigger F3+B Encounter", ActionKind.TRIGGER_EVENT, "debug_bounds");
         addGrouped(Category.EVENTS, "grand_event", "Grand Event", "event_grand_event_warden", "Trigger - Warden", ActionKind.TRIGGER_EVENT, "grand_event_warden");
         addGrouped(Category.EVENTS, "grand_event", "Grand Event", "event_grand_event_stop", "Force Stop", ActionKind.TRIGGER_EVENT, "grand_event_stop");

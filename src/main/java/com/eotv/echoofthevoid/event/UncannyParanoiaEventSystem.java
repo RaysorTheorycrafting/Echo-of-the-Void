@@ -43,6 +43,7 @@ import com.eotv.echoofthevoid.event.special.UncannyHuntingSpecialSystem;
 import com.eotv.echoofthevoid.event.special.GrandWardenRules;
 import com.eotv.echoofthevoid.event.special.UncannyMinerSystem;
 import com.eotv.echoofthevoid.event.special.UncannyDevourerSystem;
+import com.eotv.echoofthevoid.event.special.SleeperSystem;
 import com.eotv.echoofthevoid.item.UncannyItemRegistry;
 import com.eotv.echoofthevoid.network.UncannyFalseRecipeToastPayload;
 import com.eotv.echoofthevoid.network.UncannyHotbarWrongCountPayload;
@@ -754,6 +755,8 @@ public final class UncannyParanoiaEventSystem {
     private static final long BLACKOUT_JOIN_GRACE_TICKS = 30L * 60L * 20L;
     private static final Map<UUID, FootstepsState> ACTIVE_FOOTSTEPS = new HashMap<>();
     private static final Map<UUID, FlashErrorState> ACTIVE_FLASH_EVENTS = new HashMap<>();
+    /** Inside Vanilla's 128-block despawn radius for monsters without persistence. */
+    private static final int STALKER_MAX_SPAWN_DISTANCE = 120;
     private static final Map<UUID, Long> ACTIVE_DEAFNESS = new HashMap<>();
     private static final Map<UUID, VoidSilenceState> ACTIVE_VOID_SILENCE = new HashMap<>();
     private static final Map<UUID, GhostMinerState> ACTIVE_GHOST_MINERS = new HashMap<>();
@@ -1102,6 +1105,11 @@ public final class UncannyParanoiaEventSystem {
         }
 
         tryTriggerBedsideOpen(player, server, event.getPos());
+
+        if (SleeperSystem.isWaitingNear(player.serverLevel(), event.getPos())) {
+            // Its warning, then the sleep it waits for: a disturbance here would keep refusing the bed.
+            return;
+        }
 
         UUID playerId = player.getUUID();
         SleepDisturbanceState state = ACTIVE_SLEEP_DISTURBANCES.get(playerId);
@@ -10799,6 +10807,11 @@ public final class UncannyParanoiaEventSystem {
             addEventChoiceIfReady(choices, player, "watching_arrow", profileScaledWeight("watching_arrow", 2, profile, danger), now);
             addEventChoiceIfReady(choices, player, "stray_experience", profileScaledWeight("stray_experience", 2, profile, danger), now);
             addEventChoiceIfReady(choices, player, "extra_in_the_herd", profileScaledWeight("extra_in_the_herd", 1, profile, danger), now);
+            addEventChoiceIfReady(choices, player, "wandering_tree", profileScaledWeight("wandering_tree", 1, profile, danger), now);
+            addEventChoiceIfReady(choices, player, "joined_game", profileScaledWeight("joined_game", 1, profile, danger), now);
+            addEventChoiceIfReady(choices, player, "restored_block", profileScaledWeight("restored_block", 2, profile, danger), now);
+            addEventChoiceIfReady(choices, player, "animal_grid", profileScaledWeight("animal_grid", 1, profile, danger), now);
+            addEventChoiceIfReady(choices, player, "animal_circle", profileScaledWeight("animal_circle", 2, profile, danger), now);
             addEventChoiceIfReady(choices, player, "bell",
                     phaseProfileScaledWeight("bell", 14, phase, profile, danger), now);
             addEventChoiceIfReady(choices, player, "void_silence", profileScaledWeight("void_silence", 7, profile, danger), now);
@@ -10827,6 +10840,9 @@ public final class UncannyParanoiaEventSystem {
             addEventChoiceIfReady(choices, player, "pet_refusal", profileScaledWeight("pet_refusal", 2, profile, danger), now);
             addEventChoiceIfReady(choices, player, "silent_bell", profileScaledWeight("silent_bell", 2, profile, danger), now);
             addEventChoiceIfReady(choices, player, "empty_congregation", profileScaledWeight("empty_congregation", 2, profile, danger), now);
+            addEventChoiceIfReady(choices, player, "old_friend", profileScaledWeight("old_friend", 1, profile, danger), now);
+            addEventChoiceIfReady(choices, player, "missing_block", profileScaledWeight("missing_block", 1, profile, danger), now);
+            addEventChoiceIfReady(choices, player, "animal_death_circle", profileScaledWeight("animal_death_circle", 1, profile, danger), now);
         }
 
         if (phase.index() >= UncannyPhase.PHASE_4.index()) {
@@ -11188,7 +11204,9 @@ public final class UncannyParanoiaEventSystem {
                     "returned_drop", "ghost_cart", "misdirected_enchantment", "orphan_signal",
                     "cauldron_echo", "map_intruder", "empty_wake", "countercurrent_column",
                     "false_sculk_vibration", "watching_arrow", "suspended_fall", "beacon_fragment",
-                    "stray_experience", "extra_in_the_herd", "lava_wake", "false_lid" ->
+                    "stray_experience", "extra_in_the_herd", "lava_wake", "false_lid",
+                    "wandering_tree",
+                    "animal_circle", "animal_grid", "animal_death_circle", "animal_wake_circle", "restored_block", "missing_block", "joined_game", "old_friend" ->
                     MinecraftNativeAnomalySystem.trigger(player, eventKey);
             case "grand_event", "grand_event_warden" -> triggerGrandEventWarden(player);
             case "grand_event_stop" -> triggerGrandEventStop(player);
@@ -11495,6 +11513,16 @@ public final class UncannyParanoiaEventSystem {
             addSpecialEntityChoiceIfReady(specialChoices, player, "watcher", profileScaledWeight("watcher", 18, profile, danger), now, ignoreCooldowns);
         }
 
+        if (isOverworld && hasSky && isNightOrTwilight(level)) {
+            addSpecialEntityChoiceIfReady(specialChoices, player, "percher", profileScaledWeight("percher", 6, profile, danger), now, ignoreCooldowns);
+        }
+        if (isOverworld && hasSky && isNightOrTwilight(level) && !level.isRainingAt(player.blockPosition().above())) {
+            addSpecialEntityChoiceIfReady(specialChoices, player, "blur", profileScaledWeight("blur", 5, profile, danger), now, ignoreCooldowns);
+        }
+        if (isOverworld && isNightOrTwilight(level) && nearBase
+                && phase.index() >= UncannyPhase.PHASE_3.index() && danger >= 2) {
+            addSpecialEntityChoiceIfReady(specialChoices, player, "sleeper", profileScaledWeight("sleeper", 4, profile, danger), now, ignoreCooldowns);
+        }
         addSpecialEntityChoiceIfReady(specialChoices, player, "pulse", profileScaledWeight("pulse", 4, profile, danger), now, ignoreCooldowns);
         if (phase.index() >= UncannyPhase.PHASE_2.index()) {
             addSpecialEntityChoiceIfReady(specialChoices, player, "follower", profileScaledWeight("follower", 8, profile, danger), now, ignoreCooldowns);
@@ -11755,6 +11783,9 @@ public final class UncannyParanoiaEventSystem {
             case "ferryman" -> ApprovedSpecialSystem.armFerrymanEncounter(player);
             case "surveyor", "mourner", "doubler", "listener", "bystander" ->
                     ApprovedSpecialSystem.spawn(player, key, false);
+            case "percher" -> com.eotv.echoofthevoid.event.special.PercherSystem.spawnNatural(player);
+            case "blur" -> com.eotv.echoofthevoid.event.special.BlurSystem.spawnNatural(player);
+            case "sleeper" -> com.eotv.echoofthevoid.event.special.SleeperSystem.spawnNatural(player);
             case "miner" -> UncannyMinerSystem.spawnNatural(player);
             case "devourer" -> UncannyDevourerSystem.spawnNatural(player);
             case "echoer", "drifter", "ashwalker", "dredger", "flanker" ->
@@ -13663,6 +13694,10 @@ public final class UncannyParanoiaEventSystem {
         if (shouldBlockSpecialSpawn(player)) {
             return null;
         }
+        // Not persistent: beyond 128 blocks Vanilla despawns it on its first tick (live QA 2026-10-09,
+        // the Flash event's far window reached 160 and spawned a doomed Attacker? before each real one).
+        maxDistance = Math.min(maxDistance, STALKER_MAX_SPAWN_DISTANCE);
+        minDistance = Math.min(minDistance, maxDistance - 8);
         ServerLevel level = player.serverLevel();
         BlockPos pos = null;
         if (preferBehind) {

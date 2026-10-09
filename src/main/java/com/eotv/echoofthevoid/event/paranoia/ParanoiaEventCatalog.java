@@ -49,6 +49,18 @@ public final class ParanoiaEventCatalog {
             EXTRA_IN_THE_HERD,
             LAVA_WAKE,
             FALSE_LID,
+            WANDERING_TREE,
+            ANIMAL_CIRCLE,
+            ANIMAL_GRID,
+            ANIMAL_DEATH_CIRCLE,
+            ANIMAL_WAKE_CIRCLE,
+            RESTORED_BLOCK,
+            MISSING_BLOCK,
+            PERCHER,
+            JOINED_GAME,
+            OLD_FRIEND,
+            BLUR,
+            SLEEPER,
             DEBUG_BOUNDS,
             SURVEYOR,
             MOURNER,
@@ -91,7 +103,15 @@ public final class ParanoiaEventCatalog {
             STRAY_EXPERIENCE,
             EXTRA_IN_THE_HERD,
             LAVA_WAKE,
-            FALSE_LID);
+            FALSE_LID,
+            WANDERING_TREE,
+            ANIMAL_CIRCLE,
+            ANIMAL_GRID,
+            ANIMAL_DEATH_CIRCLE,
+            RESTORED_BLOCK,
+            MISSING_BLOCK,
+            JOINED_GAME,
+            OLD_FRIEND);
     private static final List<String> REFERENCE_PRIMARY_EVENT_IDS_111 = List.of(
             FOOTSTEPS,
             CORRUPT_MESSAGE,
@@ -202,6 +222,16 @@ public final class ParanoiaEventCatalog {
         add(events, event(BEACON_FRAGMENT, "Beacon Fragment", 3, 0, ParanoiaEventSeverity.LIGHT, 1, 0, 0, 7200, 0, ParanoiaEventLane.PRIMARY, ParanoiaEventLane.CONTEXTUAL));
         add(events, event(STRAY_EXPERIENCE, "Stray Experience", 2, 0, ParanoiaEventSeverity.LIGHT, 2, 0, 0, 1200, 0, ParanoiaEventLane.PRIMARY, ParanoiaEventLane.CONTEXTUAL));
         add(events, event(EXTRA_IN_THE_HERD, "Extra in the Herd", 2, 0, ParanoiaEventSeverity.LIGHT, 1, 0, 0, 2400, 0, ParanoiaEventLane.PRIMARY, ParanoiaEventLane.CONTEXTUAL));
+        // Slow-burn world mutation: one adoption starts minutes of unseen moves toward the base.
+        add(events, event(WANDERING_TREE, "Wandering Tree", 2, 0, ParanoiaEventSeverity.MEDIUM, 1, 0, 0, 7200, 0, ParanoiaEventLane.PRIMARY, ParanoiaEventLane.CONTEXTUAL));
+        add(events, event(JOINED_GAME, "Joined the Game", 2, 0, ParanoiaEventSeverity.LIGHT, 1, 0, 0, 7200, 0, ParanoiaEventLane.PRIMARY, ParanoiaEventLane.CONTEXTUAL));
+        add(events, event(OLD_FRIEND, "Old Friend", 3, 0, ParanoiaEventSeverity.EXTREME, 1, 0, 0, 7200, 0, ParanoiaEventLane.PRIMARY, ParanoiaEventLane.CONTEXTUAL));
+        add(events, event(RESTORED_BLOCK, "Restored Block", 2, 0, ParanoiaEventSeverity.LIGHT, 2, 0, 0, 1200, 0, ParanoiaEventLane.PRIMARY, ParanoiaEventLane.CONTEXTUAL));
+        add(events, event(MISSING_BLOCK, "Missing Block", 3, 0, ParanoiaEventSeverity.LIGHT, 1, 0, 0, 2400, 0, ParanoiaEventLane.PRIMARY, ParanoiaEventLane.CONTEXTUAL));
+        add(events, event(ANIMAL_CIRCLE, "Animal Circle", 2, 0, ParanoiaEventSeverity.LIGHT, 2, 0, 0, 2400, 0, ParanoiaEventLane.PRIMARY, ParanoiaEventLane.CONTEXTUAL));
+        add(events, event(ANIMAL_GRID, "Animal Grid", 2, 0, ParanoiaEventSeverity.LIGHT, 1, 0, 0, 3600, 0, ParanoiaEventLane.PRIMARY, ParanoiaEventLane.CONTEXTUAL));
+        add(events, event(ANIMAL_DEATH_CIRCLE, "Animal Death Circle", 3, 0, ParanoiaEventSeverity.LIGHT, 1, 0, 0, 3600, 0, ParanoiaEventLane.PRIMARY, ParanoiaEventLane.CONTEXTUAL));
+        merge(events, event(ANIMAL_WAKE_CIRCLE, "Animal Wake Circle", 2, 0, ParanoiaEventSeverity.LIGHT, 0, 0, 0, 3600, 0, ParanoiaEventLane.CONTEXTUAL));
 
         // Ambient and interaction lanes. Existing primary descriptors are merged without changing order.
         merge(events, event(FALSE_CONTAINER_OPEN, "False Container Open", 1, 0, ParanoiaEventSeverity.LIGHT, 0, 7, 0, 300, 190, ParanoiaEventLane.AMBIENT, ParanoiaEventLane.CONTEXTUAL));
@@ -251,6 +281,9 @@ public final class ParanoiaEventCatalog {
         merge(events, event(ASHWALKER, "Ashwalker", 2, 3, ParanoiaEventSeverity.HIGH, 0, 0, 4, 0, 0, ParanoiaEventLane.SPECIAL));
         merge(events, event(DREDGER, "Dredger", 3, 4, ParanoiaEventSeverity.HIGH, 0, 0, 2, 0, 0, ParanoiaEventLane.SPECIAL));
         merge(events, event(FLANKER, "Flanker", 3, 4, ParanoiaEventSeverity.EXTREME, 0, 0, 2, 0, 0, ParanoiaEventLane.SPECIAL));
+        merge(events, event(SLEEPER, "Sleeper", 3, 2, ParanoiaEventSeverity.HIGH, 0, 0, 4, 0, 0, ParanoiaEventLane.SPECIAL));
+        merge(events, event(BLUR, "Blur", 2, 0, ParanoiaEventSeverity.MEDIUM, 0, 0, 5, 0, 0, ParanoiaEventLane.SPECIAL));
+        merge(events, event(PERCHER, "Percher", 2, 0, ParanoiaEventSeverity.LIGHT, 0, 0, 6, 0, 0, ParanoiaEventLane.SPECIAL));
 
         merge(events, event(GRAND_EVENT, "Grand Event", 4, 0, ParanoiaEventSeverity.EXTREME, 0, 0, 0, 0, 0, ParanoiaEventLane.CONTROL));
         merge(events, event(GRAND_EVENT_WARDEN, "Grand Event Warden", 4, 0, ParanoiaEventSeverity.EXTREME, 0, 0, 0, 0, 0, ParanoiaEventLane.CONTROL));

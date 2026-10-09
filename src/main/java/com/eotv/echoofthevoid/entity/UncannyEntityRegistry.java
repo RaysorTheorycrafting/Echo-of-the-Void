@@ -45,6 +45,10 @@ import com.eotv.echoofthevoid.entity.custom.UncannyDevourerEntity;
 import com.eotv.echoofthevoid.entity.custom.UncannyArenaPursuerEntity;
 import com.eotv.echoofthevoid.entity.custom.UncannyEchoerEntity;
 import com.eotv.echoofthevoid.entity.custom.UncannyDrifterEntity;
+import com.eotv.echoofthevoid.entity.custom.UncannySleeperEntity;
+import com.eotv.echoofthevoid.entity.custom.UncannyBlurEntity;
+import com.eotv.echoofthevoid.entity.custom.UncannyFriendEntity;
+import com.eotv.echoofthevoid.entity.custom.UncannyPercherEntity;
 import com.eotv.echoofthevoid.entity.custom.UncannyAshwalkerEntity;
 import com.eotv.echoofthevoid.entity.custom.UncannyDredgerEntity;
 import com.eotv.echoofthevoid.entity.custom.UncannyFlankerEntity;
@@ -60,6 +64,7 @@ import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
 import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.animal.IronGolem;
 import net.minecraft.world.entity.monster.Creeper;
+import net.minecraft.world.entity.monster.Monster;
 import net.minecraft.world.entity.monster.Drowned;
 import net.minecraft.world.entity.monster.EnderMan;
 import net.minecraft.world.entity.monster.Endermite;
@@ -167,6 +172,19 @@ public final class UncannyEntityRegistry {
 
     public static final DeferredHolder<EntityType<?>, EntityType<UncannyWatcherEntity>> UNCANNY_WATCHER = registerMonster(
             "uncanny_watcher", () -> EntityType.Builder.of(UncannyWatcherEntity::new, MobCategory.MONSTER).sized(0.6F, 1.95F).build(id("uncanny_watcher")));
+
+    public static final DeferredHolder<EntityType<?>, EntityType<UncannyPercherEntity>> UNCANNY_PERCHER = registerMonster(
+            "uncanny_percher", () -> EntityType.Builder.of(UncannyPercherEntity::new, MobCategory.MONSTER).sized(0.6F, 1.95F).build(id("uncanny_percher")));
+
+    // The old friend: a player-sized body; deliberately not a Special (its name tag is the friend's).
+    public static final DeferredHolder<EntityType<?>, EntityType<UncannyFriendEntity>> UNCANNY_FRIEND = registerMonster(
+            "uncanny_friend", () -> EntityType.Builder.of(UncannyFriendEntity::new, MobCategory.MONSTER).sized(0.6F, 1.8F).eyeHeight(1.62F).build(id("uncanny_friend")));
+
+    public static final DeferredHolder<EntityType<?>, EntityType<UncannyBlurEntity>> UNCANNY_BLUR = registerMonster(
+            "uncanny_blur", () -> EntityType.Builder.of(UncannyBlurEntity::new, MobCategory.MONSTER).sized(0.6F, 1.95F).build(id("uncanny_blur")));
+
+    public static final DeferredHolder<EntityType<?>, EntityType<UncannySleeperEntity>> UNCANNY_SLEEPER = registerMonster(
+            "uncanny_sleeper", () -> EntityType.Builder.of(UncannySleeperEntity::new, MobCategory.MONSTER).sized(0.6F, 1.95F).build(id("uncanny_sleeper")));
 
     public static final DeferredHolder<EntityType<?>, EntityType<UncannyStalkerEntity>> UNCANNY_STALKER = registerMonster(
             "uncanny_stalker", () -> EntityType.Builder.of(UncannyStalkerEntity::new, MobCategory.MONSTER).sized(0.6F, 1.95F).build(id("uncanny_stalker")));
@@ -302,6 +320,12 @@ public final class UncannyEntityRegistry {
         COMMAND_TO_UNCANNY.put("mimic", UNCANNY_DOUBLE_DORMANT);
         COMMAND_TO_UNCANNY.put("uncanny_watcher", UNCANNY_WATCHER);
         COMMAND_TO_UNCANNY.put("watcher", UNCANNY_WATCHER);
+        COMMAND_TO_UNCANNY.put("uncanny_sleeper", UNCANNY_SLEEPER);
+        COMMAND_TO_UNCANNY.put("sleeper", UNCANNY_SLEEPER);
+        COMMAND_TO_UNCANNY.put("uncanny_blur", UNCANNY_BLUR);
+        COMMAND_TO_UNCANNY.put("blur", UNCANNY_BLUR);
+        COMMAND_TO_UNCANNY.put("uncanny_percher", UNCANNY_PERCHER);
+        COMMAND_TO_UNCANNY.put("percher", UNCANNY_PERCHER);
         COMMAND_TO_UNCANNY.put("uncanny_stalker", UNCANNY_STALKER);
         COMMAND_TO_UNCANNY.put("stalker", UNCANNY_STALKER);
         COMMAND_TO_UNCANNY.put("uncanny_attacker", UNCANNY_STALKER);
@@ -412,7 +436,10 @@ public final class UncannyEntityRegistry {
                 || type == UNCANNY_DRIFTER.get()
                 || type == UNCANNY_ASHWALKER.get()
                 || type == UNCANNY_DREDGER.get()
-                || type == UNCANNY_FLANKER.get();
+                || type == UNCANNY_FLANKER.get()
+                || type == UNCANNY_PERCHER.get()
+                || type == UNCANNY_BLUR.get()
+                || type == UNCANNY_SLEEPER.get();
     }
 
     public static void onEntityAttributeCreation(EntityAttributeCreationEvent event) {
@@ -479,6 +506,16 @@ public final class UncannyEntityRegistry {
                 .add(Attributes.MOVEMENT_SPEED, 0.42D)
                 .add(Attributes.FOLLOW_RANGE, 96.0D);
         event.put(UNCANNY_WATCHER.get(), watcherAttributes.build());
+        event.put(UNCANNY_SLEEPER.get(), Monster.createMonsterAttributes().add(Attributes.MAX_HEALTH, 20.0D).add(Attributes.MOVEMENT_SPEED, 0.3D).add(Attributes.ATTACK_DAMAGE, 4.0D).add(Attributes.FOLLOW_RANGE, 48.0D).build());
+        event.put(UNCANNY_BLUR.get(), Mob.createMobAttributes().add(Attributes.MAX_HEALTH, 20.0D).add(Attributes.MOVEMENT_SPEED, 0.36D).add(Attributes.FOLLOW_RANGE, 72.0D).build());
+        event.put(UNCANNY_FRIEND.get(), Monster.createMonsterAttributes()
+                .add(Attributes.MAX_HEALTH, 20.0D)
+                .add(Attributes.MOVEMENT_SPEED, UncannyFriendEntity.PLAYER_MOVEMENT_SPEED)
+                .add(Attributes.ATTACK_DAMAGE, 1.0D)
+                .add(Attributes.ATTACK_SPEED, 4.0D)
+                .add(Attributes.FOLLOW_RANGE, 64.0D)
+                .build());
+        event.put(UNCANNY_PERCHER.get(), Mob.createMobAttributes().add(Attributes.MAX_HEALTH, 20.0D).add(Attributes.MOVEMENT_SPEED, 0.0D).add(Attributes.FOLLOW_RANGE, 96.0D).build());
 
         AttributeSupplier.Builder stalkerAttributes = Mob.createMobAttributes()
                 .add(Attributes.MAX_HEALTH, 24.0D)

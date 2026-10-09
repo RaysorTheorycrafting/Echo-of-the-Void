@@ -142,7 +142,12 @@ public class UncannyStalkerEntity extends Monster implements UncannyEntityMarker
             maybePlayThreatCue(serverLevel, targetPlayer);
 
             if (this.tickCount % 20 == 0) {
-                if (!canPathTo(targetPlayer)) {
+                if (!ApprovedSpecialBehaviorRules.attackerJudgesPathAt(this.distanceTo(targetPlayer))) {
+                    // Far away a path search cannot reach the target (follow range): the partial path
+                    // of the melee goal is the approach itself, not a failure (live QA 2026-10-09, a
+                    // Flash Attacker? spawned 86 blocks off went into hiding and never attacked).
+                    this.noPathTicks = 0;
+                } else if (!canPathTo(targetPlayer)) {
                     this.noPathTicks += 20;
                     if (this.noPathTicks >= 80) {
                         if (usesHiddenPathRecovery()) {
@@ -360,6 +365,14 @@ public class UncannyStalkerEntity extends Monster implements UncannyEntityMarker
 
         this.hiddenTicks--;
         if (this.hiddenTicks > 0) {
+            // The target came back within reach: the hunt resumes at once instead of after the full wait.
+            if (this.tickCount % 20 == 0
+                    && ApprovedSpecialBehaviorRules.attackerJudgesPathAt(this.distanceTo(targetPlayer))
+                    && canPathTo(targetPlayer)) {
+                this.hiddenTicks = 0;
+                this.hiddenSpot = null;
+                this.setTarget(targetPlayer);
+            }
             return;
         }
 

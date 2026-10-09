@@ -17,6 +17,9 @@ import com.eotv.echoofthevoid.event.UncannySpawnController;
 import com.eotv.echoofthevoid.event.UncannyStructureFeatureSystem;
 import com.eotv.echoofthevoid.event.UncannyWeatherSystem;
 import com.eotv.echoofthevoid.event.paranoia.nativeevent.MinecraftNativeAnomalySystem;
+import com.eotv.echoofthevoid.event.paranoia.nativeevent.AnimalFormationSystem;
+import com.eotv.echoofthevoid.event.paranoia.nativeevent.GhostBlockSystem;
+import com.eotv.echoofthevoid.event.paranoia.nativeevent.WanderingTreeSystem;
 import com.eotv.echoofthevoid.event.passive.ApprovedVanillaVariantSystem;
 import com.eotv.echoofthevoid.event.special.ApprovedSpecialSystem;
 import com.eotv.echoofthevoid.event.special.UncannySpecialRewardSystem;
@@ -67,6 +70,8 @@ public class EchoOfTheVoid {
         NeoForge.EVENT_BUS.addListener(MinecraftNativeAnomalySystem::onServerTick);
         NeoForge.EVENT_BUS.addListener(UncannyStructureFeatureSystem::onRightClickBlock);
         NeoForge.EVENT_BUS.addListener(UncannyParanoiaEventSystem::onPlayerTick);
+        NeoForge.EVENT_BUS.addListener(net.neoforged.bus.api.EventPriority.HIGH,
+                com.eotv.echoofthevoid.event.special.SleeperSystem::onCanPlayerSleep);
         NeoForge.EVENT_BUS.addListener(UncannyParanoiaEventSystem::onCanPlayerSleep);
         NeoForge.EVENT_BUS.addListener(UncannyParanoiaEventSystem::onRightClickBlock);
         NeoForge.EVENT_BUS.addListener(MinecraftNativeAnomalySystem::onRightClickBlock);
@@ -77,7 +82,15 @@ public class EchoOfTheVoid {
         NeoForge.EVENT_BUS.addListener(MinecraftNativeAnomalySystem::onEntityInteractSpecific);
         NeoForge.EVENT_BUS.addListener(UncannyParanoiaEventSystem::onLivingUseItemFinish);
         NeoForge.EVENT_BUS.addListener(UncannyParanoiaEventSystem::onProjectileImpact);
+        NeoForge.EVENT_BUS.addListener(net.neoforged.bus.api.EventPriority.HIGH, WanderingTreeSystem::onBlockBreak);
         NeoForge.EVENT_BUS.addListener(UncannyParanoiaEventSystem::onBlockBreak);
+        NeoForge.EVENT_BUS.addListener(AnimalFormationSystem::onEntityJoinLevel);
+        NeoForge.EVENT_BUS.addListener(AnimalFormationSystem::onPlayerWakeUp);
+        NeoForge.EVENT_BUS.addListener(net.neoforged.bus.api.EventPriority.LOWEST, GhostBlockSystem::onBlockBreak);
+        NeoForge.EVENT_BUS.addListener(GhostBlockSystem::onLeftClickBlock);
+        NeoForge.EVENT_BUS.addListener(GhostBlockSystem::onRightClickBlock);
+        NeoForge.EVENT_BUS.addListener(com.eotv.echoofthevoid.event.special.OldFriendSystem::onPlayerLoggedIn);
+        NeoForge.EVENT_BUS.addListener(com.eotv.echoofthevoid.event.special.OldFriendSystem::onLivingDeath);
         NeoForge.EVENT_BUS.addListener(MinecraftNativeAnomalySystem::onBlockBreak);
         NeoForge.EVENT_BUS.addListener(MinecraftNativeAnomalySystem::onNeighborNotify);
         NeoForge.EVENT_BUS.addListener(MinecraftNativeAnomalySystem::onItemPickup);

@@ -50,7 +50,7 @@ class PlayerFacingLoreGuardTest {
                 "ambusher", "arena_pursuer", "ashwalker", "bystander", "devourer", "double_dormant", "doubler",
                 "dredger", "drifter", "echoer", "ferryman", "flanker", "follower", "hurler", "keeper", "knocker",
                 "listener", "miner", "mourner", "pulse", "shadow", "stalker", "surveyor", "tenant", "terror",
-                "usher", "watcher");
+                "usher", "watcher", "percher", "blur", "sleeper");
         List<String> violations = new ArrayList<>();
         for (String id : specials) {
             if (!lang.contains("\"entity.echoofthevoid.uncanny_" + id + "\": \"something\"")) {

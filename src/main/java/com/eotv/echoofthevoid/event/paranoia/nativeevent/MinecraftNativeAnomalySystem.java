@@ -151,6 +151,10 @@ public final class MinecraftNativeAnomalySystem {
         tickEmptyWakes(server, now);
         RailAndSignalAnomalySystem.tick(server, now);
         ContextualWorldAnomalySystem.tick(server, now);
+        WanderingTreeSystem.tick(server, now);
+        AnimalFormationSystem.tick(server, now);
+        GhostBlockSystem.tick(server, now);
+        com.eotv.echoofthevoid.event.special.OldFriendSystem.tick(server, now);
         ObjectPresentationAnomalySystem.tick(server, now);
         LAST_LEAF_CONTEXTS.entrySet().removeIf(entry -> now - entry.getValue().tick() > LEAF_CONTEXT_MAX_AGE_TICKS);
         LAST_PICKUP_CONTEXTS.entrySet().removeIf(entry -> now - entry.getValue().tick() > PICKUP_CONTEXT_MAX_AGE_TICKS);
@@ -298,6 +302,15 @@ public final class MinecraftNativeAnomalySystem {
             case FALSE_SCULK_VIBRATION -> ContextualWorldAnomalySystem.triggerFalseSculkVibration(player);
             case LAVA_WAKE -> ContextualWorldAnomalySystem.triggerLavaWake(player);
             case FALSE_LID -> ContextualWorldAnomalySystem.triggerFalseLid(player);
+            case WANDERING_TREE -> WanderingTreeSystem.trigger(player, debugImmediate);
+            case JOINED_GAME -> com.eotv.echoofthevoid.event.special.OldFriendSystem.triggerSelfEcho(player);
+            case OLD_FRIEND -> com.eotv.echoofthevoid.event.special.OldFriendSystem.triggerJoin(player, debugImmediate);
+            case RESTORED_BLOCK -> GhostBlockSystem.trigger(player, GhostBlockSystem.Kind.RESTORED, debugImmediate);
+            case MISSING_BLOCK -> GhostBlockSystem.trigger(player, GhostBlockSystem.Kind.MISSING, debugImmediate);
+            case ANIMAL_CIRCLE -> AnimalFormationSystem.trigger(player, AnimalFormationSystem.Variant.CIRCLE, debugImmediate);
+            case ANIMAL_GRID -> AnimalFormationSystem.trigger(player, AnimalFormationSystem.Variant.GRID, debugImmediate);
+            case ANIMAL_DEATH_CIRCLE -> AnimalFormationSystem.trigger(player, AnimalFormationSystem.Variant.DEATH_SITE, debugImmediate);
+            case ANIMAL_WAKE_CIRCLE -> AnimalFormationSystem.trigger(player, AnimalFormationSystem.Variant.WAKE, debugImmediate);
             case WATCHING_ARROW -> ObjectPresentationAnomalySystem.triggerWatchingArrow(player);
             case SUSPENDED_FALL -> ObjectPresentationAnomalySystem.triggerSuspendedFall(player);
             case BEACON_FRAGMENT -> ObjectPresentationAnomalySystem.triggerBeaconFragment(player, debugImmediate);
@@ -1668,6 +1681,8 @@ public final class MinecraftNativeAnomalySystem {
     private static void cleanupOwnerTasks(MinecraftServer server, UUID ownerId) {
         RailAndSignalAnomalySystem.clearForOwner(server, ownerId);
         ContextualWorldAnomalySystem.clearForOwner(server, ownerId);
+        AnimalFormationSystem.clearForOwner(server, ownerId);
+        GhostBlockSystem.clearForOwner(server, ownerId);
         ObjectPresentationAnomalySystem.clearForOwner(server, ownerId);
         Iterator<GhostBreakingTask> ghostIterator = GHOST_BREAKING_TASKS.iterator();
         while (ghostIterator.hasNext()) {
@@ -1751,6 +1766,10 @@ public final class MinecraftNativeAnomalySystem {
     private static void clearRuntimeState(MinecraftServer server) {
         RailAndSignalAnomalySystem.clear(server);
         ContextualWorldAnomalySystem.clear(server);
+        AnimalFormationSystem.clear(server);
+        GhostBlockSystem.clear(server);
+        com.eotv.echoofthevoid.event.special.SleeperPins.clear();
+        com.eotv.echoofthevoid.event.special.OldFriendSystem.clear();
         ObjectPresentationAnomalySystem.clear(server);
         if (server != null) {
             Set<UUID> owners = new HashSet<>();

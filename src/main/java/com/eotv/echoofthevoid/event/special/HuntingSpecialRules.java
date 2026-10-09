@@ -116,7 +116,16 @@ public final class HuntingSpecialRules {
     public static final int FLANKER_STRANDED_CHECK_TICKS = 100;
     /** Never plan a path that drops more than this many blocks. */
     public static final int FLANKER_MAX_PLANNED_DROP = 2;
-    public static final int FLANKER_ATTACK_INTERVAL_TICKS = 16;
+    /**
+     * Ticks between two Flanker? blows: the cadence its damage was calibrated for (D-86: 1.6 s in a pair,
+     * 1.4 s alone). A shorter interval made each blow land almost twice as often as its parity assumed.
+     */
+    public static int flankerAttackIntervalTicks(CombatParityRules.Profile profile) {
+        return (int) Math.round(profile.monsterCadenceSeconds() * TICKS_PER_SECOND);
+    }
+
+    /** Alone and facing the player, it must come within the player's own reach to strike. */
+    public static final double FLANKER_SURVIVOR_STRIKE_DISTANCE = 2.5D;
     public static final int FLANKER_FIRST_ENCIRCLEMENT_GRACE_TICKS = 16;
     public static final int FLANKER_RESPONSE_DELAY_TICKS = 8;
     public static final double FLANKER_MIN_SEPARATION_DEGREES = 140.0D;

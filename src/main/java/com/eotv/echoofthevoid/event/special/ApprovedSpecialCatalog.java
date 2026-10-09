@@ -38,7 +38,7 @@ public final class ApprovedSpecialCatalog {
                     "Telegraphs a grab, then drags swimmers toward the ocean floor until struck three times."),
             special("flanker", "Flanker?", HuntingSpecialRules.FLANKER_MINIMUM_PHASE,
                     HuntingSpecialRules.FLANKER_MINIMUM_DANGER, HuntingSpecialRules.FLANKER_WEIGHT, Status.WORKING,
-                    "A linked pair alternates pressure from opposite sides and attacks only after a readable enclosure."));
+                    "A linked pincer: the one you watch holds in front, the other circles out of sight and strikes from behind; together one Attacker?."));
     private static final Map<String, Definition> BY_ID;
 
     static {
