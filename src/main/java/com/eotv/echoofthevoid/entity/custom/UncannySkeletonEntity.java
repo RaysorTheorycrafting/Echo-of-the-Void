@@ -342,7 +342,7 @@ public class UncannySkeletonEntity extends Skeleton implements UncannyEntityMark
         if (target instanceof ServerPlayer serverPlayer && serverPlayer.isAlive()) {
             return serverPlayer;
         }
-        Player nearest = serverLevel.getNearestPlayer(this, 28.0D);
+        Player nearest = UncannyEntityUtil.nearestHuntablePlayer(this, 28.0D);
         return nearest instanceof ServerPlayer serverPlayer ? serverPlayer : null;
     }
 

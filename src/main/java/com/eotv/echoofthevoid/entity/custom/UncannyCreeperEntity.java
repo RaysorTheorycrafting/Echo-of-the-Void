@@ -418,7 +418,7 @@ public class UncannyCreeperEntity extends Creeper implements UncannyEntityMarker
         if (followRange <= 0.0D) {
             followRange = 16.0D;
         }
-        return serverLevel.getNearestPlayer(this, followRange);
+        return UncannyEntityUtil.nearestHuntablePlayer(this, followRange);
     }
 
     private Vec3 getPointBehindPlayer(Player player, double distance) {

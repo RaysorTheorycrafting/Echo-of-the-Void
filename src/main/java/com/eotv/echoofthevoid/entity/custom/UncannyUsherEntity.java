@@ -125,6 +125,7 @@ public class UncannyUsherEntity extends Monster implements UncannyEntityMarker {
             this.discard();
             return;
         }
+        com.eotv.echoofthevoid.event.special.CombatParity.maintain(this, player, com.eotv.echoofthevoid.event.special.CombatParityRules.USHER);
         if (this.vanishing) {
             tickVanishing(level);
             return;
@@ -269,7 +270,7 @@ public class UncannyUsherEntity extends Monster implements UncannyEntityMarker {
                             this.getY() + 0.2D,
                             this.getZ(),
                             new ItemStack(UncannyItemRegistry.UNCANNY_COMPASS.get())));
-                    level.playSound(null, this.blockPosition(), SoundEvents.AMBIENT_CAVE.value(), SoundSource.HOSTILE, 0.9F, 0.86F);
+                    com.eotv.echoofthevoid.sound.UncannyPhysicalSoundDelivery.playFromEntity(level, this, SoundEvents.AMBIENT_CAVE.value(), SoundSource.HOSTILE, 0.9F, 0.86F);
                     startVanishing(level);
                     return;
                 }
@@ -321,7 +322,7 @@ public class UncannyUsherEntity extends Monster implements UncannyEntityMarker {
                             this.getY() + 0.2D,
                             this.getZ(),
                             new ItemStack(UncannyItemRegistry.UNCANNY_COMPASS.get())));
-                    level.playSound(null, this.blockPosition(), SoundEvents.AMBIENT_CAVE.value(), SoundSource.HOSTILE, 0.9F, 0.86F);
+                    com.eotv.echoofthevoid.sound.UncannyPhysicalSoundDelivery.playFromEntity(level, this, SoundEvents.AMBIENT_CAVE.value(), SoundSource.HOSTILE, 0.9F, 0.86F);
                     startVanishing(level);
                     return;
                 }
@@ -335,7 +336,7 @@ public class UncannyUsherEntity extends Monster implements UncannyEntityMarker {
                         this.getY() + 0.2D,
                         this.getZ(),
                         new ItemStack(UncannyItemRegistry.UNCANNY_COMPASS.get())));
-                level.playSound(null, this.blockPosition(), SoundEvents.AMBIENT_CAVE.value(), SoundSource.HOSTILE, 0.9F, 0.86F);
+                com.eotv.echoofthevoid.sound.UncannyPhysicalSoundDelivery.playFromEntity(level, this, SoundEvents.AMBIENT_CAVE.value(), SoundSource.HOSTILE, 0.9F, 0.86F);
                 startVanishing(level);
                 return;
             } else if (this.stuckTicks >= STUCK_REPATH_SAMPLES) {
@@ -361,7 +362,7 @@ public class UncannyUsherEntity extends Monster implements UncannyEntityMarker {
 
         if (this.ignoredTicks >= 180) {
             if (this.attackRoll >= 10) {
-                level.playSound(null, this.blockPosition(), SoundEvents.AMBIENT_CAVE.value(), SoundSource.HOSTILE, 1.0F, 0.8F);
+                com.eotv.echoofthevoid.sound.UncannyPhysicalSoundDelivery.playFromEntity(level, this, SoundEvents.AMBIENT_CAVE.value(), SoundSource.HOSTILE, 1.0F, 0.8F);
                 this.discard();
                 return;
             }
@@ -509,7 +510,7 @@ public class UncannyUsherEntity extends Monster implements UncannyEntityMarker {
                 return player;
             }
         }
-        Player nearest = level.getNearestPlayer(this, 36.0D);
+        Player nearest = UncannyEntityUtil.nearestHuntablePlayer(this, 36.0D);
         if (nearest instanceof ServerPlayer serverPlayer) {
             this.entityData.set(TARGET_PLAYER, Optional.of(serverPlayer.getUUID()));
             return serverPlayer;
@@ -548,7 +549,7 @@ public class UncannyUsherEntity extends Monster implements UncannyEntityMarker {
             }
         }
         if (event != null) {
-            level.playSound(null, this.getX(), this.getEyeY(), this.getZ(), event, SoundSource.HOSTILE, volume, pitch);
+            com.eotv.echoofthevoid.sound.UncannyPhysicalSoundDelivery.playFromEntity(level, this, event, SoundSource.HOSTILE, volume, pitch);
         }
     }
 
@@ -575,7 +576,7 @@ public class UncannyUsherEntity extends Monster implements UncannyEntityMarker {
         this.vanishEndTick = this.tickCount + 26;
         this.setNoGravity(true);
         this.getNavigation().stop();
-        level.playSound(null, this.blockPosition(), SoundEvents.AMBIENT_CAVE.value(), SoundSource.HOSTILE, 0.85F, 0.9F);
+        com.eotv.echoofthevoid.sound.UncannyPhysicalSoundDelivery.playFromEntity(level, this, SoundEvents.AMBIENT_CAVE.value(), SoundSource.HOSTILE, 0.85F, 0.9F);
     }
 
     private void tickVanishing(ServerLevel level) {

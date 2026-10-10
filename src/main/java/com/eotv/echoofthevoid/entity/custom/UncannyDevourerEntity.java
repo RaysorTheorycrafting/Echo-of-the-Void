@@ -68,7 +68,13 @@ public final class UncannyDevourerEntity extends Monster implements UncannyEntit
     private float clientMouthOpen = 0.25F;
     private float previousClientMouthOpen = 0.25F;
 
+    /** Players taken and not yet back from their trial (a returned player can be taken again). */
     private final Set<UUID> capturedPlayers = new HashSet<>();
+    /** First game time each taken player was seen back in the world, for the regrab grace. */
+    private final java.util.Map<UUID, Long> returnSeenAt = new java.util.HashMap<>();
+    private int totalCaptures;
+    /** Grace after a victim's return (death or survival) before the same Devourer? may take them again. */
+    public static final int REGRAB_GRACE_TICKS = 20 * 5;
     private int lifetimeTicks;
     private int noReachableTargetTicks;
     private int nextPulseTick;
@@ -113,7 +119,7 @@ public final class UncannyDevourerEntity extends Monster implements UncannyEntit
     }
 
     public int captureCount() {
-        return capturedPlayers.size();
+        return totalCaptures;
     }
 
     public float mouthOpenAmount() {
@@ -224,7 +230,7 @@ public final class UncannyDevourerEntity extends Monster implements UncannyEntit
             tickSeize(level);
             return;
         }
-        boolean captureLimitReached = capturedPlayers.size() >= MAX_CAPTURES;
+        boolean captureLimitReached = totalCaptures >= MAX_CAPTURES;
         ServerPlayer target = captureLimitReached ? null : resolveReachableTarget(level);
         if (target != null && this.tickCount % com.eotv.echoofthevoid.event.special.CombatParityRules.REFRESH_INTERVAL_TICKS == 0) {
             refreshToughness(target, false);
@@ -261,7 +267,7 @@ public final class UncannyDevourerEntity extends Monster implements UncannyEntit
         if (getTarget() != target) {
             setTarget(target);
         }
-        if (isWithinCaptureReach(target) && !capturedPlayers.contains(target.getUUID())) {
+        if (isWithinCaptureReach(target) && isEligible(target)) {
             beginSeize(level, target);
         }
     }
@@ -327,6 +333,8 @@ public final class UncannyDevourerEntity extends Monster implements UncannyEntit
         seizeTicks = 0;
         if (DevourerArenaSystem.capturePlayer(this, target)) {
             capturedPlayers.add(target.getUUID());
+            returnSeenAt.remove(target.getUUID());
+            totalCaptures++;
             invalidateReachabilityCache();
             UncannyDiagnostics.recordSpecialLifecycle(
                     target,
@@ -335,7 +343,7 @@ public final class UncannyDevourerEntity extends Monster implements UncannyEntit
                     "capture",
                         "hitboxes_contacted",
                         DiagnosticSeverity.INFO,
-                        UncannyDiagnostics.fields("capture_count", capturedPlayers.size()));
+                        UncannyDiagnostics.fields("capture_count", totalCaptures));
             if (!hasOtherActivePlayer(level, target.getUUID())) {
                 // The origin chunk normally unloads during a solo trial. Removing the source now
                 // prevents its lifetime counter from freezing and resuming after the return.
@@ -406,6 +414,10 @@ public final class UncannyDevourerEntity extends Monster implements UncannyEntit
         if (isWithinCaptureReach(player)) {
             return true;
         }
+        if (player.isInWater() || this.isInWater()) {
+            // No ground path crosses water, but it swims after its prey (UncannySwimming).
+            return true;
+        }
         var path = this.getNavigation().createPath(player, 1);
         return path != null && path.canReach();
     }
@@ -415,9 +427,28 @@ public final class UncannyDevourerEntity extends Monster implements UncannyEntit
                 && player.level() == level()
                 && player.isAlive()
                 && !player.isSpectator()
+                && !player.getAbilities().invulnerable
                 && distanceToSqr(player) <= 32.0D * 32.0D
-                && !capturedPlayers.contains(player.getUUID())
-                && !DevourerArenaSystem.hasSession(player.getUUID());
+                && !DevourerArenaSystem.hasSession(player.getUUID())
+                && isBackFromTrial(player.getUUID());
+    }
+
+    /**
+     * A player already taken comes back (dead or alive) and becomes prey again after a short grace,
+     * so a Devourer? still standing at the origin keeps hunting the one who returns.
+     */
+    private boolean isBackFromTrial(UUID playerId) {
+        if (!capturedPlayers.contains(playerId)) {
+            return true;
+        }
+        long now = level().getGameTime();
+        Long seen = returnSeenAt.putIfAbsent(playerId, now);
+        if (seen == null || now - seen < REGRAB_GRACE_TICKS) {
+            return false;
+        }
+        capturedPlayers.remove(playerId);
+        returnSeenAt.remove(playerId);
+        return true;
     }
 
     public boolean isSinking() {
@@ -570,6 +601,7 @@ public final class UncannyDevourerEntity extends Monster implements UncannyEntit
             captured.add(entry);
         }
         tag.put("CapturedPlayers", captured);
+        tag.putInt("DevourerTotalCaptures", totalCaptures);
     }
 
     @Override
@@ -602,6 +634,9 @@ public final class UncannyDevourerEntity extends Monster implements UncannyEntit
                 capturedPlayers.add(entry.getUUID("Player"));
             }
         }
+        totalCaptures = tag.contains("DevourerTotalCaptures")
+                ? Math.max(0, tag.getInt("DevourerTotalCaptures"))
+                : capturedPlayers.size();
         if (isSinking()) {
             this.setNoAi(true);
             this.setNoGravity(true);

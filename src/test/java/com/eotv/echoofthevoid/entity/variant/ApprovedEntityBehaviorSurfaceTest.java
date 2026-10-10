@@ -45,7 +45,7 @@ class ApprovedEntityBehaviorSurfaceTest {
     @Test
     void presenceHasReducedReachAndSkipsPassiveAnimals() throws IOException {
         String source = read(ROOT.resolve(Path.of("entity", "custom", "UncannyPulseEntity.java")));
-        assertTrue(source.contains("getNearestPlayer(this, 24.0D)"));
+        assertTrue(source.contains("nearestHuntablePlayer(this, 24.0D)"));
         assertTrue(source.contains("living instanceof Player || living instanceof Enemy"));
         assertFalse(source.contains("getNearestPlayer(this, 48.0D)"));
     }
@@ -85,7 +85,7 @@ class ApprovedEntityBehaviorSurfaceTest {
         assertFalse(source.contains("this.jumping = false;"));
         assertTrue(source.contains("super.jumpFromGround();"));
         assertTrue(source.contains("this.getJumpControl().jump();"));
-        assertTrue(source.contains("level.playSound(null, this.getX(), this.getEyeY(), this.getZ(), event"));
+        assertTrue(source.contains("UncannyPhysicalSoundDelivery.playFromEntity(level, this, event"));
         assertFalse(source.contains("player.playNotifySound(event"));
     }
 
@@ -137,7 +137,7 @@ class ApprovedEntityBehaviorSurfaceTest {
         String approved = read(ROOT.resolve(Path.of("entity", "custom", "UncannyApprovedSpecialEntity.java")));
         String mimic = read(ROOT.resolve(Path.of("entity", "custom", "UncannyDoubleDormantEntity.java")));
 
-        assertTrue(keeper.contains("level.playSound(\n                        null,\n                        this,"));
+        assertTrue(keeper.contains("UncannyPhysicalSoundDelivery.playFromEntity(\n                        level,\n                        this,"));
         assertFalse(keeper.contains("owner.playNotifySound"));
         assertTrue(keeper.contains("bound.serverLevel() == level"));
         assertTrue(tenant.contains("bound.serverLevel() == level"));

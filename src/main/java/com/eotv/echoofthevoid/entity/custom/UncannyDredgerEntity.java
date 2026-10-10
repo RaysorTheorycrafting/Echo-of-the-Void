@@ -136,12 +136,16 @@ public class UncannyDredgerEntity extends AbstractUncannyAquaticSpecialEntity {
         double pursuitDepth = Math.max(
                 level.getMinBuildHeight() + 2.0D,
                 Math.min(focus.getY() - 1.5D, this.getY() + 0.5D));
-        steerInWaterToward(level, new Vec3(focus.getX(), pursuitDepth, focus.getZ()), 0.14D, 0.07D, 0.20D);
+        steerInWaterToward(level, new Vec3(focus.getX(), pursuitDepth, focus.getZ()),
+                com.eotv.echoofthevoid.entity.UncannySwimming.SUBMERGED_SPEED, com.eotv.echoofthevoid.entity.UncannySwimming.VERTICAL_SPEED, 0.24D);
         if (this.meleeCooldownTicks <= 0
                 && this.distanceToSqr(focus) <= HuntingSpecialRules.DREDGER_BITE_REACH * HuntingSpecialRules.DREDGER_BITE_REACH
                 && this.hasLineOfSight(focus)) {
-            // Between grabs it still bites whatever swims within reach.
-            this.doHurtTarget(focus);
+            // Between grabs it still bites whatever swims within reach, tearing breath away.
+            if (this.doHurtTarget(focus)) {
+                focus.setAirSupply(HuntingSpecialRules.dredgerDrainedAir(
+                        focus.getAirSupply(), HuntingSpecialRules.DREDGER_BITE_AIR_DRAIN));
+            }
             this.meleeCooldownTicks = HuntingSpecialRules.DREDGER_BITE_INTERVAL_TICKS;
         }
         if (this.regrabCooldownTicks <= 0
@@ -160,7 +164,7 @@ public class UncannyDredgerEntity extends AbstractUncannyAquaticSpecialEntity {
         double pursuitDepth = Math.max(
                 level.getMinBuildHeight() + 2.0D,
                 Math.min(focus.getY() - 1.5D, this.getY() + 0.35D));
-        steerInWaterToward(level, new Vec3(focus.getX(), pursuitDepth, focus.getZ()), 0.11D, 0.06D, 0.18D);
+        steerInWaterToward(level, new Vec3(focus.getX(), pursuitDepth, focus.getZ()), 0.16D, 0.08D, 0.20D);
         level.sendParticles(
                 this.stateTicks % 2 == 0 ? ParticleTypes.BUBBLE : ParticleTypes.CLOUD,
                 this.getX(), this.getY() + 0.35D, this.getZ(),
@@ -213,6 +217,9 @@ public class UncannyDredgerEntity extends AbstractUncannyAquaticSpecialEntity {
                 horizontal.z());
         focus.setDeltaMovement(boundedVelocity);
         focus.hurtMarked = true;
+        // Its grip squeezes the breath out of the victim (user, 2026-10-09): the air bar empties fast.
+        focus.setAirSupply(HuntingSpecialRules.dredgerDrainedAir(
+                focus.getAirSupply(), HuntingSpecialRules.DREDGER_GRAB_AIR_DRAIN_PER_TICK));
         steerInWaterToward(level, this.pullAnchor, 0.10D, 0.06D, 0.18D);
         level.sendParticles(ParticleTypes.BUBBLE,
                 focus.getX(), focus.getY() + 0.8D, focus.getZ(),

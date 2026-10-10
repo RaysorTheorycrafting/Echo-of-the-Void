@@ -44,7 +44,7 @@ public class UncannyPillagerEntity extends Pillager implements UncannyEntityMark
             this.burstRecoveryTicks--;
         }
 
-        Player player = this.level().getNearestPlayer(this, 32.0D);
+        Player player = UncannyEntityUtil.nearestHuntablePlayer(this, 32.0D);
         if (player == null || !player.isAlive()) {
             this.setTarget(null);
             this.combatState = CombatState.STARE;

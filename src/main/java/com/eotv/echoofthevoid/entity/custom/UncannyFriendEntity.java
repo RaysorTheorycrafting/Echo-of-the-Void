@@ -3,7 +3,6 @@ package com.eotv.echoofthevoid.entity.custom;
 import com.eotv.echoofthevoid.entity.UncannyEntityMarker;
 import com.eotv.echoofthevoid.event.special.OldFriendLoadout;
 import com.eotv.echoofthevoid.event.special.OldFriendRules;
-import com.eotv.echoofthevoid.event.special.UncannyMinerBlockPolicy;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -88,6 +87,13 @@ public class UncannyFriendEntity extends Monster implements UncannyEntityMarker 
     private int lastCrackStage = -1;
     private BlockPos pillarBase;
     private int pillarBlocks;
+    /** Ticks pillaring without gaining a block; it gives the spot up past a limit. */
+    private int pillarStallTicks;
+    private int pillarCooldown;
+    /** A player's hunger: it eats to regenerate, as its target would (user, 2026-10-09). */
+    private final OldFriendRules.Hunger hunger = new OldFriendRules.Hunger();
+    private ItemStack meal = new ItemStack(Items.COOKED_BEEF);
+    private Vec3 lastHungerPosition;
     private final List<BlockEdit> edits = new ArrayList<>();
 
     private record BlockEdit(BlockPos pos, BlockState original, boolean placed) {
@@ -141,7 +147,16 @@ public class UncannyFriendEntity extends Monster implements UncannyEntityMarker 
         this.setItemSlot(EquipmentSlot.CHEST, loadout.chest().copy());
         this.setItemSlot(EquipmentSlot.LEGS, loadout.legs().copy());
         this.setItemSlot(EquipmentSlot.FEET, loadout.feet().copy());
+        this.meal = OldFriendLoadout.mealOf(target);
         this.setHealth(this.getMaxHealth());
+    }
+
+    public OldFriendRules.Hunger hunger() {
+        return this.hunger;
+    }
+
+    public boolean isEating() {
+        return this.isUsingItem() && this.getUsedItemHand() == InteractionHand.MAIN_HAND;
     }
 
     // ------------------------------------------------------------------ behaviour
@@ -161,9 +176,13 @@ public class UncannyFriendEntity extends Monster implements UncannyEntityMarker 
         if (this.lavaCooldown > 0) {
             this.lavaCooldown--;
         }
-        if (this.handOverrideTicks > 0 && --this.handOverrideTicks == 0 && this.miningPos == null) {
+        if (this.pillarCooldown > 0) {
+            this.pillarCooldown--;
+        }
+        if (this.handOverrideTicks > 0 && --this.handOverrideTicks == 0 && this.miningPos == null && !isEating()) {
             holdWeapon();
         }
+        tickHunger();
         updateSwimmingPose();
         ServerPlayer target = this.targetId == null ? null : level.getServer().getPlayerList().getPlayer(this.targetId);
         if (target == null || !target.isAlive() || target.level() != level || target.isSpectator()) {
@@ -182,6 +201,9 @@ public class UncannyFriendEntity extends Monster implements UncannyEntityMarker 
             return;
         }
         if (this.isInWater()) {
+            if (isEating()) {
+                this.stopUsingItem();
+            }
             holdWeapon();
             tickSwim(target);
             tickShield(target);
@@ -191,8 +213,15 @@ public class UncannyFriendEntity extends Monster implements UncannyEntityMarker 
         double dy = target.getY() - this.getY();
         double horizontal = Math.hypot(target.getX() - this.getX(), target.getZ() - this.getZ());
         boolean inReach = this.distanceToSqr(target) <= REACH * REACH && this.hasLineOfSight(target);
-        if (dy >= 2.5D && horizontal <= 2.5D && this.pillarBlocks < PILLAR_LIMIT && !inReach) {
+        if (dy >= 2.5D && horizontal <= 2.5D && this.pillarBlocks < PILLAR_LIMIT && !inReach
+                && this.pillarCooldown <= 0 && !isEating()) {
             tickPillar(level);
+            return;
+        }
+        this.pillarStallTicks = 0;
+        if (tickMeal(target)) {
+            // Eating: it keeps walking (slowly, as a player does) but neither strikes nor blocks.
+            tickChase(level, target, horizontal);
             return;
         }
         holdWeapon();
@@ -208,6 +237,58 @@ public class UncannyFriendEntity extends Monster implements UncannyEntityMarker 
         }
         tickShield(target);
         tickAttack(target);
+    }
+
+    // ------------------------------------------------------------------ hunger, like a player
+
+    /** Vanilla's natural regeneration from food and saturation, paid for in exhaustion. */
+    private void tickHunger() {
+        Vec3 now = this.position();
+        if (this.lastHungerPosition != null && this.isSprinting()) {
+            // Player.checkMovementStatistics: sprinting costs 0.1 exhaustion per metre.
+            this.hunger.addExhaustion(0.1F * (float) now.distanceTo(this.lastHungerPosition));
+        }
+        this.lastHungerPosition = now;
+        float heal = this.hunger.tick(this.getMaxHealth() - this.getHealth());
+        if (heal > 0.0F) {
+            this.heal(heal);
+        }
+    }
+
+    /**
+     * Starts or continues a meal: hurt and hungry, with room to eat, it takes the food out and eats
+     * it (the Vanilla item-use path: particles, sounds, slower walk). A target closing in before the
+     * meal is half done makes it drop the food and draw its sword again.
+     * @return true while eating
+     */
+    private boolean tickMeal(ServerPlayer target) {
+        double distance = this.distanceTo(target);
+        if (isEating()) {
+            if (distance <= REACH && this.getTicksUsingItem() < OldFriendRules.EAT_TICKS / 2) {
+                this.stopUsingItem();
+                this.handOverrideTicks = 0;
+                holdWeapon();
+                return false;
+            }
+            return true;
+        }
+        if (!this.onGround() || distance < OldFriendRules.MIN_EAT_DISTANCE
+                || !this.hunger.wantsToEat(this.getMaxHealth() - this.getHealth())) {
+            return false;
+        }
+        stopBlocking();
+        showInHand(this.meal.copyWithCount(1), OldFriendRules.EAT_TICKS + 6);
+        this.startUsingItem(InteractionHand.MAIN_HAND);
+        return isEating();
+    }
+
+    /** Eating feeds its hunger bar exactly as it would feed a player's. */
+    @Override
+    public ItemStack eat(Level level, ItemStack food, net.minecraft.world.food.FoodProperties properties) {
+        if (!level.isClientSide()) {
+            this.hunger.eat(properties.nutrition(), properties.saturation());
+        }
+        return super.eat(level, food, properties);
     }
 
     // ------------------------------------------------------------------ moving like a player
@@ -372,7 +453,10 @@ public class UncannyFriendEntity extends Monster implements UncannyEntityMarker 
         if (this.tickCount % 20 == 0) {
             double moved = this.position().distanceTo(this.lastProgressPosition);
             this.lastProgressPosition = this.position();
-            this.stuckTicks = moved < 0.6D && horizontal > 2.0D ? this.stuckTicks + 20 : 0;
+            // Not getting closer, or right against a wall the target hid behind (blocks placed to keep
+            // it out): either way it digs through toward the target.
+            boolean walledOff = !this.hasLineOfSight(target);
+            this.stuckTicks = moved < 0.6D && (horizontal > 2.0D || walledOff) ? this.stuckTicks + 20 : 0;
         }
         if (this.stuckTicks >= 40) {
             this.stuckTicks = 0;
@@ -400,33 +484,95 @@ public class UncannyFriendEntity extends Monster implements UncannyEntityMarker 
         this.getNavigation().stop();
         this.setSprinting(false);
         stopBlocking();
+        if (++this.pillarStallTicks > OldFriendRules.PILLAR_STALL_TICKS) {
+            // No block gained for a while (a ceiling it may not break, a ledge it keeps sliding off):
+            // give the spot up and move around instead of freezing in place (user, 2026-10-09).
+            abandonPillar();
+            return;
+        }
         // Blocks in hand and eyes on the block under its feet, as a player pillaring up.
         if (!this.getMainHandItem().is(PILLAR_BLOCKS.getItem())) {
             this.setItemSlot(EquipmentSlot.MAINHAND, PILLAR_BLOCKS.copy());
         }
         this.getLookControl().setLookAt(this.getX(), this.getY() - 1.5D, this.getZ(), 90.0F, 90.0F);
+        Vec3 motion = this.getDeltaMovement();
         if (this.onGround()) {
-            BlockPos above = this.blockPosition().above(2);
-            if (!level.getBlockState(above).getCollisionShape(level, above).isEmpty()) {
-                startMining(level, above, null);
+            // The column it stands on (the block that really carries it, not the one its feet hang
+            // over at an edge): it steps to the very middle of it first, as a player lines up before
+            // pillaring, otherwise its hitbox straddles two columns and the jump catches on the side
+            // (user, 2026-10-09: "il ne se tenait pas au milieu du block").
+            BlockPos column = this.getOnPos().above();
+            double dx = column.getX() + 0.5D - this.getX();
+            double dz = column.getZ() + 0.5D - this.getZ();
+            if (!OldFriendRules.isCentered(dx, dz)) {
+                this.setDeltaMovement(OldFriendRules.centeringStep(dx), motion.y, OldFriendRules.centeringStep(dz));
                 return;
             }
-            this.pillarBase = this.blockPosition();
+            this.setDeltaMovement(0.0D, motion.y, 0.0D);
+            for (BlockPos ceiling : List.of(column.above(), column.above(2))) {
+                if (!level.getBlockState(ceiling).getCollisionShape(level, ceiling).isEmpty()) {
+                    if (!startMining(level, ceiling, null)) {
+                        abandonPillar();
+                    }
+                    return;
+                }
+            }
+            this.pillarBase = column;
             this.getJumpControl().jump();
             return;
         }
-        if (this.pillarBase != null && this.getY() >= this.pillarBase.getY() + 1.05D
-                && level.getBlockState(this.pillarBase).canBeReplaced()
-                && level.getFluidState(this.pillarBase).isEmpty()) {
-            place(level, this.pillarBase, Blocks.COBBLESTONE.defaultBlockState());
-            this.pillarBlocks++;
+        // In the air a pillaring player stands still: any sideways drift would set the block beside it.
+        this.setDeltaMovement(0.0D, motion.y, 0.0D);
+        if (this.pillarBase != null && this.getY() >= this.pillarBase.getY() + 1.05D) {
+            BlockPos feet = BlockPos.containing(this.getX(), this.pillarBase.getY(), this.getZ());
+            if (feet.equals(this.pillarBase)
+                    && level.getBlockState(this.pillarBase).canBeReplaced()
+                    && level.getFluidState(this.pillarBase).isEmpty()) {
+                place(level, this.pillarBase, Blocks.COBBLESTONE.defaultBlockState());
+                this.pillarBlocks++;
+                this.pillarStallTicks = 0;
+            }
             this.pillarBase = null;
         }
     }
 
-    private void startMining(ServerLevel level, BlockPos pos, ServerPlayer target) {
-        if (UncannyMinerBlockPolicy.classify(level, pos) == UncannyMinerBlockPolicy.MaterialKind.BLOCKED) {
-            return;
+    private void abandonPillar() {
+        this.pillarStallTicks = 0;
+        this.pillarBase = null;
+        this.pillarCooldown = OldFriendRules.PILLAR_RETRY_COOLDOWN_TICKS;
+        holdWeapon();
+        // Step off to the side to look for another way up or around.
+        Vec3 aside = net.minecraft.world.entity.ai.util.DefaultRandomPos.getPos(this, 5, 2);
+        if (aside != null) {
+            this.getNavigation().moveTo(aside.x, aside.y, aside.z, 1.0D);
+        }
+    }
+
+    /**
+     * What it may break on its way to its target: whatever a player could dig through, so walls
+     * and roofs thrown up to keep it out do not stop it (user, 2026-10-09). It takes a player's time
+     * and needs the right tool for hard blocks. Every broken block is put back when it is gone.
+     * Never: unbreakable blocks, anything holding items or data (chests, furnaces, signs...), the
+     * mod's own blocks, liquids, or a block carrying sand or gravel that would fall and be lost.
+     */
+    private static boolean canBreak(ServerLevel level, BlockPos pos) {
+        if (!level.hasChunkAt(pos) || !level.getWorldBorder().isWithinBounds(pos)) {
+            return false;
+        }
+        BlockState state = level.getBlockState(pos);
+        BlockState above = level.getBlockState(pos.above());
+        return !state.isAir()
+                && state.getFluidState().isEmpty()
+                && state.getDestroySpeed(level, pos) >= 0.0F
+                && !state.hasBlockEntity()
+                && level.getBlockEntity(pos) == null
+                && !net.minecraft.core.registries.BuiltInRegistries.BLOCK.getKey(state.getBlock()).getNamespace().equals("echoofthevoid")
+                && !(above.getBlock() instanceof net.minecraft.world.level.block.FallingBlock);
+    }
+
+    private boolean startMining(ServerLevel level, BlockPos pos, ServerPlayer target) {
+        if (!canBreak(level, pos)) {
+            return false;
         }
         this.miningPos = pos.immutable();
         this.miningProgress = 0.0F;
@@ -434,13 +580,14 @@ public class UncannyFriendEntity extends Monster implements UncannyEntityMarker 
         this.getNavigation().stop();
         stopBlocking();
         this.setItemSlot(EquipmentSlot.MAINHAND, OldFriendLoadout.toolFor(level.getBlockState(pos), this.weapon));
+        return true;
     }
 
     private void tickMining(ServerLevel level, ServerPlayer target) {
         BlockPos pos = this.miningPos;
         BlockState state = level.getBlockState(pos);
         if (state.isAir() || this.position().distanceTo(Vec3.atCenterOf(pos)) > 5.0D
-                || UncannyMinerBlockPolicy.classify(level, pos) == UncannyMinerBlockPolicy.MaterialKind.BLOCKED) {
+                || !canBreak(level, pos)) {
             finishMining(level);
             return;
         }
@@ -451,7 +598,9 @@ public class UncannyFriendEntity extends Monster implements UncannyEntityMarker 
         this.getLookControl().setLookAt(Vec3.atCenterOf(pos));
         ItemStack tool = this.getMainHandItem();
         this.miningProgress += OldFriendRules.miningProgressPerTick(
-                tool.getDestroySpeed(state), state.getDestroySpeed(level, pos), tool.isCorrectToolForDrops(state));
+                tool.getDestroySpeed(state), state.getDestroySpeed(level, pos),
+                // Vanilla "can harvest": the right tool, or a block that needs none (leaves, dirt).
+                tool.isCorrectToolForDrops(state) || !state.requiresCorrectToolForDrops());
         if (this.tickCount % 5 == 0) {
             this.swing(InteractionHand.MAIN_HAND);
             level.playSound(null, pos, state.getSoundType().getHitSound(), SoundSource.BLOCKS, 0.5F, 0.8F);
@@ -486,6 +635,9 @@ public class UncannyFriendEntity extends Monster implements UncannyEntityMarker 
     }
 
     private void tickShield(ServerPlayer target) {
+        if (isEating()) {
+            return;
+        }
         ItemStack offhand = this.getOffhandItem();
         if (!(offhand.getItem() instanceof ShieldItem) || this.shieldCooldown > 0) {
             stopBlocking();
@@ -547,6 +699,8 @@ public class UncannyFriendEntity extends Monster implements UncannyEntityMarker 
         float enchantBonus = EnchantmentHelper.modifyDamage(level, this.getWeaponItem(), target, source, base) - base;
         float damage = base * (critical ? 1.5F : 1.0F) + enchantBonus;
         boolean hurt = target.hurt(source, damage);
+        // Player.attack: every swing that connects costs 0.1 exhaustion.
+        this.hunger.addExhaustion(0.1F);
         if (!hurt) {
             level.playSound(null, this.getX(), this.getY(), this.getZ(), SoundEvents.PLAYER_ATTACK_NODAMAGE, SoundSource.HOSTILE, 1.0F, 1.0F);
             return false;
@@ -572,6 +726,9 @@ public class UncannyFriendEntity extends Monster implements UncannyEntityMarker 
     public boolean hurt(DamageSource source, float amount) {
         boolean wasBlocking = this.isBlocking();
         boolean hurt = super.hurt(source, amount);
+        if (hurt) {
+            this.hunger.addExhaustion(source.getFoodExhaustion());
+        }
         if (wasBlocking && source.getEntity() instanceof LivingEntity attacker
                 && attacker.getMainHandItem().getItem() instanceof AxeItem) {
             // An axe knocks a shield out of use, exactly as it would for a player.
@@ -660,6 +817,12 @@ public class UncannyFriendEntity extends Monster implements UncannyEntityMarker 
             list.add(entry);
         }
         tag.put("FriendEdits", list);
+        tag.putInt("FriendFood", this.hunger.food());
+        tag.putFloat("FriendSaturation", this.hunger.saturation());
+        tag.putFloat("FriendExhaustion", this.hunger.exhaustion());
+        if (!this.meal.isEmpty()) {
+            tag.put("FriendMeal", this.meal.save(this.registryAccess()));
+        }
     }
 
     @Override
@@ -680,6 +843,15 @@ public class UncannyFriendEntity extends Monster implements UncannyEntityMarker 
                     NbtUtils.readBlockState(this.level().holderLookup(net.minecraft.core.registries.Registries.BLOCK),
                             entry.getCompound("state")),
                     entry.getBoolean("placed")));
+        }
+        if (tag.contains("FriendFood")) {
+            this.hunger.restore(tag.getInt("FriendFood"), tag.getFloat("FriendSaturation"), tag.getFloat("FriendExhaustion"));
+        }
+        if (tag.contains("FriendMeal")) {
+            ItemStack savedMeal = ItemStack.parseOptional(this.registryAccess(), tag.getCompound("FriendMeal"));
+            if (!savedMeal.isEmpty()) {
+                this.meal = savedMeal;
+            }
         }
     }
 }

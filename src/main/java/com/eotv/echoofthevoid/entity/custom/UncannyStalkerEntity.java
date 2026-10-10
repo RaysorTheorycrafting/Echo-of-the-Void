@@ -169,7 +169,7 @@ public class UncannyStalkerEntity extends Monster implements UncannyEntityMarker
         }
 
         if (this.tickCount % 40 == 0) {
-            Player nearest = this.level().getNearestPlayer(this, 24.0D);
+            Player nearest = UncannyEntityUtil.nearestHuntablePlayer(this, 24.0D);
             if (nearest instanceof ServerPlayer serverPlayer && serverPlayer.isAlive()) {
                 setHuntTarget(serverPlayer);
             }
@@ -306,6 +306,11 @@ public class UncannyStalkerEntity extends Monster implements UncannyEntityMarker
     }
 
     private boolean canPathTo(ServerPlayer player) {
+        if (player.isInWater() || this.isInWater()) {
+            // A ground path never crosses open water, yet it swims after its prey like a player
+            // (UncannySwimming): water is no reason to give up and hide (user, 2026-10-10).
+            return true;
+        }
         var path = this.getNavigation().createPath(player, 0);
         return path != null && path.canReach();
     }

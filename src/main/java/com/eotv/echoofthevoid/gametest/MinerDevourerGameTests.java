@@ -625,6 +625,8 @@ public final class MinerDevourerGameTests {
         NetworkRegistry.configureMockConnection(player.connection.getConnection());
         Vec3 start = helper.absoluteVec(new Vec3(8.5D, 1.0D, 8.5D));
         player.moveTo(start.x + 1.8D, start.y, start.z, 90.0F, 0.0F);
+        // Mock players report creative abilities; the Devourer? only takes survival players.
+        player.getAbilities().invulnerable = false;
         UncannyDevourerEntity devourer = UncannyEntityRegistry.UNCANNY_DEVOURER.get().create(helper.getLevel());
         helper.assertTrue(devourer != null, "Devourer? must be constructible");
         devourer.moveTo(start.x, start.y, start.z, 270.0F, 0.0F);
@@ -656,6 +658,8 @@ public final class MinerDevourerGameTests {
         NetworkRegistry.configureMockConnection(player.connection.getConnection());
         Vec3 playerPos = helper.absoluteVec(new Vec3(8.5D, 1.0D, 4.5D));
         player.moveTo(playerPos.x, playerPos.y, playerPos.z, 0.0F, 0.0F);
+        // Mock players report creative abilities; the Devourer? only takes survival players.
+        player.getAbilities().invulnerable = false;
         UncannyDevourerEntity devourer = UncannyEntityRegistry.UNCANNY_DEVOURER.get().create(helper.getLevel());
         helper.assertTrue(devourer != null, "Devourer? must be constructible");
         Vec3 start = helper.absoluteVec(new Vec3(8.5D, 1.0D, 12.5D));
@@ -688,6 +692,8 @@ public final class MinerDevourerGameTests {
         NetworkRegistry.configureMockConnection(player.connection.getConnection());
         Vec3 start = helper.absoluteVec(new Vec3(8.5D, 1.0D, 8.5D));
         player.moveTo(start.x + 1.8D, start.y, start.z, 90.0F, 0.0F);
+        // Mock players report creative abilities; the Devourer? only takes survival players.
+        player.getAbilities().invulnerable = false;
         UncannyDevourerEntity devourer = UncannyEntityRegistry.UNCANNY_DEVOURER.get().create(helper.getLevel());
         helper.assertTrue(devourer != null, "Devourer? must be constructible");
         devourer.moveTo(start.x, start.y, start.z, 270.0F, 0.0F);
@@ -706,6 +712,32 @@ public final class MinerDevourerGameTests {
             // Regression (2026-10-08): aiStep runs through the death animation and finished the seize.
             helper.assertTrue(devourer.isDeadOrDying() && !devourer.isSeizing() && devourer.captureCount() == 0,
                     "A dying Devourer? must let go at once instead of capturing");
+            helper.succeed();
+        });
+    }
+
+    @GameTest(template = TEMPLATE, timeoutTicks = 40)
+    public static void devourerIgnoresACreativePlayer(GameTestHelper helper) {
+        fillFloor(helper);
+        ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        NetworkRegistry.configureMockConnection(player.connection.getConnection());
+        Vec3 start = helper.absoluteVec(new Vec3(8.5D, 1.0D, 8.5D));
+        player.moveTo(start.x + 1.8D, start.y, start.z, 90.0F, 0.0F);
+        player.getAbilities().invulnerable = true;
+        UncannyDevourerEntity devourer = UncannyEntityRegistry.UNCANNY_DEVOURER.get().create(helper.getLevel());
+        helper.assertTrue(devourer != null, "Devourer? must be constructible");
+        devourer.moveTo(start.x, start.y, start.z, 270.0F, 0.0F);
+        devourer.initializeFor(player);
+        CompoundTag emerged = new CompoundTag();
+        devourer.saveWithoutId(emerged);
+        markAlreadyEmerged(helper, emerged);
+        devourer.load(emerged);
+        helper.assertTrue(helper.getLevel().addFreshEntity(devourer), "Devourer? must enter the level");
+        helper.runAtTickTime(10, () -> {
+            // User, 2026-10-09: a creative player was pulled into the trial.
+            helper.assertTrue(!devourer.isSeizing() && devourer.captureCount() == 0,
+                    "A creative player within arm's reach must never be seized");
+            devourer.discard();
             helper.succeed();
         });
     }

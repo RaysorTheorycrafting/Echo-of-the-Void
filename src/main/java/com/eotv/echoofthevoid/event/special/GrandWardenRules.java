@@ -6,7 +6,8 @@ public final class GrandWardenRules {
     public static final String DISPLAY_NAME = "Warden?";
     public static final int PRESPAWN_DELAY_MIN_SECONDS = 5;
     public static final int PRESPAWN_DELAY_MAX_SECONDS = 7;
-    public static final int MAX_RUNTIME_SECONDS = 5 * 60 - PRESPAWN_DELAY_MAX_SECONDS;
+    /** Hard cap; a quiet hunt ends about 20 seconds earlier than in 2.2.0 (62 s search + 40 s budget). */
+    public static final int MAX_RUNTIME_SECONDS = 5 * 60 - 20 - PRESPAWN_DELAY_MAX_SECONDS;
 
     private GrandWardenRules() {
     }

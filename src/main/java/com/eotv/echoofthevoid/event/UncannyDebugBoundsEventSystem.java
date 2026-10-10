@@ -8,6 +8,7 @@ import com.eotv.echoofthevoid.network.UncannyDebugBoundsPayload;
 import com.eotv.echoofthevoid.state.UncannyWorldState;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -21,6 +22,9 @@ import net.neoforged.neoforge.network.PacketDistributor;
 public final class UncannyDebugBoundsEventSystem {
     private static final Set<UUID> CONSUMED_THIS_SERVER_RUN = new HashSet<>();
     private static final Map<UUID, Long> ACTIVE_UNTIL_TICK = new HashMap<>();
+    /** Players whose client currently shows hitboxes (reported on each F3+B toggle). */
+    private static final Set<UUID> HITBOXES_SHOWN = new HashSet<>();
+    private static final int RETRY_INTERVAL_TICKS = 20;
 
     private UncannyDebugBoundsEventSystem() {
     }
@@ -31,30 +35,46 @@ public final class UncannyDebugBoundsEventSystem {
         }
         UUID playerId = player.getUUID();
         if (!enabled) {
+            HITBOXES_SHOWN.remove(playerId);
             if (ACTIVE_UNTIL_TICK.remove(playerId) != null) {
                 sendStop(player);
             }
             return;
         }
+        HITBOXES_SHOWN.add(playerId);
+        tryStartNaturally(player, true);
+    }
 
+    /**
+     * Starts the encounter if nothing blocks it now. A temporary block (a major event, sleep, the
+     * Devourer?'s trial) no longer loses the encounter: it is retried while the boxes stay shown.
+     */
+    private static boolean tryStartNaturally(ServerPlayer player, boolean report) {
+        UUID playerId = player.getUUID();
         UncannyWorldState state = UncannyWorldState.get(player.getServer());
         ServerLevel overworld = player.getServer().overworld();
         boolean majorPause = UncannyParanoiaEventSystem.isGrandEventAutoPauseActive(overworld)
                 || UncannyParanoiaEventSystem.isTensionBuilderAutoPauseActive(overworld);
+        boolean inTrial = com.eotv.echoofthevoid.event.special.DevourerArenaSystem.hasSession(playerId);
         boolean eligible = state.isSystemEnabled() && DebugBoundsRules.canStartNaturally(
                 state.getCurrentPhaseIndex(), true, CONSUMED_THIS_SERVER_RUN.contains(playerId),
-                player.isAlive(), player.isSpectator(), player.isSleeping(), majorPause);
+                player.isAlive(), player.isSpectator(), player.isSleeping(), majorPause || inTrial);
         if (!eligible) {
-            UncannyDiagnostics.recordForPlayer(
-                    player, DiagnosticSeverity.INFO, "event", "debug_bounds_not_started",
-                    UncannyDiagnostics.fields(
-                            "phase", state.getCurrentPhaseIndex(),
-                            "already_consumed", CONSUMED_THIS_SERVER_RUN.contains(playerId),
-                            "major_pause", majorPause));
-            return;
+            if (report) {
+                UncannyDiagnostics.recordForPlayer(
+                        player, DiagnosticSeverity.INFO, "event", "debug_bounds_not_started",
+                        UncannyDiagnostics.fields(
+                                "phase", state.getCurrentPhaseIndex(),
+                                "already_consumed", CONSUMED_THIS_SERVER_RUN.contains(playerId),
+                                "major_pause", majorPause,
+                                "devourer_trial", inTrial,
+                                "will_retry", !CONSUMED_THIS_SERVER_RUN.contains(playerId)));
+            }
+            return false;
         }
         CONSUMED_THIS_SERVER_RUN.add(playerId);
         start(player, false);
+        return true;
     }
 
     public static boolean triggerForDebug(ServerPlayer player) {
@@ -68,6 +88,7 @@ public final class UncannyDebugBoundsEventSystem {
     public static void onPlayerLogout(ServerPlayer player) {
         if (player != null) {
             ACTIVE_UNTIL_TICK.remove(player.getUUID());
+            HITBOXES_SHOWN.remove(player.getUUID());
         }
     }
 
@@ -78,10 +99,20 @@ public final class UncannyDebugBoundsEventSystem {
     }
 
     public static void onServerTick(ServerTickEvent.Post event) {
+        long now = event.getServer().getTickCount();
+        if (!HITBOXES_SHOWN.isEmpty() && now % RETRY_INTERVAL_TICKS == 0) {
+            for (UUID playerId : List.copyOf(HITBOXES_SHOWN)) {
+                ServerPlayer player = event.getServer().getPlayerList().getPlayer(playerId);
+                if (player == null) {
+                    HITBOXES_SHOWN.remove(playerId);
+                } else if (!CONSUMED_THIS_SERVER_RUN.contains(playerId)) {
+                    tryStartNaturally(player, false);
+                }
+            }
+        }
         if (ACTIVE_UNTIL_TICK.isEmpty()) {
             return;
         }
-        long now = event.getServer().getTickCount();
         ACTIVE_UNTIL_TICK.entrySet().removeIf(entry -> {
             if (now < entry.getValue()) {
                 return false;
@@ -97,6 +128,7 @@ public final class UncannyDebugBoundsEventSystem {
     public static void onServerStopped(ServerStoppedEvent event) {
         CONSUMED_THIS_SERVER_RUN.clear();
         ACTIVE_UNTIL_TICK.clear();
+        HITBOXES_SHOWN.clear();
     }
 
     public static boolean wasConsumed(UUID playerId) {

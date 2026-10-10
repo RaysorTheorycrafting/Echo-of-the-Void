@@ -327,7 +327,7 @@ public class UncannyTerrorEntity extends Monster implements UncannyEntityMarker 
                     : null;
         }
 
-        ServerPlayer nearest = level.getNearestPlayer(this, TARGET_ACQUIRE_RANGE) instanceof ServerPlayer serverPlayer
+        ServerPlayer nearest = UncannyEntityUtil.nearestHuntablePlayer(this, TARGET_ACQUIRE_RANGE) instanceof ServerPlayer serverPlayer
                 ? serverPlayer
                 : null;
         if (nearest != null && nearest.isAlive() && !nearest.isSpectator()) {

@@ -67,6 +67,8 @@ public class UncannyApprovedSpecialEntity extends Monster implements UncannyEnti
     private Vec3 ferrymanSceneTarget;
     private Vec3 ferrymanDepartureDirection = Vec3.ZERO;
     private Vec3 lastFerrymanBoatPosition;
+    /** The 50 % boarding roll is made once, when the boat first stops. */
+    private boolean ferrymanBoardRolled;
     private long lastSoundMemoryTick;
     private Vec3 lastPosition = Vec3.ZERO;
     private Vec3 surveyorInspectionTarget;
@@ -214,7 +216,7 @@ public class UncannyApprovedSpecialEntity extends Monster implements UncannyEnti
         if (focus == null) {
             return;
         }
-        if (this.isPassenger()) {
+        if (this.isPassenger() && !isFerrymanAboard()) {
             this.stopRiding();
         }
 
@@ -529,7 +531,24 @@ public class UncannyApprovedSpecialEntity extends Monster implements UncannyEnti
         }
     }
 
+    /** States 3 and 4: in the player's boat, then hunting the player who got out of it. */
+    public boolean isFerrymanAboard() {
+        return isFerryman() && this.state == 3;
+    }
+
+    public boolean isFerrymanHunting() {
+        return isFerryman() && (this.state == 3 || this.state == 4);
+    }
+
     private void tickFerryman(ServerPlayer focus) {
+        if (this.state == 3 && this.level() instanceof ServerLevel aboardLevel) {
+            tickFerrymanAboard(aboardLevel, focus);
+            return;
+        }
+        if (this.state == 4 && this.level() instanceof ServerLevel huntLevel) {
+            tickFerrymanPursuit(huntLevel, focus);
+            return;
+        }
         Boat boat = resolveFerrymanBoat(focus);
         this.getNavigation().stop();
         this.setNoGravity(true);
@@ -594,7 +613,129 @@ public class UncannyApprovedSpecialEntity extends Monster implements UncannyEnti
                         + ApprovedSpecialBehaviorRules.ferrymanWakeIntervalTicks(this.random.nextInt(181));
             }
         } else if (++this.quietTicks >= ApprovedSpecialBehaviorRules.FERRYMAN_IDLE_RISE_DELAY_TICKS) {
+            if (!this.ferrymanBoardRolled) {
+                this.ferrymanBoardRolled = true;
+                double roll = this.random.nextDouble();
+                boolean inBoat = focus.getVehicle() == boat;
+                boolean huntable = com.eotv.echoofthevoid.entity.UncannyEntityUtil.isHuntablePlayer(focus);
+                boolean wants = ApprovedSpecialBehaviorRules.ferrymanBoards(
+                        roll, boat.getPassengers().size(), boatSeats(boat));
+                boolean boarded = inBoat && huntable && wants && boardFerrymanBoat(level, boat, focus);
+                com.eotv.echoofthevoid.diagnostics.UncannyDiagnostics.recordSpecialLifecycle(
+                        focus, this, "ferryman", "transition", boarded ? "board_roll_boarded" : "board_roll_stayed",
+                        com.eotv.echoofthevoid.diagnostics.DiagnosticSeverity.INFO,
+                        com.eotv.echoofthevoid.diagnostics.UncannyDiagnostics.fields(
+                                "roll", roll, "player_in_boat", inBoat, "huntable", huntable,
+                                "passengers", boat.getPassengers().size()));
+                if (boarded) {
+                    return;
+                }
+            }
             beginFerrymanReveal(level, boat);
+        }
+    }
+
+    private static int boatSeats(Boat boat) {
+        return boat instanceof net.minecraft.world.entity.vehicle.ChestBoat ? 1 : 2;
+    }
+
+    /** It climbs out of the water into the seat behind the player, streaming water. */
+    private boolean boardFerrymanBoat(ServerLevel level, Boat boat, ServerPlayer focus) {
+        Vec3 before = this.position();
+        int previousState = this.state;
+        this.state = 3;
+        this.setNoGravity(false);
+        this.noPhysics = false;
+        this.setPos(boat.getX(), boat.getY() + 0.4D, boat.getZ());
+        if (!this.startRiding(boat, true)) {
+            this.state = previousState;
+            this.setNoGravity(true);
+            this.setPos(before.x, before.y, before.z);
+            return false;
+        }
+        this.stateTicks = 0;
+        this.lifetime = 0;
+        this.attacksDelivered = 0;
+        this.ferrymanRevealStarted = true;
+        com.eotv.echoofthevoid.event.special.CombatParity.apply(
+                this, focus, com.eotv.echoofthevoid.event.special.CombatParityRules.FERRYMAN, true);
+        level.sendParticles(ParticleTypes.SPLASH, boat.getX(), boat.getY() + 0.9D, boat.getZ(),
+                24, 0.6D, 0.3D, 0.6D, 0.12D);
+        level.playSound(null, boat.getX(), boat.getY(), boat.getZ(),
+                net.minecraft.sounds.SoundEvents.PLAYER_SPLASH, SoundSource.HOSTILE, 0.9F, 0.7F);
+        UncannyPhysicalSoundDelivery.playFromEntity(level, this, UncannySoundRegistry.UNCANNY_FERRYMAN_WAKE.get(),
+                SoundSource.HOSTILE, ApprovedSpecialBehaviorRules.FERRYMAN_WAKE_VOLUME, 0.70F);
+        this.dedicatedSoundCuesPlayed++;
+        com.eotv.echoofthevoid.diagnostics.UncannyDiagnostics.recordSpecialLifecycle(
+                focus, this, "ferryman", "transition", "boarded_boat",
+                com.eotv.echoofthevoid.diagnostics.DiagnosticSeverity.INFO,
+                com.eotv.echoofthevoid.diagnostics.UncannyDiagnostics.fields("passengers", boat.getPassengers().size()));
+        return true;
+    }
+
+    /** Seated behind the player, it strikes at half an Attacker?'s weight until one of them leaves. */
+    private void tickFerrymanAboard(ServerLevel level, ServerPlayer focus) {
+        this.stateTicks++;
+        if (!(this.getVehicle() instanceof Boat boat) || !boat.isAlive() || focus.getVehicle() != boat
+                || !com.eotv.echoofthevoid.entity.UncannyEntityUtil.isHuntablePlayer(focus)) {
+            // The player got out (or the boat is gone): it gets out too and keeps after them.
+            this.state = 4;
+            this.stateTicks = 0;
+            this.stopRiding();
+            this.setNoGravity(false);
+            this.noPhysics = false;
+            return;
+        }
+        this.lookAt(focus, 90.0F, 90.0F);
+        this.getLookControl().setLookAt(focus, 90.0F, 90.0F);
+        this.setTarget(focus);
+        if (this.stateTicks % com.eotv.echoofthevoid.event.special.CombatParityRules.REFRESH_INTERVAL_TICKS == 0) {
+            com.eotv.echoofthevoid.event.special.CombatParity.apply(
+                    this, focus, com.eotv.echoofthevoid.event.special.CombatParityRules.FERRYMAN, false);
+        }
+        if (this.stateTicks >= ApprovedSpecialBehaviorRules.FERRYMAN_FIRST_STRIKE_DELAY_TICKS
+                && this.stateTicks % ApprovedSpecialBehaviorRules.FERRYMAN_STRIKE_INTERVAL_TICKS == 0
+                && this.distanceToSqr(focus) <= ApprovedSpecialBehaviorRules.FERRYMAN_REACH
+                        * ApprovedSpecialBehaviorRules.FERRYMAN_REACH) {
+            this.swing(net.minecraft.world.InteractionHand.MAIN_HAND);
+            if (this.doHurtTarget(focus)) {
+                this.attacksDelivered++;
+            }
+        }
+    }
+
+    /** Out of the boat: it hunts the player by land and water, then sinks away if they escape. */
+    private void tickFerrymanPursuit(ServerLevel level, ServerPlayer focus) {
+        this.stateTicks++;
+        this.setNoGravity(false);
+        this.noPhysics = false;
+        if (this.stateTicks > ApprovedSpecialBehaviorRules.FERRYMAN_PURSUIT_MAX_TICKS
+                || this.distanceToSqr(focus) > ApprovedSpecialBehaviorRules.FERRYMAN_PURSUIT_GIVE_UP_DISTANCE
+                        * ApprovedSpecialBehaviorRules.FERRYMAN_PURSUIT_GIVE_UP_DISTANCE
+                || !com.eotv.echoofthevoid.entity.UncannyEntityUtil.isHuntablePlayer(focus)) {
+            beginSinking(42);
+            return;
+        }
+        this.setTarget(focus);
+        this.lookAt(focus, 60.0F, 60.0F);
+        if (this.stateTicks % com.eotv.echoofthevoid.event.special.CombatParityRules.REFRESH_INTERVAL_TICKS == 0) {
+            com.eotv.echoofthevoid.event.special.CombatParity.apply(
+                    this, focus, com.eotv.echoofthevoid.event.special.CombatParityRules.FERRYMAN, false);
+        }
+        if (this.isInWater()) {
+            this.getNavigation().stop();
+            com.eotv.echoofthevoid.entity.UncannySwimming.tickToward(this, focus);
+        } else if (this.stateTicks % 8 == 0 || this.getNavigation().isDone()) {
+            this.getNavigation().moveTo(focus, 1.15D);
+        }
+        if (this.stateTicks % ApprovedSpecialBehaviorRules.FERRYMAN_STRIKE_INTERVAL_TICKS == 0
+                && this.distanceToSqr(focus) <= ApprovedSpecialBehaviorRules.FERRYMAN_REACH
+                        * ApprovedSpecialBehaviorRules.FERRYMAN_REACH
+                && this.hasLineOfSight(focus)) {
+            this.swing(net.minecraft.world.InteractionHand.MAIN_HAND);
+            if (this.doHurtTarget(focus)) {
+                this.attacksDelivered++;
+            }
         }
     }
 
@@ -922,7 +1063,7 @@ public class UncannyApprovedSpecialEntity extends Monster implements UncannyEnti
                     ? bound
                     : null;
         }
-        ServerPlayer nearest = level.getNearestPlayer(this, 96.0D) instanceof ServerPlayer candidate ? candidate : null;
+        ServerPlayer nearest = UncannyEntityUtil.nearestHuntablePlayer(this, 96.0D) instanceof ServerPlayer candidate ? candidate : null;
         if (nearest != null && nearest.isAlive() && !nearest.isSpectator()) {
             this.entityData.set(FOCUS_PLAYER, Optional.of(nearest.getUUID()));
             return nearest;
@@ -954,6 +1095,10 @@ public class UncannyApprovedSpecialEntity extends Monster implements UncannyEnti
             if (!this.level().isClientSide() && source.getEntity() instanceof ServerPlayer player) {
                 armDoublerAttack(player);
             }
+            return super.hurt(source, amount);
+        }
+        if (isFerrymanHunting()) {
+            // Once it fights, it is fought like any attacker: no sinking escape, it can die.
             return super.hurt(source, amount);
         }
         if (this.level().isClientSide() || this.state == 99) {
@@ -1044,6 +1189,7 @@ public class UncannyApprovedSpecialEntity extends Monster implements UncannyEnti
         tag.putInt("DedicatedSoundCuesPlayed", dedicatedSoundCuesPlayed);
         tag.putBoolean("MournerAudibleCuePlayed", mournerAudibleCuePlayed);
         tag.putBoolean("FerrymanRevealStarted", ferrymanRevealStarted);
+        tag.putBoolean("FerrymanBoardRolled", ferrymanBoardRolled);
         if (ferrymanSceneTarget != null) {
             tag.putDouble("FerrymanSceneTargetX", ferrymanSceneTarget.x);
             tag.putDouble("FerrymanSceneTargetY", ferrymanSceneTarget.y);
@@ -1089,6 +1235,7 @@ public class UncannyApprovedSpecialEntity extends Monster implements UncannyEnti
         this.dedicatedSoundCuesPlayed = Math.max(0, tag.getInt("DedicatedSoundCuesPlayed"));
         this.mournerAudibleCuePlayed = tag.getBoolean("MournerAudibleCuePlayed");
         this.ferrymanRevealStarted = tag.getBoolean("FerrymanRevealStarted") || this.state == 1 || this.state == 2;
+        this.ferrymanBoardRolled = tag.getBoolean("FerrymanBoardRolled") || this.state >= 1;
         if (tag.contains("FerrymanSceneTargetX")
                 && tag.contains("FerrymanSceneTargetY")
                 && tag.contains("FerrymanSceneTargetZ")) {

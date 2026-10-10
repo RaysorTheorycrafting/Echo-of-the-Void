@@ -28,7 +28,28 @@ import net.minecraft.world.item.enchantment.EnchantmentHelper;
 public final class CombatParity {
     private static final double PLAYER_BASE_ATTACK_SPEED = 4.0D;
 
+    /** Persistent marker: this creature already received its full-health parity for a fight. */
+    public static final String ENGAGED_TAG = "eotv_combat_parity_engaged";
+
     private CombatParity() {
+    }
+
+    /**
+     * For Specials whose fight starts somewhere in their life: the first player they engage sets
+     * their full parity health; afterwards the values follow that player's gear every refresh.
+     */
+    public static void maintain(Mob creature, ServerPlayer opponent, CombatParityRules.Profile profile) {
+        if (creature == null || profile == null || creature.isDeadOrDying()
+                || !com.eotv.echoofthevoid.entity.UncannyEntityUtil.isHuntablePlayer(opponent)) {
+            return;
+        }
+        net.minecraft.nbt.CompoundTag data = creature.getPersistentData();
+        if (!data.getBoolean(ENGAGED_TAG)) {
+            apply(creature, opponent, profile, true);
+            data.putBoolean(ENGAGED_TAG, true);
+        } else if (creature.tickCount % CombatParityRules.REFRESH_INTERVAL_TICKS == 0) {
+            apply(creature, opponent, profile, false);
+        }
     }
 
     /** What the player can deal: one full-charge hit and how many of them per second. */

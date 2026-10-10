@@ -39,7 +39,7 @@ public class UncannyPiglinBruteEntity extends PiglinBrute implements UncannyEnti
             this.setItemSlot(EquipmentSlot.MAINHAND, new ItemStack(Items.GOLDEN_AXE));
         }
 
-        Player nearest = this.level().getNearestPlayer(this, 20.0D);
+        Player nearest = UncannyEntityUtil.nearestHuntablePlayer(this, 20.0D);
         if (nearest == null || !nearest.isAlive()) {
             return;
         }

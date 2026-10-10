@@ -141,7 +141,8 @@ public class UncannyDrifterEntity extends AbstractUncannyAquaticSpecialEntity {
                 away = new Vec3(1.0D, 0.0D, 0.0D);
             }
             Vec3 dive = this.position().add(away.normalize().scale(3.0D)).add(0.0D, -1.6D, 0.0D);
-            steerInWaterToward(level, dive, 0.17D, 0.08D, 0.24D);
+            steerInWaterToward(level, dive,
+                    com.eotv.echoofthevoid.entity.UncannySwimming.SUBMERGED_SPEED, com.eotv.echoofthevoid.entity.UncannySwimming.VERTICAL_SPEED, 0.26D);
             if (this.tickCount % 5 == 0) {
                 level.sendParticles(ParticleTypes.BUBBLE, this.getX(), this.getEyeY(), this.getZ(),
                         3, 0.25D, 0.15D, 0.25D, 0.015D);
@@ -204,7 +205,8 @@ public class UncannyDrifterEntity extends AbstractUncannyAquaticSpecialEntity {
 
     private void patrolBelowTarget(ServerLevel level, ServerPlayer focus) {
         double targetY = Math.max(level.getMinBuildHeight() + 2.0D, focus.getY() - 3.0D);
-        steerInWaterToward(level, new Vec3(focus.getX(), targetY, focus.getZ()), 0.15D, 0.07D, 0.20D);
+        steerInWaterToward(level, new Vec3(focus.getX(), targetY, focus.getZ()),
+                com.eotv.echoofthevoid.entity.UncannySwimming.SUBMERGED_SPEED, com.eotv.echoofthevoid.entity.UncannySwimming.VERTICAL_SPEED, 0.24D);
         if (this.tickCount % 12 == 0) {
             level.sendParticles(ParticleTypes.BUBBLE, this.getX(), this.getEyeY(), this.getZ(),
                     2, 0.20D, 0.12D, 0.20D, 0.01D);

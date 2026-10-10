@@ -90,6 +90,10 @@ public final class HuntingSpecialRules {
     public static final int DREDGER_DAMAGE_INTERVAL_TICKS = 20;
     public static final int DREDGER_BITE_INTERVAL_TICKS = 20;
     public static final double DREDGER_BITE_REACH = 2.6D;
+    /** Extra air lost per tick in its grip (Vanilla loses 1): a full breath (300) is gone in under 4 s. */
+    public static final int DREDGER_GRAB_AIR_DRAIN_PER_TICK = 3;
+    /** Air torn away by each bite between grabs. */
+    public static final int DREDGER_BITE_AIR_DRAIN = 45;
     public static final double DREDGER_MAX_HORIZONTAL_ACCELERATION = 0.08D;
     public static final double DREDGER_MAX_DOWNWARD_ACCELERATION = 0.06D;
     public static final double DREDGER_MAX_HORIZONTAL_VELOCITY = 0.16D;
@@ -279,6 +283,11 @@ public final class HuntingSpecialRules {
                 ASHWALKER_SUBMERGE_MIN_TICKS,
                 ASHWALKER_SUBMERGE_MAX_TICKS);
         return Math.min(ASHWALKER_SUBMERGE_MAX_TICKS, Math.max(currentRemainingTicks, requested));
+    }
+
+    /** Air left after the Dredger? tears {@code drain} away; never below 0 so Vanilla drowning stays in charge. */
+    public static int dredgerDrainedAir(int currentAir, int drain) {
+        return Math.max(0, Math.min(currentAir, currentAir - Math.max(0, drain)));
     }
 
     public static double clampHorizontalPull(double value) {

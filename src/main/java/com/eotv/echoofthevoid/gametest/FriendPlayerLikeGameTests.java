@@ -137,6 +137,102 @@ public final class FriendPlayerLikeGameTests {
         });
     }
 
+    /** Hurt and hungry with room to breathe, it eats a meal and its hunger bar fills (user, 2026-10-09). */
+    @GameTest(template = TEMPLATE, timeoutTicks = 120, batch = "friend_eat")
+    public static void itEatsToHealWhenHurtAndHungry(GameTestHelper helper) {
+        floor(helper);
+        ServerPlayer target = player(helper, new BlockPos(13, 1, 13));
+        target.setInvulnerable(true);
+        UncannyFriendEntity friend = friend(helper, target, new BlockPos(2, 1, 2));
+        friend.setHealth(8.0F);
+        friend.hunger().restore(12, 0.0F, 0.0F);
+        boolean[] ate = {false};
+        helper.onEachTick(() -> ate[0] |= friend.isEating());
+        helper.runAfterDelay(70, () -> {
+            helper.assertTrue(ate[0], "Hurt and hungry with the target far away, it must start a meal");
+            helper.assertTrue(friend.hunger().food() > 12,
+                    "The finished meal must feed its hunger bar; food " + friend.hunger().food());
+            friend.discard();
+            target.setGameMode(GameType.SPECTATOR);
+            helper.succeed();
+        });
+    }
+
+    /** Leaves over its head no longer freeze its pillar: it cuts through them as a player does. */
+    @GameTest(template = TEMPLATE, timeoutTicks = 200, batch = "friend_leaves")
+    public static void itCutsThroughLeavesToPillarUp(GameTestHelper helper) {
+        floor(helper);
+        helper.setBlock(new BlockPos(8, 3, 8), Blocks.OAK_LEAVES.defaultBlockState()
+                .setValue(net.minecraft.world.level.block.LeavesBlock.PERSISTENT, true));
+        helper.setBlock(new BlockPos(8, 3, 9), Blocks.STONE);
+        helper.setBlock(new BlockPos(8, 2, 9), Blocks.STONE);
+        helper.setBlock(new BlockPos(8, 1, 9), Blocks.STONE);
+        ServerPlayer target = player(helper, new BlockPos(8, 4, 9));
+        target.setInvulnerable(true);
+        UncannyFriendEntity friend = friend(helper, target, new BlockPos(8, 1, 8));
+        double startY = friend.getY();
+        helper.runAfterDelay(160, () -> {
+            helper.assertTrue(helper.getBlockState(new BlockPos(8, 3, 8)).isAir() || friend.getY() >= startY + 0.9D,
+                    "Under leaves it must cut through or climb, not freeze; y " + friend.getY() + " from " + startY);
+            friend.discard();
+            target.setGameMode(GameType.SPECTATOR);
+            helper.succeed();
+        });
+    }
+
+    /** Started at the very edge of a block, it lines up in the middle and pillars straight up. */
+    @GameTest(template = TEMPLATE, timeoutTicks = 200, batch = "friend_center")
+    public static void itCentersItselfBeforePillaring(GameTestHelper helper) {
+        floor(helper);
+        for (int y = 1; y <= 4; y++) {
+            helper.setBlock(new BlockPos(8, y, 9), Blocks.STONE);
+        }
+        ServerPlayer target = player(helper, new BlockPos(8, 5, 9));
+        target.setInvulnerable(true);
+        UncannyFriendEntity friend = friend(helper, target, new BlockPos(8, 1, 8));
+        BlockPos column = helper.absolutePos(new BlockPos(8, 1, 8));
+        // At the edge of its column, its body overlapping the next one (user, 2026-10-09).
+        friend.moveTo(column.getX() + 0.88D, column.getY(), column.getZ() + 0.5D, 0.0F, 0.0F);
+        double startY = friend.getY();
+        helper.runAfterDelay(150, () -> {
+            helper.assertTrue(friend.getY() >= startY + 1.9D,
+                    "It must line up and pillar at least two blocks; y " + friend.getY() + " from " + startY);
+            helper.assertTrue(helper.getBlockState(new BlockPos(8, 1, 8)).is(Blocks.COBBLESTONE),
+                    "Its first block goes straight under its starting column, not beside it");
+            friend.discard();
+            target.setGameMode(GameType.SPECTATOR);
+            helper.succeed();
+        });
+    }
+
+    /** A target that walls itself in is dug out; the wall comes back once the friend is gone. */
+    @GameTest(template = TEMPLATE, timeoutTicks = 260, batch = "friend_wall")
+    public static void itDigsThroughAWallBuiltAgainstIt(GameTestHelper helper) {
+        floor(helper);
+        // A one-block cell of planks (player-made blocks) around the target, roof included.
+        BlockPos cell = new BlockPos(8, 1, 10);
+        for (BlockPos pos : BlockPos.betweenClosed(new BlockPos(7, 1, 9), new BlockPos(9, 3, 11))) {
+            if (!pos.equals(cell) && !pos.equals(cell.above())) {
+                helper.setBlock(pos, Blocks.OAK_PLANKS);
+            }
+        }
+        ServerPlayer target = player(helper, cell);
+        target.setInvulnerable(true);
+        UncannyFriendEntity friend = friend(helper, target, new BlockPos(8, 1, 6));
+        boolean[] breached = {false};
+        helper.onEachTick(() -> breached[0] |= helper.getBlockState(new BlockPos(8, 1, 9)).isAir()
+                || helper.getBlockState(new BlockPos(8, 2, 9)).isAir());
+        helper.runAfterDelay(220, () -> {
+            helper.assertTrue(breached[0], "It must dig through the planks between it and its target");
+            friend.discard();
+            helper.assertTrue(helper.getBlockState(new BlockPos(8, 1, 9)).is(Blocks.OAK_PLANKS)
+                            && helper.getBlockState(new BlockPos(8, 2, 9)).is(Blocks.OAK_PLANKS),
+                    "Every block it broke is put back once it is gone");
+            target.setGameMode(GameType.SPECTATOR);
+            helper.succeed();
+        });
+    }
+
     private static void floor(GameTestHelper helper) {
         for (int x = 0; x < 16; x++) {
             for (int z = 0; z < 16; z++) {

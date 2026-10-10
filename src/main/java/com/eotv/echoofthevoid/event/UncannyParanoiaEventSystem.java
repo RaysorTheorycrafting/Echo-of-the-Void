@@ -279,10 +279,10 @@ public final class UncannyParanoiaEventSystem {
     private static final int GRAND_EVENT_EMPTY_SCOPE_SINK_TICKS = 40;
     private static final int GRAND_EVENT_MAX_DURATION_TICKS = GrandWardenRules.MAX_RUNTIME_SECONDS * 20;
     private static final int GRAND_EVENT_MIN_RUNTIME_TICKS = 60 * 20;
-    private static final int GRAND_EVENT_NON_AGGRO_MIN_RUNTIME_TICKS = 72 * 20;
+    private static final int GRAND_EVENT_NON_AGGRO_MIN_RUNTIME_TICKS = 62 * 20;
     private static final int GRAND_EVENT_NON_AGGRO_ACTIVITY_MIN_CONSUMED_NODES = 8;
     private static final int GRAND_EVENT_NON_AGGRO_ACTIVITY_MIN_VISITED_SECTORS = 5;
-    private static final int GRAND_EVENT_NON_AGGRO_ACTIVITY_TIMEOUT_TICKS = 50 * 20;
+    private static final int GRAND_EVENT_NON_AGGRO_ACTIVITY_TIMEOUT_TICKS = 40 * 20;
     private static final double GRAND_EVENT_ATTACK_RELEASE_DISTANCE_SQR = 256.0D * 256.0D;
     private static final int GRAND_EVENT_MAX_RECOVERIES = 12;
     private static final int GRAND_EVENT_SEARCH_MIN_TICKS = 100;
@@ -1595,6 +1595,36 @@ public final class UncannyParanoiaEventSystem {
         if (entity.level().isClientSide()) {
             return;
         }
+        if (entity instanceof Warden warden
+                && warden.tickCount > 40
+                && warden.tickCount % 20 == 0
+                && warden.getTags().contains(GRAND_WARDEN_TAG)) {
+            // A Grand Warden outlives its event only by mistake (lost id, reload): it must never
+            // linger and hunt on its own or stand beside the next event's Warden.
+            GrandEventState owner = ACTIVE_GRAND_EVENTS.get(entity.level().dimension());
+            if (owner == null || owner.ended() || !warden.getUUID().equals(owner.wardenUuid())) {
+                debugLog("GRAND_EVENT orphan_warden_discarded uuid={} pos={}", warden.getStringUUID(), warden.blockPosition());
+                warden.discard();
+                return;
+            }
+        }
+        if (entity instanceof Mob walker
+                && walker.tickCount % 20 == 0
+                && walker.getNavigation() instanceof net.minecraft.world.entity.ai.navigation.GroundPathNavigation ground
+                && !ground.canFloat()
+                && com.eotv.echoofthevoid.entity.UncannyEntityUtil.isSpecialHunterThatSwims(walker)) {
+            // Paths may cross water, as the old friend's do: a land Special walks into the lake after
+            // its prey instead of stopping at the shore, then swims (user, 2026-10-10).
+            ground.setCanFloat(true);
+        }
+        if (entity instanceof Mob swimmer
+                && swimmer.isInWater()
+                && com.eotv.echoofthevoid.entity.UncannyEntityUtil.isSpecialHunterThatSwims(swimmer)
+                && swimmer.getTarget() instanceof Player prey
+                && com.eotv.echoofthevoid.entity.UncannyEntityUtil.isHuntablePlayer(prey)) {
+            // Land Specials chasing in water swim like a player instead of bobbing at the surface.
+            com.eotv.echoofthevoid.entity.UncannySwimming.tickToward(swimmer, prey);
+        }
         if (!isRestrictedBoatPassenger(entity)) {
             return;
         }
@@ -1610,6 +1640,11 @@ public final class UncannyParanoiaEventSystem {
     private static boolean isRestrictedBoatPassenger(Entity entity) {
         if (entity instanceof Warden warden && warden.getTags().contains(GRAND_WARDEN_TAG)) {
             return true;
+        }
+        if (entity instanceof com.eotv.echoofthevoid.entity.custom.UncannyApprovedSpecialEntity approved
+                && approved.isFerrymanAboard()) {
+            // The Ferryman? climbing into the player's boat is the one seat a Special may take.
+            return false;
         }
         return entity instanceof Mob mob && UncannyEntityRegistry.isSpecialEntity(mob.getType());
     }
@@ -5511,6 +5546,8 @@ public final class UncannyParanoiaEventSystem {
         Warden warden = null;
         if (raw instanceof Warden existing && existing.isAlive()) {
             warden = existing;
+        } else if ((warden = adoptLooseGrandWarden(level, state)) != null) {
+            state.setWardenUuid(warden.getUUID());
         } else {
             boolean inProtectionWindow = now < state.startedTick() + GRAND_EVENT_NON_AGGRO_MIN_RUNTIME_TICKS;
             if (inProtectionWindow && state.recoveryCount() < GRAND_EVENT_MAX_RECOVERIES) {
@@ -5779,6 +5816,25 @@ public final class UncannyParanoiaEventSystem {
         return true;
     }
 
+    /**
+     * A Grand Warden of this event still standing in the zone (its id was lost, e.g. its chunk reloaded):
+     * the event takes it back instead of raising a second one. Extra copies sink away.
+     */
+    @Nullable
+    private static Warden adoptLooseGrandWarden(ServerLevel level, GrandEventState state) {
+        AABB zone = new AABB(state.anchorPos()).inflate(GRAND_WARDEN_ZONE_RADIUS + 32);
+        List<Warden> loose = level.getEntitiesOfClass(Warden.class, zone,
+                w -> w.isAlive() && w.getTags().contains(GRAND_WARDEN_TAG));
+        if (loose.isEmpty()) {
+            return null;
+        }
+        Warden kept = loose.get(0);
+        for (int i = 1; i < loose.size(); i++) {
+            loose.get(i).discard();
+        }
+        return kept;
+    }
+
     private static Warden recoverGrandEventWarden(ServerLevel level, GrandEventState state, long now) {
         BlockPos spawnPos = findGrandWardenRecoverySpawnPos(level, state);
         if (spawnPos == null) {
@@ -5976,7 +6032,8 @@ public final class UncannyParanoiaEventSystem {
                     && tracked != null
                     && tracked.serverLevel() == level
                     && tracked.isAlive()
-                    && !tracked.isSpectator()) {
+                    && !tracked.isSpectator()
+                    && !tracked.getAbilities().invulnerable) {
                 return false;
             }
             String rejectReason = getGrandEventScopeRejectReason(level, state, tracked);
@@ -6139,7 +6196,7 @@ public final class UncannyParanoiaEventSystem {
         if (level == null || state == null || warden == null || target == null || state.attackTarget() == null) {
             return false;
         }
-        if (target.serverLevel() != level || !target.isAlive() || target.isSpectator()) {
+        if (target.serverLevel() != level || !target.isAlive() || target.isSpectator() || target.getAbilities().invulnerable) {
             return false;
         }
         return warden.distanceToSqr(target) <= GRAND_EVENT_ATTACK_RELEASE_DISTANCE_SQR;
@@ -6179,6 +6236,10 @@ public final class UncannyParanoiaEventSystem {
         }
         if (!player.isAlive() || player.isSpectator()) {
             return "invalid_player_state";
+        }
+        // Like the Vanilla Warden, the event never hunts a creative player: they still see and hear it.
+        if (player.getAbilities().invulnerable) {
+            return "creative";
         }
         long radiusSqr = (long) GRAND_WARDEN_ZONE_RADIUS * GRAND_WARDEN_ZONE_RADIUS;
         double distToAnchorSqr = player.blockPosition().distSqr(state.anchorPos());
@@ -10194,6 +10255,16 @@ public final class UncannyParanoiaEventSystem {
             if (!state.sinking()) {
                 startGrandEventSinking(state, now, GRAND_EVENT_EMPTY_SCOPE_SINK_TICKS);
             }
+            return;
+        }
+
+        if (target.getAbilities().invulnerable || target.isSpectator()) {
+            debugLog("GRAND_EVENT attack-release reason=target_not_survival runtime={} target={}", state.runtimeId(), playerLabel(target));
+            state.clearAttack();
+            clearGrandEventAggroTuning(state, warden, now);
+            warden.setTarget(null);
+            warden.getBrain().eraseMemory(MemoryModuleType.ATTACK_TARGET);
+            warden.clearAnger(target);
             return;
         }
 

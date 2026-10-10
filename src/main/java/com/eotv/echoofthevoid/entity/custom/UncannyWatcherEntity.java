@@ -51,6 +51,9 @@ public class UncannyWatcherEntity extends Monster implements UncannyEntityMarker
     private boolean observedAwarded;
     private int caveCueTicks;
     private int orphanTicks;
+    private int closeTicks;
+    private int closeLingerTicks = WatcherObservationRules.CLOSE_LINGER_MIN_TICKS;
+    private int retreatTicks;
 
     public UncannyWatcherEntity(EntityType<? extends Monster> entityType, Level level) {
         super(entityType, level);
@@ -110,7 +113,9 @@ public class UncannyWatcherEntity extends Monster implements UncannyEntityMarker
             return;
         }
 
-        if (!this.approachMode) {
+        if (this.retreatTicks > 0) {
+            tickRetreat(watched);
+        } else if (!this.approachMode) {
             tickHiddenObserve(watched);
             if (this.hideTicks > 0) {
                 this.hideTicks--;
@@ -143,6 +148,11 @@ public class UncannyWatcherEntity extends Monster implements UncannyEntityMarker
         this.setYHeadRot(this.getYRot());
 
         double distanceSq = this.distanceToSqr(watched);
+        if (distanceSq < 40.0D * 40.0D) {
+            // Too near to stay hidden (spawned close, or the player walked up): back off and keep watching.
+            beginRetreat();
+            return;
+        }
         if (distanceSq < 68.0D * 68.0D) {
             this.getNavigation().stop();
             return;
@@ -159,6 +169,13 @@ public class UncannyWatcherEntity extends Monster implements UncannyEntityMarker
     private void tickApproachObserve(ServerPlayer watched) {
         this.lookAt(watched, 90.0F, 80.0F);
         this.setYHeadRot(this.getYRot());
+
+        if (this.distanceToSqr(watched) <= WatcherObservationRules.CLOSE_DISTANCE * WatcherObservationRules.CLOSE_DISTANCE
+                && ++this.closeTicks >= this.closeLingerTicks) {
+            // A short, unsettling moment close by, then it withdraws far away and keeps watching.
+            beginRetreat();
+            return;
+        }
 
         if (!isPlayerFacingAway(watched)) {
             this.getNavigation().stop();
@@ -180,6 +197,39 @@ public class UncannyWatcherEntity extends Monster implements UncannyEntityMarker
         }
 
         this.getNavigation().stop();
+    }
+
+    private void beginRetreat() {
+        this.approachMode = false;
+        this.closeTicks = 0;
+        this.closeLingerTicks = WatcherObservationRules.CLOSE_LINGER_MIN_TICKS
+                + this.random.nextInt(WatcherObservationRules.CLOSE_LINGER_RANDOM_TICKS + 1);
+        this.retreatTicks = WatcherObservationRules.RETREAT_MAX_TICKS;
+        this.directLookTicks = 0;
+    }
+
+    /** Walks backwards out of sight, still facing the player, until it watches from far away again. */
+    private void tickRetreat(ServerPlayer watched) {
+        this.lookAt(watched, 90.0F, 80.0F);
+        this.setYHeadRot(this.getYRot());
+        this.retreatTicks--;
+        double distance = this.distanceTo(watched);
+        if (WatcherObservationRules.retreatFinished(distance, this.retreatTicks)) {
+            this.retreatTicks = 0;
+            this.approachMode = false;
+            this.getNavigation().stop();
+            this.hideTicks = HIDE_MIN_TICKS + this.random.nextInt(HIDE_RANDOM_TICKS + 1);
+            return;
+        }
+        if (this.getNavigation().isDone() || this.tickCount % 40 == 0) {
+            Vec3 spot = net.minecraft.world.entity.ai.util.DefaultRandomPos.getPosAway(this, 24, 8, watched.position());
+            if (spot == null) {
+                Vec3 away = this.position().subtract(watched.position()).multiply(1.0D, 0.0D, 1.0D);
+                away = away.lengthSqr() < 0.001D ? new Vec3(1.0D, 0.0D, 0.0D) : away.normalize();
+                spot = this.position().add(away.scale(20.0D));
+            }
+            this.getNavigation().moveTo(spot.x, spot.y, spot.z, 0.95D);
+        }
     }
 
     private void tickFlee(ServerPlayer watched) {
@@ -228,6 +278,8 @@ public class UncannyWatcherEntity extends Monster implements UncannyEntityMarker
         tag.putBoolean("ObservedAwarded", observedAwarded);
         tag.putInt("CaveCueTicks", caveCueTicks);
         tag.putInt("OrphanTicks", orphanTicks);
+        tag.putInt("RetreatTicks", retreatTicks);
+        tag.putInt("CloseTicks", closeTicks);
     }
 
     @Override
@@ -247,6 +299,8 @@ public class UncannyWatcherEntity extends Monster implements UncannyEntityMarker
         this.observedAwarded = tag.getBoolean("ObservedAwarded");
         this.caveCueTicks = tag.getInt("CaveCueTicks");
         this.orphanTicks = Math.max(0, tag.getInt("OrphanTicks"));
+        this.retreatTicks = Math.max(0, tag.getInt("RetreatTicks"));
+        this.closeTicks = Math.max(0, tag.getInt("CloseTicks"));
         if (this.hideTicks <= 0 && !this.approachMode && this.fleeTicks <= 0 && !this.sinking) {
             this.hideTicks = HIDE_MIN_TICKS + this.random.nextInt(HIDE_RANDOM_TICKS + 1);
         }

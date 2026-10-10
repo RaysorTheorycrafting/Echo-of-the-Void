@@ -60,7 +60,7 @@ public class UncannyPulseEntity extends Monster implements UncannyEntityMarker {
             return;
         }
 
-        if (!(this.level().getNearestPlayer(this, 24.0D) instanceof ServerPlayer target) || !target.isAlive()) {
+        if (!(UncannyEntityUtil.nearestHuntablePlayer(this, 24.0D) instanceof ServerPlayer target) || !target.isAlive()) {
             return;
         }
 
@@ -110,11 +110,9 @@ public class UncannyPulseEntity extends Monster implements UncannyEntityMarker {
         double proximity = 1.0D - Mth.clamp(distance / 20.0D, 0.0D, 1.0D);
         float volume = (float) (0.22D + proximity * 0.50D);
         float pitch = (float) (0.72D + proximity * 0.55D);
-        target.serverLevel().playSound(
-                null,
-                this.getX(),
-                this.getY() + 1.0D,
-                this.getZ(),
+        com.eotv.echoofthevoid.sound.UncannyPhysicalSoundDelivery.playFromEntity(
+                target.serverLevel(),
+                this,
                 UncannySoundRegistry.UNCANNY_HEARTBEAT.get(),
                 SoundSource.HOSTILE,
                 volume,

@@ -23,6 +23,20 @@ public final class ApprovedSpecialBehaviorRules {
     public static final double FERRYMAN_REVEAL_MAX_VERTICAL_STEP = 0.13D;
     public static final double FERRYMAN_DEPARTURE_STEP = 0.11D;
     public static final float FERRYMAN_WAKE_VOLUME = 0.80F;
+    /** When the boat stops, one chance in two that it climbs aboard instead of rising beside it (user, 2026-10-09). */
+    public static final double FERRYMAN_BOARD_CHANCE = 0.5D;
+    /** Aboard it lets the player notice it before the first blow. */
+    public static final int FERRYMAN_FIRST_STRIKE_DELAY_TICKS = 30;
+    public static final int FERRYMAN_STRIKE_INTERVAL_TICKS = 36;
+    public static final double FERRYMAN_REACH = 2.4D;
+    /** Off the boat it hunts the player on for this long at most, then sinks away. */
+    public static final int FERRYMAN_PURSUIT_MAX_TICKS = 20 * 45;
+    public static final double FERRYMAN_PURSUIT_GIVE_UP_DISTANCE = 40.0D;
+
+    /** @param roll uniform value in [0, 1); a boat needs a free seat behind its driver. */
+    public static boolean ferrymanBoards(double roll, int passengers, int maxPassengers) {
+        return roll < FERRYMAN_BOARD_CHANCE && passengers < maxPassengers;
+    }
 
     public static final int MOURNER_MIN_OBSERVATION_TICKS = 70;
     public static final int MOURNER_REQUIRED_GAZE_TICKS = 18;

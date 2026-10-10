@@ -79,6 +79,7 @@ public final class UncannyAmbusherEntity extends Monster implements UncannyEntit
             beginSinking();
             return;
         }
+        com.eotv.echoofthevoid.event.special.CombatParity.maintain(this, focus, com.eotv.echoofthevoid.event.special.CombatParityRules.AMBUSHER);
         if (this.isPassenger()) {
             this.stopRiding();
         }

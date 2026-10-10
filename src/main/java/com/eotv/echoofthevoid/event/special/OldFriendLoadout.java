@@ -48,6 +48,25 @@ public final class OldFriendLoadout {
                 target.getItemBySlot(EquipmentSlot.FEET).copy());
     }
 
+    /**
+     * What it eats: a copy of the most filling plain food the target carries (nothing with an effect,
+     * so never rotten flesh or a golden apple), cooked beef otherwise.
+     */
+    public static ItemStack mealOf(ServerPlayer target) {
+        Inventory inventory = target.getInventory();
+        ItemStack best = ItemStack.EMPTY;
+        int bestNutrition = 0;
+        for (int slot = 0; slot < inventory.getContainerSize(); slot++) {
+            ItemStack stack = inventory.getItem(slot);
+            net.minecraft.world.food.FoodProperties food = stack.getFoodProperties(target);
+            if (food != null && food.effects().isEmpty() && food.nutrition() > bestNutrition) {
+                bestNutrition = food.nutrition();
+                best = stack;
+            }
+        }
+        return best.isEmpty() ? new ItemStack(Items.COOKED_BEEF) : best.copyWithCount(1);
+    }
+
     private static ItemStack copyOne(ItemStack stack) {
         return stack.isEmpty() ? ItemStack.EMPTY : stack.copyWithCount(1);
     }
@@ -55,6 +74,10 @@ public final class OldFriendLoadout {
     /** Axe, pickaxe or shovel of the sword's material (wood without a sword), or a bare hand. */
     public static ItemStack toolFor(BlockState state, ItemStack weapon) {
         Tier tier = weapon.getItem() instanceof SwordItem sword ? sword.getTier() : Tiers.WOOD;
+        if (state.is(BlockTags.LEAVES)) {
+            // A player slashes through leaves with the sword already in hand.
+            return weapon.copy();
+        }
         if (state.is(BlockTags.MINEABLE_WITH_PICKAXE)) {
             return new ItemStack(pickaxe(tier));
         }

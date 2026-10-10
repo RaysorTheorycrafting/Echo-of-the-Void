@@ -60,7 +60,7 @@ public class UncannyPhantomEntity extends Phantom implements UncannyEntityMarker
 
         Player player = this.getTarget() instanceof Player targetPlayer ? targetPlayer : null;
         if (player == null) {
-            Player nearest = level().getNearestPlayer(this, 24.0D);
+            Player nearest = UncannyEntityUtil.nearestHuntablePlayer(this, 24.0D);
             if (nearest != null) {
                 this.setTarget(nearest);
                 player = nearest;

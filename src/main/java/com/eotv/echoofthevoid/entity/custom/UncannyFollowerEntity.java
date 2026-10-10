@@ -172,11 +172,13 @@ public class UncannyFollowerEntity extends Monster implements UncannyEntityMarke
         }
 
         boolean directPlayerMelee = attacker instanceof Player && source.getDirectEntity() == attacker;
-        float appliedDamage = directPlayerMelee
+        // While it stalks, a blow only startles it away; once it attacks, duel parity decides the fight.
+        float appliedDamage = directPlayerMelee && !this.attacking
                 ? ApprovedSpecialBehaviorRules.followerPlayerMeleeDamage(amount)
                 : amount;
         boolean hurt = super.hurt(source, appliedDamage);
-        if (hurt && directPlayerMelee && !this.isDeadOrDying()) {
+        // Once it has lunged it never backs off (user, 2026-10-09): blows only evade it while it stalks.
+        if (hurt && directPlayerMelee && !this.isDeadOrDying() && !this.attacking) {
             this.getNavigation().stop();
             this.setTarget(null);
             this.attacking = false;
@@ -252,6 +254,7 @@ public class UncannyFollowerEntity extends Monster implements UncannyEntityMarke
             discardWithReason(owner, "owner_beyond_encounter_range", now);
             return;
         }
+        com.eotv.echoofthevoid.event.special.CombatParity.maintain(this, owner, com.eotv.echoofthevoid.event.special.CombatParityRules.FOLLOWER);
         if (this.meleeCooldownTicks > 0) {
             this.meleeCooldownTicks--;
         }
@@ -300,7 +303,9 @@ public class UncannyFollowerEntity extends Monster implements UncannyEntityMarke
         }
 
         if (this.attacking) {
-            if (now >= this.attackEndTick || !owner.isAlive()) {
+            // The attack has no time limit: it ends with the owner's death, the creature's, or the
+            // owner leaving the encounter range (checked above).
+            if (!owner.isAlive() || !UncannyEntityUtil.isHuntablePlayer(owner)) {
                 this.attacking = false;
                 this.fleeing = true;
                 level.playSound(null, this.blockPosition(), SoundEvents.ENDERMAN_TELEPORT, SoundSource.HOSTILE, 0.8F, 0.82F);
@@ -416,7 +421,7 @@ public class UncannyFollowerEntity extends Monster implements UncannyEntityMarke
                         "unseen_attack_started",
                         DiagnosticSeverity.INFO,
                         UncannyDiagnostics.fields("encounter_age_ticks", this.tickCount));
-                level.playSound(null, this.blockPosition(), UncannySoundRegistry.UNCANNY_HURLER_SCREAM.get(), SoundSource.HOSTILE, 1.05F, 0.88F);
+                com.eotv.echoofthevoid.sound.UncannyPhysicalSoundDelivery.playFromEntity(level, this, UncannySoundRegistry.UNCANNY_HURLER_SCREAM.get(), SoundSource.HOSTILE, 1.05F, 0.88F);
                 return;
             }
 
@@ -540,7 +545,7 @@ public class UncannyFollowerEntity extends Monster implements UncannyEntityMarke
                 return owner;
             }
         }
-        Player nearest = level.getNearestPlayer(this, 30.0D);
+        Player nearest = UncannyEntityUtil.nearestHuntablePlayer(this, 30.0D);
         if (nearest instanceof ServerPlayer owner) {
             this.entityData.set(OWNER_PLAYER, Optional.of(owner.getUUID()));
             this.ownerEntityId = owner.getId();

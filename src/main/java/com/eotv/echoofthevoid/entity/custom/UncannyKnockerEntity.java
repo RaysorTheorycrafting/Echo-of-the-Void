@@ -105,6 +105,7 @@ public class UncannyKnockerEntity extends Monster implements UncannyEntityMarker
             this.discard();
             return;
         }
+        com.eotv.echoofthevoid.event.special.CombatParity.maintain(this, targetPlayer, com.eotv.echoofthevoid.event.special.CombatParityRules.KNOCKER);
 
         if (this.sinking) {
             tickSinking();
@@ -381,9 +382,9 @@ public class UncannyKnockerEntity extends Monster implements UncannyEntityMarker
         this.attackCooldownTicks = 0;
         this.setTarget(targetPlayer);
         if (playScream) {
-            this.level().playSound(
-                    null,
-                    this.blockPosition(),
+            if (this.level() instanceof net.minecraft.server.level.ServerLevel screamLevel) com.eotv.echoofthevoid.sound.UncannyPhysicalSoundDelivery.playFromEntity(
+                    screamLevel,
+                    this,
                     UncannySoundRegistry.UNCANNY_HURLER_SCREAM.get(),
                     SoundSource.HOSTILE,
                     1.05F,

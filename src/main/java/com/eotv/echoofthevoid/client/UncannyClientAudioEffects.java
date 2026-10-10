@@ -106,6 +106,27 @@ public final class UncannyClientAudioEffects {
         }
     }
 
+    /** A physical cry that follows its (silent) entity through the world. */
+    public static void playFollowingEntity(com.eotv.echoofthevoid.network.UncannyEntitySoundPayload payload) {
+        Minecraft minecraft = Minecraft.getInstance();
+        ClientLevel level = minecraft.level;
+        ResourceLocation soundId = ResourceLocation.tryParse(payload.soundId());
+        if (level == null || soundId == null) {
+            return;
+        }
+        net.minecraft.world.entity.Entity entity = level.getEntity(payload.entityId());
+        minecraft.getSoundManager().play(new UncannyEntityFollowingSound(
+                net.minecraft.sounds.SoundEvent.createVariableRangeEvent(soundId),
+                parseSource(payload.sourceName()),
+                Mth.clamp(payload.volume(), 0.0F, 8.0F),
+                Mth.clamp(payload.pitch(), 0.2F, 2.0F),
+                payload.seed(),
+                entity,
+                payload.x(),
+                payload.y(),
+                payload.z()));
+    }
+
     public static void onClientTick(ClientTickEvent.Post event) {
         Minecraft minecraft = Minecraft.getInstance();
         LocalPlayer player = minecraft.player;

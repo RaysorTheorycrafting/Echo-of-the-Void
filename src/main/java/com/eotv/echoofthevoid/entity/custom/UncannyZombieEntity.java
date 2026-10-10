@@ -399,11 +399,9 @@ public class UncannyZombieEntity extends Zombie implements UncannyEntityMarker {
             return;
         }
 
-        serverLevel.playSound(
-                null,
-                this.getX(),
-                this.getY() + this.getBbHeight() * 0.85D,
-                this.getZ(),
+        com.eotv.echoofthevoid.sound.UncannyPhysicalSoundDelivery.playFromEntity(
+                serverLevel,
+                this,
                 UncannySoundRegistry.UNCANNY_ZOMBIE_TALL_AMBIENT.get(),
                 this.getSoundSource(),
                 1.08F + this.random.nextFloat() * 0.20F,
@@ -413,11 +411,9 @@ public class UncannyZombieEntity extends Zombie implements UncannyEntityMarker {
     }
 
     private void playTallGlitchBurst(ServerLevel serverLevel, boolean death) {
-        serverLevel.playSound(
-                null,
-                this.getX(),
-                this.getY() + this.getBbHeight() * 0.85D,
-                this.getZ(),
+        com.eotv.echoofthevoid.sound.UncannyPhysicalSoundDelivery.playFromEntity(
+                serverLevel,
+                this,
                 death ? UncannySoundRegistry.UNCANNY_ZOMBIE_TALL_DEATH.get() : UncannySoundRegistry.UNCANNY_ZOMBIE_TALL_HURT.get(),
                 this.getSoundSource(),
                 death ? 1.35F : 1.15F,
@@ -473,11 +469,9 @@ public class UncannyZombieEntity extends Zombie implements UncannyEntityMarker {
             return;
         }
 
-        serverLevel.playSound(
-                null,
-                this.getX(),
-                this.getY(),
-                this.getZ(),
+        com.eotv.echoofthevoid.sound.UncannyPhysicalSoundDelivery.playFromEntity(
+                serverLevel,
+                this,
                 SoundEvents.ZOMBIE_AMBIENT,
                 this.getSoundSource(),
                 0.20F,
@@ -504,7 +498,7 @@ public class UncannyZombieEntity extends Zombie implements UncannyEntityMarker {
         this.setSprinting(true);
 
         if (!(this.getTarget() instanceof Player player) || !player.isAlive()) {
-            Player nearestPlayer = serverLevel.getNearestPlayer(this, 28.0D);
+            Player nearestPlayer = UncannyEntityUtil.nearestHuntablePlayer(this, 28.0D);
             if (nearestPlayer != null) {
                 this.setTarget(nearestPlayer);
             }
@@ -522,11 +516,9 @@ public class UncannyZombieEntity extends Zombie implements UncannyEntityMarker {
         }
 
         if (--this.variantAmbientDelayTicks <= 0) {
-            serverLevel.playSound(
-                    null,
-                    this.getX(),
-                    this.getY(),
-                    this.getZ(),
+            com.eotv.echoofthevoid.sound.UncannyPhysicalSoundDelivery.playFromEntity(
+                    serverLevel,
+                    this,
                     SoundEvents.ZOMBIE_AMBIENT,
                     this.getSoundSource(),
                     1.28F,
@@ -576,7 +568,7 @@ public class UncannyZombieEntity extends Zombie implements UncannyEntityMarker {
                 && this.distanceToSqr(targetPlayer) <= 20.0D * 20.0D) {
             return targetPlayer;
         }
-        Player nearest = serverLevel.getNearestPlayer(this, 28.0D);
+        Player nearest = UncannyEntityUtil.nearestHuntablePlayer(this, 28.0D);
         if (nearest instanceof ServerPlayer serverPlayer && serverPlayer.isAlive() && !serverPlayer.isSpectator()) {
             return serverPlayer;
         }
@@ -606,11 +598,9 @@ public class UncannyZombieEntity extends Zombie implements UncannyEntityMarker {
             default -> SoundEvents.VILLAGER_AMBIENT;
         };
 
-        level.playSound(
-                null,
-                this.getX(),
-                this.getY(),
-                this.getZ(),
+        com.eotv.echoofthevoid.sound.UncannyPhysicalSoundDelivery.playFromEntity(
+                level,
+                this,
                 chosen,
                 SoundSource.HOSTILE,
                 0.8F,

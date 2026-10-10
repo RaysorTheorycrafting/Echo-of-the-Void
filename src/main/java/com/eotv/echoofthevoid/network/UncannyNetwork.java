@@ -55,6 +55,10 @@ public final class UncannyNetwork {
                 UncannyMentalSoundPayload.STREAM_CODEC,
                 UncannyNetwork::handleMentalSound);
         registrar.playToClient(
+                UncannyEntitySoundPayload.TYPE,
+                UncannyEntitySoundPayload.STREAM_CODEC,
+                UncannyNetwork::handleEntitySound);
+        registrar.playToClient(
                 UncannyOrphanShadowPayload.TYPE,
                 UncannyOrphanShadowPayload.STREAM_CODEC,
                 UncannyNetwork::handleOrphanShadow);
@@ -183,6 +187,10 @@ public final class UncannyNetwork {
                 payload.volume(),
                 payload.pitch(),
                 payload.maximumDurationTicks()));
+    }
+
+    private static void handleEntitySound(final UncannyEntitySoundPayload payload, final IPayloadContext context) {
+        context.enqueueWork(() -> UncannyClientAudioEffects.playFollowingEntity(payload));
     }
 
     private static void handleOrphanShadow(final UncannyOrphanShadowPayload payload, final IPayloadContext context) {

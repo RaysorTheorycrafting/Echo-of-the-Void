@@ -534,6 +534,10 @@ public class UncannyFlankerEntity extends AbstractUncannyHuntingSpecialEntity {
     }
 
     private static boolean canReach(UncannyFlankerEntity member, ServerPlayer focus) {
+        if (focus.isInWater() || member.isInWater()) {
+            // No ground path crosses water, but it swims after its prey (UncannySwimming).
+            return true;
+        }
         var path = member.getNavigation().createPath(focus, 1);
         return path != null && path.canReach();
     }

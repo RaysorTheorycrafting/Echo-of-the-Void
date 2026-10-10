@@ -39,6 +39,20 @@ public final class CombatParityRules {
     public static final Profile DRIFTER = new Profile("drifter", 6.0D, 1.8D, 1.0D);
     public static final Profile ASHWALKER = new Profile("ashwalker", 5.0D, 2.0D, 1.0D);
     public static final Profile DREDGER = new Profile("dredger", 7.0D, 1.5D, 1.0D);
+    // Every other Special that strikes the player fights at the Attacker? standard (user, 2026-10-09:
+    // "toutes les entités ont les statistiques boostées comme Attacker?"); they kept fixed Vanilla-like
+    // values before (Hurler? 20 HP / 4 damage whatever the player's gear).
+    public static final Profile HURLER = new Profile("hurler", 6.0D, 1.8D, 1.0D);
+    public static final Profile FOLLOWER = new Profile("follower", 6.0D, 1.8D, 1.0D);
+    public static final Profile KNOCKER = new Profile("knocker", 6.0D, 1.8D, 1.0D);
+    public static final Profile KEEPER = new Profile("keeper", 6.0D, 1.8D, 1.0D);
+    public static final Profile USHER = new Profile("usher", 6.0D, 1.8D, 1.0D);
+    public static final Profile AMBUSHER = new Profile("ambusher", 6.0D, 1.8D, 1.0D);
+    /**
+     * Ferryman? aboard: Attacker? toughness but half its blow (user, 2026-10-09). Halving the damage
+     * per landed hit doubles the hits it needs, which is what the halved cadence expresses here.
+     */
+    public static final Profile FERRYMAN = new Profile("ferryman", 6.0D, 0.9D, 1.0D);
 
     /** Devourer? never strikes: only its toughness scales, and it is built to be hard to put down. */
     public static final double DEVOURER_PLAYER_SECONDS = 14.0D;

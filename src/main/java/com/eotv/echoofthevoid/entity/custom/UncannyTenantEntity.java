@@ -122,13 +122,13 @@ public class UncannyTenantEntity extends Monster implements UncannyEntityMarker 
         }
 
         if (this.noticedInside && now >= this.vanishAfterNoticeTick) {
-            level.playSound(null, this.blockPosition(), SoundEvents.AMBIENT_CAVE.value(), SoundSource.HOSTILE, 1.0F, 0.82F);
+            com.eotv.echoofthevoid.sound.UncannyPhysicalSoundDelivery.playFromEntity(level, this, SoundEvents.AMBIENT_CAVE.value(), SoundSource.HOSTILE, 1.0F, 0.82F);
             discardAndRestoreDoor();
             return;
         }
 
         if (this.lingerTicks > 20 * 80) {
-            level.playSound(null, this.blockPosition(), SoundEvents.AMBIENT_CAVE.value(), SoundSource.HOSTILE, 1.0F, 0.82F);
+            com.eotv.echoofthevoid.sound.UncannyPhysicalSoundDelivery.playFromEntity(level, this, SoundEvents.AMBIENT_CAVE.value(), SoundSource.HOSTILE, 1.0F, 0.82F);
             discardAndRestoreDoor();
         }
     }

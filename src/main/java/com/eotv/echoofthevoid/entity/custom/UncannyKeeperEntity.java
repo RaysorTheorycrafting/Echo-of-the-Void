@@ -107,6 +107,7 @@ public class UncannyKeeperEntity extends Monster implements UncannyEntityMarker 
             this.discard();
             return;
         }
+        com.eotv.echoofthevoid.event.special.CombatParity.maintain(this, owner, com.eotv.echoofthevoid.event.special.CombatParityRules.KEEPER);
 
         if (this.sinking) {
             tickSinking(level);
@@ -222,8 +223,8 @@ public class UncannyKeeperEntity extends Monster implements UncannyEntityMarker 
                 if (this.getAttribute(Attributes.MOVEMENT_SPEED) != null) {
                     this.getAttribute(Attributes.MOVEMENT_SPEED).setBaseValue(0.38D);
                 }
-                level.playSound(
-                        null,
+                com.eotv.echoofthevoid.sound.UncannyPhysicalSoundDelivery.playFromEntity(
+                        level,
                         this,
                         UncannySoundRegistry.UNCANNY_HURLER_SCREAM.get(),
                         SoundSource.HOSTILE,
@@ -484,7 +485,7 @@ public class UncannyKeeperEntity extends Monster implements UncannyEntityMarker 
         this.sinking = true;
         this.sinkEndTick = this.tickCount + 24;
         this.setNoGravity(true);
-        level.playSound(null, this.blockPosition(), SoundEvents.AMBIENT_CAVE.value(), SoundSource.HOSTILE, 0.95F, 0.88F);
+        com.eotv.echoofthevoid.sound.UncannyPhysicalSoundDelivery.playFromEntity(level, this, SoundEvents.AMBIENT_CAVE.value(), SoundSource.HOSTILE, 0.95F, 0.88F);
     }
 
     private void tickSinking(ServerLevel level) {

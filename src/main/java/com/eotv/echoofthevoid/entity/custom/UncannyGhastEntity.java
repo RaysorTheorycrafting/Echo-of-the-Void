@@ -23,7 +23,7 @@ public class UncannyGhastEntity extends Ghast implements UncannyEntityMarker {
         }
 
         if (!(this.getTarget() instanceof Player player)) {
-            Player nearest = level().getNearestPlayer(this, 48.0D);
+            Player nearest = UncannyEntityUtil.nearestHuntablePlayer(this, 48.0D);
             if (nearest != null) {
                 this.setTarget(nearest);
             }
@@ -34,7 +34,7 @@ public class UncannyGhastEntity extends Ghast implements UncannyEntityMarker {
         // per-tick acceleration toward the player was another instance of the unfair homing
         // effect removed from Magma Cube?, Drowned?, Endermite? and Phantom?.
         if (this.tickCount % 200 == 0) {
-            this.level().playSound(null, this.blockPosition(), SoundEvents.GHAST_SCREAM, this.getSoundSource(), 1.15F, 0.9F);
+            if (this.level() instanceof net.minecraft.server.level.ServerLevel screamLevel) com.eotv.echoofthevoid.sound.UncannyPhysicalSoundDelivery.playFromEntity(screamLevel, this, SoundEvents.GHAST_SCREAM, this.getSoundSource(), 1.15F, 0.9F);
         }
     }
 }

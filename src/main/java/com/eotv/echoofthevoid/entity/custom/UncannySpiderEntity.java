@@ -359,7 +359,7 @@ public class UncannySpiderEntity extends Spider implements UncannyEntityMarker {
             this.fakeDeathActive = false;
             this.setSilent(false);
             this.addEffect(new MobEffectInstance(MobEffects.MOVEMENT_SPEED, 20 * 10, 1, false, false, true));
-            level.playSound(null, this.getX(), this.getY(), this.getZ(), SoundEvents.SPIDER_AMBIENT, this.getSoundSource(), 1.05F, 0.55F);
+            com.eotv.echoofthevoid.sound.UncannyPhysicalSoundDelivery.playFromEntity(level, this, SoundEvents.SPIDER_AMBIENT, this.getSoundSource(), 1.05F, 0.55F);
             if (nearest != null) {
                 this.setTarget(nearest);
             }
@@ -503,7 +503,7 @@ public class UncannySpiderEntity extends Spider implements UncannyEntityMarker {
         if (target instanceof Player player && player.isAlive()) {
             return player;
         }
-        return level.getNearestPlayer(this, radius);
+        return UncannyEntityUtil.nearestHuntablePlayer(this, radius);
     }
 
     @Nullable

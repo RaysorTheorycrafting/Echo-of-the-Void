@@ -85,7 +85,7 @@ public class UncannyHurlerEntity extends Monster implements UncannyEntityMarker 
 
         ServerPlayer player = resolveWatchedPlayer(serverLevel);
         if (player == null || !player.isAlive()) {
-            Player nearest = this.level().getNearestPlayer(this, 26.0D);
+            Player nearest = UncannyEntityUtil.nearestHuntablePlayer(this, 26.0D);
             if (nearest instanceof ServerPlayer serverPlayer && serverPlayer.isAlive()) {
                 setWatchedPlayer(serverPlayer);
                 player = serverPlayer;
@@ -95,6 +95,7 @@ public class UncannyHurlerEntity extends Monster implements UncannyEntityMarker 
         if (player == null || !player.isAlive()) {
             return;
         }
+        com.eotv.echoofthevoid.event.special.CombatParity.maintain(this, player, com.eotv.echoofthevoid.event.special.CombatParityRules.HURLER);
 
         if (this.sinking) {
             tickSinking();
@@ -260,7 +261,7 @@ public class UncannyHurlerEntity extends Monster implements UncannyEntityMarker 
     }
 
     private void triggerReaction(ServerPlayer player) {
-        this.level().playSound(null, player, UncannySoundRegistry.UNCANNY_HURLER_SCREAM.get(), this.getSoundSource(), 1.10F, 0.85F);
+        com.eotv.echoofthevoid.sound.UncannyPhysicalSoundDelivery.playFromEntity(player.serverLevel(), this, UncannySoundRegistry.UNCANNY_HURLER_SCREAM.get(), this.getSoundSource(), 1.10F, 0.85F);
         if (this.random.nextInt(100) < this.attackChancePercent) {
             this.setMode(MODE_ATTACK);
             this.modeTicks = 130 + this.random.nextInt(71);
