@@ -20,7 +20,7 @@ For modpack integration, always use release assets (`.jar`) instead of source sn
 
 - Install Minecraft 1.21.1 and NeoForge 21.1.219 or newer in the 21.1 line.
 - Use Java 21.
-- Put `EchoOfTheVoid-2.0.0.jar` in the `mods` folder.
+- Put `EchoOfTheVoid-2.2.1.jar` in the `mods` folder.
 - Install the same JAR on the server and every connecting client. No external mod dependency is required.
 
 Existing 1.1.1 worlds remain supported. Back up important worlds before updating any modded instance.
