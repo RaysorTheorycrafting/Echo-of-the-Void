@@ -914,6 +914,10 @@ public final class UncannyParanoiaEventSystem {
     }
 
     private static void maybeTriggerFirstNightWatcher(ServerPlayer player, UncannyWorldState worldState, long now) {
+        // Creatures act on survival and adventure players only.
+        if (!com.eotv.echoofthevoid.entity.UncannyEntityUtil.isHuntablePlayer(player)) {
+            return;
+        }
         if (player == null
                 || worldState == null
                 || player.getServer() == null
@@ -3170,6 +3174,10 @@ public final class UncannyParanoiaEventSystem {
     }
 
     public static boolean triggerPhantomHarvest(ServerPlayer player) {
+        // Creatures act on survival and adventure players only.
+        if (!com.eotv.echoofthevoid.entity.UncannyEntityUtil.isHuntablePlayer(player)) {
+            return false;
+        }
         if (player.getServer() == null || !UncannyWorldState.get(player.getServer()).isSystemEnabled()) {
             return false;
         }
@@ -3911,6 +3919,10 @@ public final class UncannyParanoiaEventSystem {
     }
 
     private static boolean spawnShadow(ServerPlayer player, boolean strictDark, boolean preferCloseBehind) {
+        // Creatures act on survival and adventure players only.
+        if (!com.eotv.echoofthevoid.entity.UncannyEntityUtil.isHuntablePlayer(player)) {
+            return false;
+        }
         if (shouldBlockSpecialSpawn(player)) {
             debugLog("SPECIAL spawn-shadow blocked water-or-boat player={}", playerLabel(player));
             return false;
@@ -3983,6 +3995,10 @@ public final class UncannyParanoiaEventSystem {
     }
 
     private static boolean spawnHurler(ServerPlayer player, boolean preferCloseBehind, boolean forceAggression) {
+        // Creatures act on survival and adventure players only.
+        if (!com.eotv.echoofthevoid.entity.UncannyEntityUtil.isHuntablePlayer(player)) {
+            return false;
+        }
         if (shouldBlockSpecialSpawn(player)) {
             debugLog("SPECIAL spawn-hurler blocked water-or-boat player={}", playerLabel(player));
             return false;
@@ -4057,6 +4073,10 @@ public final class UncannyParanoiaEventSystem {
     }
 
     private static boolean spawnStalker(ServerPlayer player, boolean preferCloseBehind, boolean ignoreDangerGate) {
+        // Creatures act on survival and adventure players only.
+        if (!com.eotv.echoofthevoid.entity.UncannyEntityUtil.isHuntablePlayer(player)) {
+            return false;
+        }
         return spawnStalker(
                 player,
                 preferCloseBehind,
@@ -4145,6 +4165,10 @@ public final class UncannyParanoiaEventSystem {
     }
 
     private static boolean spawnKnocker(ServerPlayer player, boolean preferCloseBehind, boolean forceAggression) {
+        // Creatures act on survival and adventure players only.
+        if (!com.eotv.echoofthevoid.entity.UncannyEntityUtil.isHuntablePlayer(player)) {
+            return false;
+        }
         if (shouldBlockSpecialSpawn(player)) {
             debugLog("SPECIAL spawn-knocker blocked water-or-boat player={}", playerLabel(player));
             return false;
@@ -4216,6 +4240,10 @@ public final class UncannyParanoiaEventSystem {
     }
 
     private static boolean spawnPulse(ServerPlayer player, boolean preferCloseBehind) {
+        // Creatures act on survival and adventure players only.
+        if (!com.eotv.echoofthevoid.entity.UncannyEntityUtil.isHuntablePlayer(player)) {
+            return false;
+        }
         if (shouldBlockSpecialSpawn(player)) {
             debugLog("SPECIAL spawn-pulse blocked water-or-boat player={}", playerLabel(player));
             return false;
@@ -4293,6 +4321,10 @@ public final class UncannyParanoiaEventSystem {
     }
 
     private static boolean spawnUsher(ServerPlayer player, boolean preferCloseBehind) {
+        // Creatures act on survival and adventure players only.
+        if (!com.eotv.echoofthevoid.entity.UncannyEntityUtil.isHuntablePlayer(player)) {
+            return false;
+        }
         if (shouldBlockSpecialSpawn(player)) {
             debugLog("SPECIAL spawn-usher blocked water-or-boat player={}", playerLabel(player));
             return false;
@@ -4378,6 +4410,10 @@ public final class UncannyParanoiaEventSystem {
     }
 
     private static boolean spawnKeeper(ServerPlayer player, boolean preferCloseBehind) {
+        // Creatures act on survival and adventure players only.
+        if (!com.eotv.echoofthevoid.entity.UncannyEntityUtil.isHuntablePlayer(player)) {
+            return false;
+        }
         if (shouldBlockSpecialSpawn(player)) {
             debugLog("SPECIAL spawn-keeper blocked water-or-boat player={}", playerLabel(player));
             return false;
@@ -4507,6 +4543,10 @@ public final class UncannyParanoiaEventSystem {
     }
 
     private static boolean spawnTenant(ServerPlayer player, boolean preferCloseBehind) {
+        // Creatures act on survival and adventure players only.
+        if (!com.eotv.echoofthevoid.entity.UncannyEntityUtil.isHuntablePlayer(player)) {
+            return false;
+        }
         if (shouldBlockSpecialSpawn(player)) {
             debugLog("SPECIAL spawn-tenant blocked water-or-boat player={}", playerLabel(player));
             return false;
@@ -4579,6 +4619,10 @@ public final class UncannyParanoiaEventSystem {
     }
 
     private static boolean spawnFollower(ServerPlayer player, boolean preferCloseBehind) {
+        // Creatures act on survival and adventure players only.
+        if (!com.eotv.echoofthevoid.entity.UncannyEntityUtil.isHuntablePlayer(player)) {
+            return false;
+        }
         if (shouldBlockSpecialSpawn(player)) {
             debugLog("SPECIAL spawn-follower blocked water-or-boat player={}", playerLabel(player));
             return false;
@@ -5214,6 +5258,11 @@ public final class UncannyParanoiaEventSystem {
     }
 
     private static boolean startGrandEventWarden(ServerLevel level, long now, boolean forcedByCommand, boolean firstWarningAlreadySent) {
+        // Creatures act on survival and adventure players only: no Grand Warden for creative or spectator players.
+        if (com.eotv.echoofthevoid.entity.UncannyEntityUtil.huntablePlayers(level).isEmpty()) {
+            debugLog("GRAND_EVENT start skipped reason=no-survival-or-adventure-player dimension={}", level.dimension().location());
+            return false;
+        }
         ResourceKey<Level> dimension = level.dimension();
         GrandEventState existing = ACTIVE_GRAND_EVENTS.get(dimension);
         if (existing != null && !existing.ended()) {
@@ -11419,6 +11468,10 @@ public final class UncannyParanoiaEventSystem {
     }
 
     private static boolean maybeTriggerSpecialEntityEncounter(ServerPlayer player, long now) {
+        // Creatures act on survival and adventure players only.
+        if (!com.eotv.echoofthevoid.entity.UncannyEntityUtil.isHuntablePlayer(player)) {
+            return false;
+        }
         MinecraftServer server = player.getServer();
         if (server == null) {
             return false;
@@ -12854,6 +12907,10 @@ public final class UncannyParanoiaEventSystem {
     }
 
     private static void spawnPulseInBed(ServerPlayer player, BlockPos bedPos) {
+        // Creatures act on survival and adventure players only.
+        if (!com.eotv.echoofthevoid.entity.UncannyEntityUtil.isHuntablePlayer(player)) {
+            return;
+        }
         ServerLevel level = player.serverLevel();
         UncannyPulseEntity pulse = UncannyEntityRegistry.UNCANNY_PULSE.get().create(level);
         if (pulse == null) {
@@ -13712,6 +13769,10 @@ public final class UncannyParanoiaEventSystem {
     }
 
     private static boolean spawnBellUncannyAttacker(ServerPlayer player) {
+        // Creatures act on survival and adventure players only.
+        if (!com.eotv.echoofthevoid.entity.UncannyEntityUtil.isHuntablePlayer(player)) {
+            return false;
+        }
         ServerLevel level = player.serverLevel();
         BlockPos pos = findSpawnAroundPlayer(level, player, 8, 18, false);
         if (pos == null) {

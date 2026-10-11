@@ -1055,7 +1055,7 @@ public class UncannyApprovedSpecialEntity extends Monster implements UncannyEnti
     private ServerPlayer resolveFocus(ServerLevel level) {
         Optional<UUID> uuid = this.entityData.get(FOCUS_PLAYER);
         if (uuid.isPresent()) {
-            ServerPlayer bound = level.getServer().getPlayerList().getPlayer(uuid.get());
+            ServerPlayer bound = com.eotv.echoofthevoid.entity.UncannyEntityUtil.huntableOrNull(level.getServer().getPlayerList().getPlayer(uuid.get()));
             return bound != null
                             && bound.isAlive()
                             && !bound.isSpectator()

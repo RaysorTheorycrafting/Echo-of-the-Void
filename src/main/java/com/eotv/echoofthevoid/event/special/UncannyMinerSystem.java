@@ -23,15 +23,27 @@ public final class UncannyMinerSystem {
     }
 
     public static boolean spawnNatural(ServerPlayer target) {
+        // Creatures act on survival and adventure players only.
+        if (!com.eotv.echoofthevoid.entity.UncannyEntityUtil.isHuntablePlayer(target)) {
+            return false;
+        }
         return spawnTunnel(target, false, "natural_scheduler");
     }
 
     public static boolean spawnDebugTunnel(ServerPlayer target) {
+        // Creatures act on survival and adventure players only.
+        if (!com.eotv.echoofthevoid.entity.UncannyEntityUtil.isHuntablePlayer(target)) {
+            return false;
+        }
         prepareDebugRetest(target);
         return spawnTunnel(target, true, "developer_tunnel");
     }
 
     public static boolean spawnDebugEmerged(ServerPlayer target) {
+        // Creatures act on survival and adventure players only.
+        if (!com.eotv.echoofthevoid.entity.UncannyEntityUtil.isHuntablePlayer(target)) {
+            return false;
+        }
         prepareDebugRetest(target);
         if (!canSpawnFor(target, true)) {
             return false;

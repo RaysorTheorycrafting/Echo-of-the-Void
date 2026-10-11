@@ -22,10 +22,18 @@ public final class UncannyDevourerSystem {
     }
 
     public static boolean spawnNatural(ServerPlayer target) {
+        // Creatures act on survival and adventure players only.
+        if (!com.eotv.echoofthevoid.entity.UncannyEntityUtil.isHuntablePlayer(target)) {
+            return false;
+        }
         return spawn(target, false, "natural_scheduler");
     }
 
     public static boolean spawnDebug(ServerPlayer target) {
+        // Creatures act on survival and adventure players only.
+        if (!com.eotv.echoofthevoid.entity.UncannyEntityUtil.isHuntablePlayer(target)) {
+            return false;
+        }
         return spawn(target, true, "developer_spawn");
     }
 

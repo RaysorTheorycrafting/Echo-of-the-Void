@@ -221,7 +221,7 @@ public final class SleeperGameTests {
         return sleeper;
     }
 
-    @GameTest(template = TEMPLATE, timeoutTicks = 60, batch = "sleeper_night")
+    @GameTest(template = TEMPLATE, timeoutTicks = 60, batch = "sleeper_night_struck")
     public static void struckBeforeTheAttackItSinks(GameTestHelper helper) {
         ServerLevel level = helper.getLevel();
         long previousTime = level.getDayTime();

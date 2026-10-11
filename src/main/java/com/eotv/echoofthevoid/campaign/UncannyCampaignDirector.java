@@ -39,6 +39,29 @@ public final class UncannyCampaignDirector {
         }
     }
 
+    /**
+     * Development fast-forward through the same accounting as {@link #tick}, in small slices so beats and the
+     * culmination schedule follow as if the time had been played.
+     */
+    public static boolean advanceForDebug(UncannyWorldState state, long ticks) {
+        if (!state.isCampaignDirectorInitialized()) {
+            return false;
+        }
+        long remaining = Math.max(0L, ticks);
+        long slice = CampaignDirectorRules.TICKS_PER_DAY / 8L;
+        while (remaining > 0L) {
+            long step = Math.min(slice, remaining);
+            state.advanceCampaignDirector(step, state.getCampaignLastObservedDayTime());
+            advanceExpiredBeats(state);
+            remaining -= step;
+        }
+        ensureCulminationScheduled(state);
+        if (culminationAction(state) == CampaignCulminationAction.EXPIRE) {
+            state.markCampaignCulminationExpired();
+        }
+        return true;
+    }
+
     public static int campaignLengthDays() {
         return UncannyConfig.CAMPAIGN_EXTRA_LONG_100_DAYS.get()
                 ? CampaignDirectorRules.EXTRA_LONG_LENGTH_DAYS

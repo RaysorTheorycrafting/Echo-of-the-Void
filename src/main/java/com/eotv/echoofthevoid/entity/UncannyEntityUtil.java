@@ -40,6 +40,17 @@ public final class UncannyEntityUtil {
         return UncannyEntityRegistry.isSpecialEntity(mob.getType());
     }
 
+    /** The player itself when huntable, else null: no creature acts on a creative or spectator player. */
+    @org.jetbrains.annotations.Nullable
+    public static <P extends net.minecraft.world.entity.player.Player> P huntableOrNull(@org.jetbrains.annotations.Nullable P player) {
+        return isHuntablePlayer(player) ? player : null;
+    }
+
+    /** Players of the level a creature may act on (survival and adventure). */
+    public static java.util.List<net.minecraft.server.level.ServerPlayer> huntablePlayers(net.minecraft.server.level.ServerLevel level) {
+        return level.players().stream().filter(UncannyEntityUtil::isHuntablePlayer).toList();
+    }
+
     /** Nearest {@link #isHuntablePlayer huntable} player within {@code distance}, or null. */
     @org.jetbrains.annotations.Nullable
     public static net.minecraft.world.entity.player.Player nearestHuntablePlayer(net.minecraft.world.entity.Entity from, double distance) {

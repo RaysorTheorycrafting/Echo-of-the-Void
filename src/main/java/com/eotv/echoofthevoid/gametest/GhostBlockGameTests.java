@@ -116,11 +116,42 @@ public final class GhostBlockGameTests {
             });
             helper.runAfterDelay(30, () -> {
                 BlockState resent = lastUpdate(player, hidden);
-                helper.assertTrue(resent != null && resent.is(Blocks.STONE), "One second after the look the wall must be back");
+                helper.assertTrue(resent != null && resent.is(Blocks.STONE), "One second after the look the wall must be back"
+                        + " (hidden " + hidden.subtract(helper.absolutePos(BlockPos.ZERO)) + ", player at "
+                        + player.position().subtract(Vec3.atLowerCornerOf(helper.absolutePos(BlockPos.ZERO)))
+                        + " yaw " + player.getYRot() + " pitch " + player.getXRot() + ", stared now "
+                        + com.eotv.echoofthevoid.world.ObserverSight.isStaredAt(
+                                player, Vec3.atCenterOf(hidden), 0.95D, 48.0D)
+                        + ", ghosts " + GhostBlockSystem.ghostCount(player.getUUID()) + ", last " + resent + ")");
                 helper.assertTrue(GhostBlockSystem.ghostCount(player.getUUID()) == 0, "The ghost must be gone");
                 player.setGameMode(GameType.SPECTATOR);
                 helper.succeed();
             });
+        });
+    }
+
+    /**
+     * The case that made the test above fail once in a while: a hole in the south wall looked at 45 degrees away.
+     * The sight line to the block's centre grazed the next wall block; it now aims at the face the player sees.
+     */
+    @GameTest(template = TEMPLATE, timeoutTicks = 30)
+    public static void aHoleLookedAtSidewaysIsStillNoticed(GameTestHelper helper) {
+        buildRoom(helper);
+        helper.runAfterDelay(5, () -> {
+            ServerPlayer player = mockPlayer(helper);
+            Vec3 stand = Vec3.atBottomCenterOf(helper.absolutePos(new BlockPos(5, 1, 8)));
+            for (BlockPos wall : List.of(new BlockPos(9, 1, 12), new BlockPos(8, 2, 4), new BlockPos(10, 3, 5),
+                    new BlockPos(10, 2, 8))) {
+                BlockPos hole = helper.absolutePos(wall);
+                face(player, stand, Vec3.atCenterOf(hole));
+                helper.assertTrue(GhostBlockSystem.isLookingAtHole(player, hole),
+                        "A player looking at the hole in the wall at " + wall + " is seen looking at it");
+            }
+            face(player, stand, stand.add(-5.0D, 0.0D, 0.0D));
+            helper.assertTrue(!GhostBlockSystem.isLookingAtHole(player, helper.absolutePos(new BlockPos(10, 2, 8))),
+                    "Turning away from the hole is not looking at it");
+            player.setGameMode(GameType.SPECTATOR);
+            helper.succeed();
         });
     }
 

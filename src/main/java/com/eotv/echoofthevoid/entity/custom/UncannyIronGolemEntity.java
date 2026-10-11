@@ -318,7 +318,7 @@ public class UncannyIronGolemEntity extends IronGolem implements UncannyEntityMa
 
     @Nullable
     private ServerPlayer nearestEligiblePlayer(ServerLevel level, double radius) {
-        Player nearest = level.getNearestPlayer(this, radius);
+        Player nearest = com.eotv.echoofthevoid.entity.UncannyEntityUtil.nearestHuntablePlayer(this, radius);
         if (nearest instanceof ServerPlayer player && player.isAlive() && !player.isSpectator() && !player.isCreative()) {
             return player;
         }
@@ -327,7 +327,7 @@ public class UncannyIronGolemEntity extends IronGolem implements UncannyEntityMa
 
     private boolean isDirectlyWatchedByAny(ServerLevel level, double radius, double threshold) {
         double radiusSqr = radius * radius;
-        for (ServerPlayer player : level.players()) {
+        for (ServerPlayer player : com.eotv.echoofthevoid.entity.UncannyEntityUtil.huntablePlayers(level)) {
             if (player.isAlive() && !player.isSpectator()
                     && this.distanceToSqr(player) <= radiusSqr
                     && isDirectlyWatchedBy(player, threshold)) {

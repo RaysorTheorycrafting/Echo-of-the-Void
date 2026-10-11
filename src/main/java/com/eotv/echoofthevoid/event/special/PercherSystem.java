@@ -34,6 +34,10 @@ public final class PercherSystem {
     }
 
     public static boolean spawnNatural(ServerPlayer player) {
+        // Creatures act on survival and adventure players only.
+        if (!com.eotv.echoofthevoid.entity.UncannyEntityUtil.isHuntablePlayer(player)) {
+            return false;
+        }
         ServerLevel level = player.serverLevel();
         if (level.dimension() != Level.OVERWORLD || isDaylight(level) || hasActivePercher(level, player)) {
             return false;

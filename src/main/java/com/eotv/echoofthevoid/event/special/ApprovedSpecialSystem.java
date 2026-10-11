@@ -90,6 +90,10 @@ public final class ApprovedSpecialSystem {
     }
 
     public static boolean spawn(ServerPlayer player, String rawId, boolean debug) {
+        // Creatures act on survival and adventure players only.
+        if (!com.eotv.echoofthevoid.entity.UncannyEntityUtil.isHuntablePlayer(player)) {
+            return false;
+        }
         ApprovedSpecialCatalog.Definition definition = ApprovedSpecialCatalog.byId(rawId);
         if (player == null || definition == null) {
             return false;
@@ -130,6 +134,10 @@ public final class ApprovedSpecialSystem {
     }
 
     public static boolean spawnAmbusher(ServerPlayer player, boolean debug) {
+        // Creatures act on survival and adventure players only.
+        if (!com.eotv.echoofthevoid.entity.UncannyEntityUtil.isHuntablePlayer(player)) {
+            return false;
+        }
         if (player == null || !player.isAlive() || player.isSpectator()) {
             return false;
         }
@@ -164,6 +172,10 @@ public final class ApprovedSpecialSystem {
      * reservation is persisted; only its real continuous boat-motion sample is session-local.
      */
     public static boolean armFerrymanEncounter(ServerPlayer player) {
+        // Creatures act on survival and adventure players only.
+        if (!com.eotv.echoofthevoid.entity.UncannyEntityUtil.isHuntablePlayer(player)) {
+            return false;
+        }
         if (player == null || player.getServer() == null || player.isSpectator() || !player.isAlive()) {
             return false;
         }
@@ -203,6 +215,10 @@ public final class ApprovedSpecialSystem {
 
     /** Advances a reserved encounter only while the same boat visibly moves over deep water. */
     public static boolean tickPendingFerrymanEncounter(ServerPlayer player) {
+        // Creatures act on survival and adventure players only.
+        if (!com.eotv.echoofthevoid.entity.UncannyEntityUtil.isHuntablePlayer(player)) {
+            return false;
+        }
         if (player == null || player.getServer() == null) {
             return false;
         }

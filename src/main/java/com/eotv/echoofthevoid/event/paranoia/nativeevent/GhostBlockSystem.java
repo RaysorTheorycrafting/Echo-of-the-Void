@@ -224,10 +224,40 @@ public final class GhostBlockSystem {
         if (distance <= MISSING_APPROACH_DISTANCE) {
             return true;
         }
-        if (ghost.resyncTick == Long.MAX_VALUE && ObserverSight.isStaredAt(player, centre, LOOK_DOT, 48.0D)) {
+        if (ghost.resyncTick == Long.MAX_VALUE && isLookingAtHole(player, ghost.pos)) {
             ghost.resyncTick = now + MISSING_RESYNC_AFTER_LOOK_TICKS;
         }
         return false;
+    }
+
+    /**
+     * Whether the player stares at the hole a missing ghost shows. The sight line aims at the middle of the face the
+     * player sees, on the room side: aimed at the block's centre, half a block deep in the wall, a hole seen at an
+     * angle grazed the next wall block first and the stare was never noticed.
+     */
+    public static boolean isLookingAtHole(ServerPlayer player, BlockPos pos) {
+        return ObserverSight.isStaredAt(player, roomFacePoint(player, pos), LOOK_DOT, 48.0D);
+    }
+
+    private static Vec3 roomFacePoint(ServerPlayer player, BlockPos pos) {
+        Vec3 centre = Vec3.atCenterOf(pos);
+        Vec3 eye = player.getEyePosition();
+        Direction facing = null;
+        double nearest = Double.MAX_VALUE;
+        for (Direction direction : Direction.values()) {
+            BlockPos neighbour = pos.relative(direction);
+            if (!player.serverLevel().getBlockState(neighbour).isAir()) {
+                continue;
+            }
+            double distance = Vec3.atCenterOf(neighbour).distanceToSqr(eye);
+            if (distance < nearest) {
+                nearest = distance;
+                facing = direction;
+            }
+        }
+        // Just inside the face, so the sight line still ends in the hidden block.
+        return facing == null ? centre
+                : centre.add(facing.getStepX() * 0.45D, facing.getStepY() * 0.45D, facing.getStepZ() * 0.45D);
     }
 
     private static void resync(ServerPlayer player, Ghost ghost) {

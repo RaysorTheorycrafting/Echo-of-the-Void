@@ -219,7 +219,7 @@ public class UncannyHurlerEntity extends Monster implements UncannyEntityMarker 
 
     private ServerPlayer resolveWatchedPlayer(ServerLevel level) {
         return this.entityData.get(WATCHED_PLAYER)
-                .map(uuid -> level.getServer().getPlayerList().getPlayer(uuid))
+                .map(uuid -> com.eotv.echoofthevoid.entity.UncannyEntityUtil.huntableOrNull(level.getServer().getPlayerList().getPlayer(uuid)))
                 .orElse(null);
     }
 

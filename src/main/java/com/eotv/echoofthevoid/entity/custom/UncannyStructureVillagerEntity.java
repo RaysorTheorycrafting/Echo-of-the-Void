@@ -229,7 +229,7 @@ public class UncannyStructureVillagerEntity extends Villager implements UncannyE
             return;
         }
         this.nextFollowRepathTick = serverLevel.getGameTime() + 10L;
-        Player nearest = serverLevel.getNearestPlayer(this, 28.0D);
+        Player nearest = com.eotv.echoofthevoid.entity.UncannyEntityUtil.nearestHuntablePlayer(this, 28.0D);
         if (nearest == null) {
             this.getNavigation().stop();
             return;

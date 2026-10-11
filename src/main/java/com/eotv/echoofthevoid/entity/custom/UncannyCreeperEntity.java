@@ -363,7 +363,7 @@ public class UncannyCreeperEntity extends Creeper implements UncannyEntityMarker
 
     private void triggerAbsorberEffect(ServerLevel serverLevel, @Nullable Player directTarget) {
         AABB range = this.getBoundingBox().inflate(20.0D);
-        for (ServerPlayer nearby : serverLevel.getEntitiesOfClass(ServerPlayer.class, range, player -> player.isAlive())) {
+        for (ServerPlayer nearby : serverLevel.getEntitiesOfClass(ServerPlayer.class, range, com.eotv.echoofthevoid.entity.UncannyEntityUtil::isHuntablePlayer)) {
             UncannyParanoiaEventSystem.triggerTotalBlackout(nearby);
         }
         if (directTarget instanceof ServerPlayer serverPlayer) {

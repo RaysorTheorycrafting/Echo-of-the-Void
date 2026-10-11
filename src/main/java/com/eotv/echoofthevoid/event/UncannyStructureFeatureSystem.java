@@ -9,6 +9,7 @@ import com.eotv.echoofthevoid.diagnostics.UncannyDiagnostics;
 import com.eotv.echoofthevoid.entity.UncannyEntityRegistry;
 import com.eotv.echoofthevoid.entity.custom.UncannyStructureVillagerEntity;
 import com.eotv.echoofthevoid.item.UncannyItemRegistry;
+import com.eotv.echoofthevoid.lore.UncannyJournalProgressRules;
 import com.eotv.echoofthevoid.lore.UncannyLoreBookLibrary;
 import com.eotv.echoofthevoid.phase.UncannyPhase;
 import com.eotv.echoofthevoid.state.UncannyWorldState;
@@ -43,19 +44,20 @@ import net.minecraft.world.level.ChunkPos;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.BedBlock;
 import net.minecraft.world.level.block.Block;
-import net.minecraft.world.level.block.ChestBlock;
 import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.ChestBlock;
 import net.minecraft.world.level.block.DoorBlock;
 import net.minecraft.world.level.block.FurnaceBlock;
 import net.minecraft.world.level.block.HorizontalDirectionalBlock;
 import net.minecraft.world.level.block.entity.ChestBlockEntity;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BedPart;
+import net.minecraft.world.level.block.state.properties.ChestType;
 import net.minecraft.world.level.block.state.properties.DoorHingeSide;
 import net.minecraft.world.level.block.state.properties.DoubleBlockHalf;
+import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.level.levelgen.feature.ConfiguredFeature;
-import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.phys.Vec3;
 import net.neoforged.neoforge.event.entity.player.PlayerInteractEvent;
 import org.jetbrains.annotations.Nullable;
@@ -75,8 +77,12 @@ public final class UncannyStructureFeatureSystem {
     private static final String SECRET_CHEST_FLAG = "eotv_secret_history_chest";
     private static final String SECRET_CHEST_LORE_GRANTED = "eotv_secret_lore_granted";
     private static final String SECRET_CHEST_BEHIND_TRIGGERED = "eotv_secret_behind_triggered";
-    private static final int HISTORY_TOME_COUNT = UncannyLoreBookLibrary.volumeCount();
-    private static final double HISTORY_BOOK_CHANCE = 0.50D;
+    /** Every chest of an ordinary structure (since 2.3.0); its content is decided at the first opening. */
+    public static final String STRUCTURE_CHEST_FLAG = "eotv_structure_chest";
+    private static final String STRUCTURE_CHEST_RESOLVED = "eotv_structure_chest_resolved";
+    public static final double STRUCTURE_CHEST_MAP_CHANCE = 0.40D;
+    public static final int STRUCTURE_CHEST_MIN_FRAGMENTS = 1;
+    public static final int STRUCTURE_CHEST_MAX_FRAGMENTS = 3;
     private static final double HISTORY_BEHIND_YOU_CHANCE_WHEN_COMPLETE = 0.01D;
     private static final double FALSE_SPIRAL_SECRET_HOUSE_CHANCE = 0.65D;
     private static final int WORLDGEN_MIN_FEATURE_DISTANCE = 18;
@@ -92,7 +98,6 @@ public final class UncannyStructureFeatureSystem {
             "split",
             "gigantic",
             "tiny");
-    private static final Map<UUID, Long> LAST_SECRET_CHEST_ROLL_TICK = new HashMap<>();
     private static final ThreadLocal<Boolean> WORLDGEN_PASS = ThreadLocal.withInitial(() -> false);
     private static final ThreadLocal<String> FORCED_STRUCTURE_VARIANT = new ThreadLocal<>();
 
@@ -326,7 +331,8 @@ public final class UncannyStructureFeatureSystem {
         if (player.getServer() == null || player.isSpectator()) {
             return;
         }
-        if (event.getHand() != InteractionHand.MAIN_HAND) {
+        if (event.getHand() != InteractionHand.MAIN_HAND
+                || (player.isSecondaryUseActive() && !player.getMainHandItem().isEmpty())) {
             return;
         }
 
@@ -341,103 +347,84 @@ public final class UncannyStructureFeatureSystem {
         if (!(level.getBlockEntity(pos) instanceof ChestBlockEntity chest)) {
             return;
         }
-
-        CompoundTag chestData = chest.getPersistentData();
-        debugLog(
-                "FEATURE secret_house chest clicked player={} pos={} hand={} isSecretChest={} loreGranted={} behindTriggered={}",
-                player.getGameProfile().getName(),
-                pos,
-                event.getHand(),
-                chestData.getBoolean(SECRET_CHEST_FLAG),
-                chestData.getBoolean(SECRET_CHEST_LORE_GRANTED),
-                chestData.getBoolean(SECRET_CHEST_BEHIND_TRIGGERED));
-        if (!chestData.getBoolean(SECRET_CHEST_FLAG)) {
+        if (!isOrdinaryStructureChest(level, chest) || isStructureChestResolved(chest.getPersistentData())) {
             return;
         }
+        resolveStructureChestOnFirstOpen(player, chest, level.random.nextDouble(),
+                STRUCTURE_CHEST_MIN_FRAGMENTS + level.random.nextInt(STRUCTURE_CHEST_MAX_FRAGMENTS - STRUCTURE_CHEST_MIN_FRAGMENTS + 1),
+                level.random.nextDouble());
+    }
 
-        long now = player.getServer().getTickCount();
-        Long lastRollTick = LAST_SECRET_CHEST_ROLL_TICK.get(player.getUUID());
-        if (lastRollTick != null && now - lastRollTick < 8L) {
-            debugLog(
-                    "FEATURE secret_house chest skip player={} pos={} reason=cooldown now={} last={} delta={}",
-                    player.getGameProfile().getName(),
-                    pos,
-                    now,
-                    lastRollTick,
-                    now - lastRollTick);
-            return;
+    /**
+     * A chest of an ordinary Uncanny structure: flagged at generation since 2.3.0, or a former lore chest. Older
+     * unflagged structure chests are left as they are: they cannot be told apart from a player's own chest.
+     */
+    public static boolean isOrdinaryStructureChest(ServerLevel level, ChestBlockEntity chest) {
+        CompoundTag data = chest.getPersistentData();
+        return data.getBoolean(STRUCTURE_CHEST_FLAG) || data.getBoolean(SECRET_CHEST_FLAG);
+    }
+
+    public static boolean isStructureChestResolved(CompoundTag data) {
+        return data.getBoolean(STRUCTURE_CHEST_RESOLVED)
+                || data.getBoolean(SECRET_CHEST_LORE_GRANTED)
+                || data.getBoolean(SECRET_CHEST_BEHIND_TRIGGERED);
+    }
+
+    /**
+     * First opening of an ordinary structure chest (D-100), decided once: never a journal any more, but the starter
+     * map at its last tier, else a map towards the waiting journal place ({@link #STRUCTURE_CHEST_MAP_CHANCE}), a few
+     * fragments, and after the sixth journal a rare "Behind you".
+     *
+     * @return what was added, for logs and tests
+     */
+    public static String resolveStructureChestOnFirstOpen(
+            ServerPlayer player, ChestBlockEntity chest, double mapRoll, int fragments, double behindRoll) {
+        ServerLevel level = player.serverLevel();
+        BlockPos pos = chest.getBlockPos();
+        CompoundTag data = chest.getPersistentData();
+        data.putBoolean(STRUCTURE_CHEST_FLAG, true);
+        data.putBoolean(STRUCTURE_CHEST_RESOLVED, true);
+        // Both halves of a double chest open together: its content is decided once, for the pair.
+        BlockState chestState = level.getBlockState(pos);
+        if (chestState.getBlock() instanceof ChestBlock && chestState.getValue(ChestBlock.TYPE) != ChestType.SINGLE
+                && level.getBlockEntity(pos.relative(ChestBlock.getConnectedDirection(chestState)))
+                        instanceof ChestBlockEntity partner) {
+            partner.getPersistentData().putBoolean(STRUCTURE_CHEST_RESOLVED, true);
+            partner.setChanged();
         }
-        LAST_SECRET_CHEST_ROLL_TICK.put(player.getUUID(), now);
-
-        if (chestData.getBoolean(SECRET_CHEST_LORE_GRANTED) || chestData.getBoolean(SECRET_CHEST_BEHIND_TRIGGERED)) {
-            debugLog(
-                    "FEATURE secret_house chest skip player={} pos={} reason=already-resolved loreGranted={} behindTriggered={}",
-                    player.getGameProfile().getName(),
-                    pos,
-                    chestData.getBoolean(SECRET_CHEST_LORE_GRANTED),
-                    chestData.getBoolean(SECRET_CHEST_BEHIND_TRIGGERED));
-            return;
-        }
-
-        double roll = level.random.nextDouble();
-        if (roll >= HISTORY_BOOK_CHANCE) {
-            debugLog(
-                    "FEATURE secret_house chest miss player={} roll={} chance={}",
-                    player.getGameProfile().getName(),
-                    String.format(java.util.Locale.ROOT, "%.4f", roll),
-                    String.format(java.util.Locale.ROOT, "%.4f", HISTORY_BOOK_CHANCE));
-            return;
-        }
-
-        UncannyWorldState state = UncannyWorldState.get(player.getServer());
-        double logicalStoryDay = CampaignDirectorRules.logicalStoryDay(
-                state.getCampaignElapsedTicks(), UncannyCampaignDirector.campaignLengthDays());
-        int nextTome = state.findWeightedMissingHistoryTome(
-                player.getUUID(), HISTORY_TOME_COUNT, logicalStoryDay, level.random.nextDouble());
-        debugLog(
-                "FEATURE secret_house chest roll-hit player={} pos={} roll={} storyDay={} nextTome={}",
-                player.getGameProfile().getName(),
-                pos,
-                String.format(java.util.Locale.ROOT, "%.4f", roll),
-                String.format(java.util.Locale.ROOT, "%.2f", logicalStoryDay),
-                nextTome);
-        if (nextTome > 0) {
-            ItemStack historyPiece = createHistoryPiece(nextTome);
-            if (!insertIntoChestOrDrop(level, pos, chest, historyPiece)) {
-                debugLog("FEATURE secret_house chest roll-hit player={} tome={} result=insert-failed", player.getGameProfile().getName(), nextTome);
-                return;
+        List<String> outcome = new ArrayList<>();
+        if (UncannyJournalMaps.offerStarterMapToFreshContainer(level, chest, pos)) {
+            outcome.add("starter-map");
+        } else if (mapRoll < STRUCTURE_CHEST_MAP_CHANCE) {
+            ItemStack map = UncannyJournalMaps.mapTowardsPendingPlace(level);
+            if (!map.isEmpty()) {
+                insertIntoChestOrDrop(level, pos, chest, map);
+                outcome.add("map");
             }
-            chestData.putBoolean(SECRET_CHEST_LORE_GRANTED, true);
-            chest.setChanged();
-            state.markHistoryTomeFound(player.getUUID(), nextTome);
-            debugLog(
-                    "FEATURE secret_house chest roll-hit player={} roll={} result=lore-piece tome={}",
-                    player.getGameProfile().getName(),
-                    String.format(java.util.Locale.ROOT, "%.4f", roll),
-                    nextTome);
-            return;
         }
-
-        double behindRoll = level.random.nextDouble();
-        if (behindRoll > HISTORY_BEHIND_YOU_CHANCE_WHEN_COMPLETE) {
-            debugLog(
-                    "FEATURE secret_house chest complete-set miss player={} behindRoll={} chance={}",
-                    player.getGameProfile().getName(),
-                    String.format(java.util.Locale.ROOT, "%.4f", behindRoll),
-                    String.format(java.util.Locale.ROOT, "%.4f", HISTORY_BEHIND_YOU_CHANCE_WHEN_COMPLETE));
-            return;
+        if (fragments > 0) {
+            insertIntoChestOrDrop(level, pos, chest,
+                    new ItemStack(UncannyItemRegistry.UNCANNY_REALITY_SHARD_PIECE.get(), fragments));
+            outcome.add("fragments=" + fragments);
         }
-
-        ItemStack behindYou = new ItemStack(Items.BOOK);
-        behindYou.set(DataComponents.CUSTOM_NAME, Component.literal("Behind you"));
-        insertIntoChestOrDrop(level, pos, chest, behindYou);
-        chestData.putBoolean(SECRET_CHEST_BEHIND_TRIGGERED, true);
+        UncannyWorldState state = UncannyWorldState.get(level.getServer());
+        if (UncannyJournalProgressRules.isComplete(state.getJournalProgress().foundMask())
+                && behindRoll < HISTORY_BEHIND_YOU_CHANCE_WHEN_COMPLETE) {
+            ItemStack behindYou = new ItemStack(Items.BOOK);
+            behindYou.set(DataComponents.CUSTOM_NAME, Component.literal("Behind you"));
+            insertIntoChestOrDrop(level, pos, chest, behindYou);
+            data.putBoolean(SECRET_CHEST_BEHIND_TRIGGERED, true);
+            outcome.add("behind-you");
+            spawnTerrorBehind(player);
+        }
         chest.setChanged();
-        debugLog(
-                "FEATURE secret_house chest roll-hit player={} roll={} result=behind-you",
-                player.getGameProfile().getName(),
-                String.format(java.util.Locale.ROOT, "%.4f", roll));
-        spawnTerrorBehind(player);
+        String summary = outcome.isEmpty() ? "nothing" : String.join(",", outcome);
+        debugLog("FEATURE structure chest first-open player={} pos={} outcome={}",
+                player.getGameProfile().getName(), pos, summary);
+        com.eotv.echoofthevoid.diagnostics.UncannyDiagnostics.recordForPlayer(player,
+                com.eotv.echoofthevoid.diagnostics.DiagnosticSeverity.INFO, "journal", "structure_chest",
+                Map.of("chest", pos.toShortString(), "outcome", summary));
+        return summary;
     }
 
     public static BlockPos findNearestPlannedStructure(ServerLevel level, String featureId, BlockPos from) {
@@ -1007,6 +994,7 @@ public final class UncannyStructureFeatureSystem {
     private static void populateSecretHouseChest(ServerLevel level, ChestBlockEntity chest) {
         chest.clearContent();
         chest.getPersistentData().putBoolean(SECRET_CHEST_FLAG, true);
+        chest.getPersistentData().putBoolean(STRUCTURE_CHEST_FLAG, true);
 
         int fills = 8 + level.random.nextInt(5);
         for (int i = 0; i < fills; i++) {
@@ -1049,17 +1037,6 @@ public final class UncannyStructureFeatureSystem {
             stack.setDamageValue(damage);
         }
         return stack;
-    }
-
-    private static ItemStack createHistoryPiece(int tomeIndex) {
-        ItemStack piece = new ItemStack(UncannyItemRegistry.UNCANNY_LORE_PIECE.get());
-        piece.set(DataComponents.WRITTEN_BOOK_CONTENT, UncannyLoreBookLibrary.contentForVolume(tomeIndex));
-        return piece;
-    }
-
-    public static WrittenBookContent defaultHistoryBookContent(int tomeIndex) {
-        int resolvedVolume = tomeIndex <= 0 ? 1 : tomeIndex;
-        return UncannyLoreBookLibrary.contentForVolume(resolvedVolume);
     }
 
     private static boolean insertIntoChestOrDrop(ServerLevel level, BlockPos chestPos, ChestBlockEntity chest, ItemStack stack) {
@@ -2228,6 +2205,7 @@ public final class UncannyStructureFeatureSystem {
 
     private static void populateAmbientChest(ServerLevel level, ChestBlockEntity chest) {
         chest.clearContent();
+        chest.getPersistentData().putBoolean(STRUCTURE_CHEST_FLAG, true);
         int fills = 2 + level.random.nextInt(4);
         for (int i = 0; i < fills; i++) {
             int slot = level.random.nextInt(chest.getContainerSize());

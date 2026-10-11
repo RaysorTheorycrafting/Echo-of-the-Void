@@ -161,10 +161,10 @@ public class UncannySleeperEntity extends AbstractUncannyHuntingSpecialEntity {
         }
         // It counts for itself how long it has watched each sleeper: half a second, then it runs.
         this.watchedAsleep.keySet().removeIf(id -> {
-            ServerPlayer player = level.getServer().getPlayerList().getPlayer(id);
+            ServerPlayer player = com.eotv.echoofthevoid.entity.UncannyEntityUtil.huntableOrNull(level.getServer().getPlayerList().getPlayer(id));
             return player == null || !player.isSleeping();
         });
-        for (ServerPlayer player : level.players()) {
+        for (ServerPlayer player : com.eotv.echoofthevoid.entity.UncannyEntityUtil.huntablePlayers(level)) {
             if (player.isSleeping() && player.getSleepingPos().isPresent()
                     && player.getSleepingPos().get().distSqr(this.blockPosition()) <= SleeperRules.BED_RADIUS * SleeperRules.BED_RADIUS
                     && this.watchedAsleep.merge(player.getUUID(), 5, Integer::sum) >= SleeperRules.ASLEEP_BEFORE_RUN_TICKS) {
@@ -286,7 +286,7 @@ public class UncannySleeperEntity extends AbstractUncannyHuntingSpecialEntity {
     }
 
     private ServerPlayer victimPlayer(ServerLevel level) {
-        return this.victim == null ? null : level.getServer().getPlayerList().getPlayer(this.victim);
+        return this.victim == null ? null : com.eotv.echoofthevoid.entity.UncannyEntityUtil.huntableOrNull(level.getServer().getPlayerList().getPlayer(this.victim));
     }
 
     private void release(ServerLevel level, boolean wakeUp) {

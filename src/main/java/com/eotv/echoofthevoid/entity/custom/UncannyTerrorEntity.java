@@ -318,7 +318,7 @@ public class UncannyTerrorEntity extends Monster implements UncannyEntityMarker 
     private ServerPlayer resolveTargetPlayer(ServerLevel level) {
         Optional<UUID> targetId = this.entityData.get(TARGET_PLAYER);
         if (targetId.isPresent()) {
-            ServerPlayer bound = level.getServer().getPlayerList().getPlayer(targetId.get());
+            ServerPlayer bound = com.eotv.echoofthevoid.entity.UncannyEntityUtil.huntableOrNull(level.getServer().getPlayerList().getPlayer(targetId.get()));
             return bound != null
                             && bound.isAlive()
                             && !bound.isSpectator()

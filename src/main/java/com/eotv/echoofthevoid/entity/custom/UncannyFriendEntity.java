@@ -184,7 +184,7 @@ public class UncannyFriendEntity extends Monster implements UncannyEntityMarker 
         }
         tickHunger();
         updateSwimmingPose();
-        ServerPlayer target = this.targetId == null ? null : level.getServer().getPlayerList().getPlayer(this.targetId);
+        ServerPlayer target = this.targetId == null ? null : com.eotv.echoofthevoid.entity.UncannyEntityUtil.huntableOrNull(level.getServer().getPlayerList().getPlayer(this.targetId));
         if (target == null || !target.isAlive() || target.level() != level || target.isSpectator()) {
             this.getNavigation().stop();
             stopBlocking();

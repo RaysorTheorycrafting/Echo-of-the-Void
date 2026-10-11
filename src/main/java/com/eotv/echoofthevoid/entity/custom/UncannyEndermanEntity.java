@@ -239,7 +239,7 @@ public class UncannyEndermanEntity extends EnderMan implements UncannyEntityMark
             return;
         }
 
-        Player nearest = serverLevel.getNearestPlayer(this, 22.0D);
+        Player nearest = com.eotv.echoofthevoid.entity.UncannyEntityUtil.nearestHuntablePlayer(this, 22.0D);
         if (nearest == null) {
             return;
         }
@@ -288,7 +288,7 @@ public class UncannyEndermanEntity extends EnderMan implements UncannyEntityMark
 
         if (this.erraticAggroUnlocked) {
             if (this.getTarget() == null) {
-                Player nearest = serverLevel.getNearestPlayer(this, 28.0D);
+                Player nearest = com.eotv.echoofthevoid.entity.UncannyEntityUtil.nearestHuntablePlayer(this, 28.0D);
                 if (nearest instanceof LivingEntity living) {
                     this.setTarget(living);
                 }
@@ -301,7 +301,7 @@ public class UncannyEndermanEntity extends EnderMan implements UncannyEntityMark
             this.erraticStartTick = now;
         }
 
-        Player nearest = serverLevel.getNearestPlayer(this, 28.0D);
+        Player nearest = com.eotv.echoofthevoid.entity.UncannyEntityUtil.nearestHuntablePlayer(this, 28.0D);
         if (nearest != null) {
             this.setTarget(null);
             this.getNavigation().stop();
@@ -489,14 +489,14 @@ public class UncannyEndermanEntity extends EnderMan implements UncannyEntityMark
 
     @Nullable
     private ServerPlayer resolveDirectWatcher(ServerLevel level) {
-        Player nearest = level.getNearestPlayer(this, 32.0D);
+        Player nearest = com.eotv.echoofthevoid.entity.UncannyEntityUtil.nearestHuntablePlayer(this, 32.0D);
         return nearest instanceof ServerPlayer serverPlayer ? serverPlayer : null;
     }
 
     @Nullable
     private ServerPlayer resolveLatentTarget(ServerLevel level) {
         return this.entityData.get(LATENT_TARGET)
-                .map(uuid -> level.getServer().getPlayerList().getPlayer(uuid))
+                .map(uuid -> com.eotv.echoofthevoid.entity.UncannyEntityUtil.huntableOrNull(level.getServer().getPlayerList().getPlayer(uuid)))
                 .orElse(null);
     }
 

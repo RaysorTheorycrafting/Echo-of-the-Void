@@ -480,11 +480,11 @@ public class UncannySkeletonEntity extends Skeleton implements UncannyEntityMark
                 return null;
             }
             if (this.artilleryTargetUuid != null) {
-                return serverLevel.getServer().getPlayerList().getPlayer(this.artilleryTargetUuid);
+                return com.eotv.echoofthevoid.entity.UncannyEntityUtil.huntableOrNull(serverLevel.getServer().getPlayerList().getPlayer(this.artilleryTargetUuid));
             }
             Entity owner = this.getOwner();
             if (owner instanceof LivingEntity livingOwner) {
-                Player nearest = serverLevel.getNearestPlayer(livingOwner, 48.0D);
+                Player nearest = com.eotv.echoofthevoid.entity.UncannyEntityUtil.nearestHuntablePlayer(livingOwner, 48.0D);
                 if (nearest instanceof ServerPlayer serverPlayer) {
                     return serverPlayer;
                 }

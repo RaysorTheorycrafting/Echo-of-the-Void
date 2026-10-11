@@ -598,6 +598,13 @@ public final class UncannyDevCatalog {
         addGrouped(Category.TOOLS, "phase", "World phase", "tool_phase_2", "Set Phase 2", ActionKind.SET_PHASE, "2");
         addGrouped(Category.TOOLS, "phase", "World phase", "tool_phase_3", "Set Phase 3", ActionKind.SET_PHASE, "3");
         addGrouped(Category.TOOLS, "phase", "World phase", "tool_phase_4", "Set Phase 4", ActionKind.SET_PHASE, "4");
+        addGrouped(Category.TOOLS, "campaign", "Campaign time", "tool_campaign_advance_1", "Advance 1 Campaign Day", ActionKind.ADVANCE_CAMPAIGN, "1");
+        addGrouped(Category.TOOLS, "campaign", "Campaign time", "tool_campaign_advance_3", "Advance 3 Campaign Days", ActionKind.ADVANCE_CAMPAIGN, "3");
+        addGrouped(Category.TOOLS, "journal_places", "Journal places", "tool_journal_reserve", "Reserve Next Journal Place Now", ActionKind.JOURNAL_PLACE, "reserve");
+        for (int volume = 1; volume <= 6; volume++) {
+            addGrouped(Category.TOOLS, "journal_places", "Journal places", "tool_journal_build_" + volume,
+                    "Build Journal Place " + volume + " in Front", ActionKind.JOURNAL_PLACE, "build|" + volume);
+        }
 
         ENTRIES.sort(Comparator.comparing(Entry::category).thenComparing(Entry::id));
     }
@@ -725,7 +732,9 @@ public final class UncannyDevCatalog {
         PLAY_SOUND_MENTAL,
         CLEAN_TEST_ENTITIES,
         RESET_TEST_ENVIRONMENT,
-        SET_PHASE
+        SET_PHASE,
+        ADVANCE_CAMPAIGN,
+        JOURNAL_PLACE
     }
 
     public enum QaStatus {

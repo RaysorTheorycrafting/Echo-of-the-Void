@@ -412,14 +412,14 @@ public class UncannyWatcherEntity extends Monster implements UncannyEntityMarker
 
     private ServerPlayer resolveWatchedPlayer(ServerLevel level) {
         Optional<UUID> watchedUuid = this.getWatchedPlayerUuid();
-        ServerPlayer watched = watchedUuid.map(uuid -> level.getServer().getPlayerList().getPlayer(uuid)).orElse(null);
+        ServerPlayer watched = watchedUuid.map(uuid -> com.eotv.echoofthevoid.entity.UncannyEntityUtil.huntableOrNull(level.getServer().getPlayerList().getPlayer(uuid))).orElse(null);
         if (watched != null && watched.isAlive() && !watched.isSpectator() && watched.level() == level) {
             return watched;
         }
 
         ServerPlayer fallback = null;
         double nearest = Double.MAX_VALUE;
-        for (ServerPlayer candidate : level.players()) {
+        for (ServerPlayer candidate : com.eotv.echoofthevoid.entity.UncannyEntityUtil.huntablePlayers(level)) {
             if (candidate.isSpectator() || !candidate.isAlive()) {
                 continue;
             }

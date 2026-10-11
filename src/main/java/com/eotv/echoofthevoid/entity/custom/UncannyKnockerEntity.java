@@ -436,7 +436,7 @@ public class UncannyKnockerEntity extends Monster implements UncannyEntityMarker
 
     private ServerPlayer resolveTargetPlayer(ServerLevel level) {
         return this.entityData.get(TARGET_PLAYER)
-                .map(uuid -> level.getServer().getPlayerList().getPlayer(uuid))
+                .map(uuid -> com.eotv.echoofthevoid.entity.UncannyEntityUtil.huntableOrNull(level.getServer().getPlayerList().getPlayer(uuid)))
                 .orElse(null);
     }
 }

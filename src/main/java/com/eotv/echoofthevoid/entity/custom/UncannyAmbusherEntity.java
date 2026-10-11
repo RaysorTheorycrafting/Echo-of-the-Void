@@ -120,7 +120,7 @@ public final class UncannyAmbusherEntity extends Monster implements UncannyEntit
                 && current.serverLevel() == level) {
             return current;
         }
-        ServerPlayer resolved = level.getServer().getPlayerList().getPlayer(focusId);
+        ServerPlayer resolved = com.eotv.echoofthevoid.entity.UncannyEntityUtil.huntableOrNull(level.getServer().getPlayerList().getPlayer(focusId));
         return Optional.ofNullable(resolved)
                 .filter(player -> player.isAlive()
                         && !player.isSpectator()

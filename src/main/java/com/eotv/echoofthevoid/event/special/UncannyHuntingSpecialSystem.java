@@ -53,6 +53,10 @@ public final class UncannyHuntingSpecialSystem {
     }
 
     public static boolean spawn(ServerPlayer player, String id, boolean debug, String requestedState) {
+        // Creatures act on survival and adventure players only.
+        if (!com.eotv.echoofthevoid.entity.UncannyEntityUtil.isHuntablePlayer(player)) {
+            return false;
+        }
         if (player == null || !player.isAlive() || player.isSpectator() || player.getServer() == null) {
             return false;
         }

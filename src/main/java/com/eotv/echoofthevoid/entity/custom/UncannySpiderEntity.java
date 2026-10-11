@@ -354,7 +354,7 @@ public class UncannySpiderEntity extends Spider implements UncannyEntityMarker {
         this.zza = 0.0F;
         this.xxa = 0.0F;
 
-        Player nearest = level.getNearestPlayer(this, 2.0D);
+        Player nearest = com.eotv.echoofthevoid.entity.UncannyEntityUtil.nearestHuntablePlayer(this, 2.0D);
         if (nearest != null || now - this.fakeDeathStartTick >= 60L) {
             this.fakeDeathActive = false;
             this.setSilent(false);
@@ -510,13 +510,13 @@ public class UncannySpiderEntity extends Spider implements UncannyEntityMarker {
     private ServerPlayer resolveSensorialHost(ServerLevel level) {
         Optional<UUID> hostUuid = this.entityData.get(SENSORIAL_HOST);
         if (hostUuid.isPresent()) {
-            ServerPlayer existing = level.getServer().getPlayerList().getPlayer(hostUuid.get());
+            ServerPlayer existing = com.eotv.echoofthevoid.entity.UncannyEntityUtil.huntableOrNull(level.getServer().getPlayerList().getPlayer(hostUuid.get()));
             if (existing != null && existing.isAlive()) {
                 return existing;
             }
         }
 
-        ServerPlayer nearest = level.getNearestPlayer(this, 22.0D) instanceof ServerPlayer serverPlayer ? serverPlayer : null;
+        ServerPlayer nearest = com.eotv.echoofthevoid.entity.UncannyEntityUtil.nearestHuntablePlayer(this, 22.0D) instanceof ServerPlayer serverPlayer ? serverPlayer : null;
         if (nearest != null) {
             this.entityData.set(SENSORIAL_HOST, Optional.of(nearest.getUUID()));
         }

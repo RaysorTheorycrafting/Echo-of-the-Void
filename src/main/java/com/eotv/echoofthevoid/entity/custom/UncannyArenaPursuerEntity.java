@@ -157,7 +157,7 @@ public final class UncannyArenaPursuerEntity extends Spider {
             return;
         }
         ServerPlayer player = sessionPlayerId()
-                .map(id -> level.getServer().getPlayerList().getPlayer(id))
+                .map(id -> com.eotv.echoofthevoid.entity.UncannyEntityUtil.huntableOrNull(level.getServer().getPlayerList().getPlayer(id)))
                 .orElse(null);
         if (player == null || !player.isAlive() || player.level() != level
                 || !DevourerArenaSystem.isActiveSession(level, player.getUUID(), cellIndex)) {

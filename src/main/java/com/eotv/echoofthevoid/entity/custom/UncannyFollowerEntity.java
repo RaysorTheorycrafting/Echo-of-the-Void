@@ -539,7 +539,7 @@ public class UncannyFollowerEntity extends Monster implements UncannyEntityMarke
             return runtimeOwner;
         }
         if (ownerUuid.isPresent()) {
-            ServerPlayer owner = level.getServer().getPlayerList().getPlayer(ownerUuid.get());
+            ServerPlayer owner = com.eotv.echoofthevoid.entity.UncannyEntityUtil.huntableOrNull(level.getServer().getPlayerList().getPlayer(ownerUuid.get()));
             if (owner != null) {
                 this.ownerEntityId = owner.getId();
                 return owner;
@@ -578,7 +578,7 @@ public class UncannyFollowerEntity extends Monster implements UncannyEntityMarke
     }
 
     private boolean isBroadlyVisibleToAnyPlayer(ServerLevel level) {
-        for (ServerPlayer player : level.players()) {
+        for (ServerPlayer player : com.eotv.echoofthevoid.entity.UncannyEntityUtil.huntablePlayers(level)) {
             if (!player.isAlive()
                     || player.isSpectator()
                     || player.distanceToSqr(this) > ApprovedSpecialBehaviorRules.FOLLOWER_OBSERVER_RANGE
@@ -817,7 +817,7 @@ public class UncannyFollowerEntity extends Monster implements UncannyEntityMarke
 
     private boolean isCandidateOutsideEveryPlayerView(ServerLevel level, Vec3 candidate) {
         Vec3 candidateEye = candidate.add(0.0D, this.getEyeHeight(), 0.0D);
-        for (ServerPlayer player : level.players()) {
+        for (ServerPlayer player : com.eotv.echoofthevoid.entity.UncannyEntityUtil.huntablePlayers(level)) {
             if (!player.isAlive() || player.isSpectator()) {
                 continue;
             }

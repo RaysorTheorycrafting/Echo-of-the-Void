@@ -1,14 +1,10 @@
 package com.eotv.echoofthevoid.lore;
 
-import java.util.ArrayList;
 import java.util.List;
 
 /** Pure journal definitions and discovery rules shared by runtime and tests. */
 public final class UncannyJournalCatalog {
     public static final int STORY_LENGTH_DAYS = 50;
-    public static final int BEFORE_WINDOW_WEIGHT = 1;
-    public static final int IN_WINDOW_WEIGHT = 6;
-    public static final int AFTER_WINDOW_WEIGHT = 3;
 
     private static final List<Journal> JOURNALS = List.of(
             new Journal(
@@ -119,46 +115,6 @@ public final class UncannyJournalCatalog {
         return JOURNALS.get(clamped - 1);
     }
 
-    public static int discoveryWeight(Journal journal, double logicalStoryDay) {
-        if (logicalStoryDay < journal.windowStartDay()) {
-            return BEFORE_WINDOW_WEIGHT;
-        }
-        if (logicalStoryDay <= journal.windowEndDay()) {
-            return IN_WINDOW_WEIGHT;
-        }
-        return AFTER_WINDOW_WEIGHT;
-    }
-
-    public static int selectMissing(int foundMask, int maximumJournals, double logicalStoryDay, double roll) {
-        if (!Double.isFinite(roll) || roll < 0.0D || roll >= 1.0D) {
-            throw new IllegalArgumentException("roll must be in [0, 1)");
-        }
-        int limit = Math.max(0, Math.min(Math.min(maximumJournals, JOURNALS.size()), 30));
-        List<WeightedJournal> eligible = new ArrayList<>();
-        int totalWeight = 0;
-        for (int index = 1; index <= limit; index++) {
-            int bit = 1 << (index - 1);
-            if ((foundMask & bit) != 0) {
-                continue;
-            }
-            Journal journal = journal(index);
-            int weight = discoveryWeight(journal, logicalStoryDay);
-            eligible.add(new WeightedJournal(index, weight));
-            totalWeight += weight;
-        }
-        if (eligible.isEmpty()) {
-            return -1;
-        }
-        int target = Math.min(totalWeight - 1, (int) Math.floor(roll * totalWeight));
-        for (WeightedJournal candidate : eligible) {
-            if (target < candidate.weight()) {
-                return candidate.index();
-            }
-            target -= candidate.weight();
-        }
-        return eligible.get(eligible.size() - 1).index();
-    }
-
     public record Journal(int index, String title, int windowStartDay, int windowEndDay, List<String> pages) {
         public Journal {
             if (index <= 0 || title == null || title.isBlank() || windowStartDay < 0
@@ -167,8 +123,5 @@ public final class UncannyJournalCatalog {
             }
             pages = List.copyOf(pages);
         }
-    }
-
-    private record WeightedJournal(int index, int weight) {
     }
 }

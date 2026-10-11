@@ -261,7 +261,7 @@ public class UncannyStalkerEntity extends Monster implements UncannyEntityMarker
 
     protected final ServerPlayer resolveTargetPlayer(ServerLevel level) {
         Optional<UUID> targetUuid = this.entityData.get(TARGET_PLAYER);
-        return targetUuid.map(uuid -> level.getServer().getPlayerList().getPlayer(uuid)).orElse(null);
+        return targetUuid.map(uuid -> com.eotv.echoofthevoid.entity.UncannyEntityUtil.huntableOrNull(level.getServer().getPlayerList().getPlayer(uuid))).orElse(null);
     }
 
     protected final void syncStatsFromPlayer(ServerPlayer player) {

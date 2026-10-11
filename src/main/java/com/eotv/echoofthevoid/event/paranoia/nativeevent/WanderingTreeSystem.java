@@ -108,7 +108,7 @@ public final class WanderingTreeSystem {
             }
             ServerLevel level = levelOf(server, record);
             ServerPlayer owner = server.getPlayerList().getPlayer(record.owner());
-            if (level == null || owner == null || owner.isSpectator() || owner.serverLevel() != level
+            if (level == null || !com.eotv.echoofthevoid.entity.UncannyEntityUtil.isHuntablePlayer(owner) || owner.serverLevel() != level
                     || level.getGameTime() < record.nextMoveGameTime()
                     || owner.position().distanceToSqr(Vec3.atCenterOf(record.base()))
                             > OWNER_PRESENCE_RADIUS * OWNER_PRESENCE_RADIUS) {
@@ -124,6 +124,10 @@ public final class WanderingTreeSystem {
      * visible happens yet: the first move comes minutes later, while the player looks elsewhere.
      */
     public static boolean trigger(ServerPlayer player, boolean debugImmediate) {
+        // Creatures act on survival and adventure players only.
+        if (!com.eotv.echoofthevoid.entity.UncannyEntityUtil.isHuntablePlayer(player)) {
+            return false;
+        }
         ServerLevel level = player.serverLevel();
         if (level.dimension() != Level.OVERWORLD || player.getServer() == null) {
             return false;
@@ -178,6 +182,10 @@ public final class WanderingTreeSystem {
 
     /** Dev entry: one move attempt now for the player's walking tree, with every production rule. */
     public static MoveOutcome forceStep(ServerPlayer player) {
+        // Creatures act on survival and adventure players only.
+        if (!com.eotv.echoofthevoid.entity.UncannyEntityUtil.isHuntablePlayer(player)) {
+            return MoveOutcome.INVALID;
+        }
         WanderingTreeRecord record = latestOwned(player, true);
         ServerLevel level = record == null || player.getServer() == null ? null : levelOf(player.getServer(), record);
         if (level == null) {

@@ -184,6 +184,10 @@ public final class OldFriendSystem {
 
     /** Dev entry: the attack now, joining first if needed. */
     public static boolean forceAttack(ServerPlayer target) {
+        // Creatures act on survival and adventure players only.
+        if (!com.eotv.echoofthevoid.entity.UncannyEntityUtil.isHuntablePlayer(target)) {
+            return false;
+        }
         MinecraftServer server = target.getServer();
         if (server == null) {
             return false;
@@ -233,7 +237,8 @@ public final class OldFriendSystem {
         if (record == null || record.stage() == OldFriendRecord.Stage.DONE) {
             return;
         }
-        ServerPlayer target = server.getPlayerList().getPlayer(record.targetId());
+        // Its countdown and its attack wait while the target plays in creative or spectator.
+        ServerPlayer target = com.eotv.echoofthevoid.entity.UncannyEntityUtil.huntableOrNull(server.getPlayerList().getPlayer(record.targetId()));
         if (target == null || !target.isAlive() || !UncannyDimensionPolicy.runsOrdinaryScheduler(target.serverLevel())) {
             return;
         }
@@ -262,6 +267,10 @@ public final class OldFriendSystem {
 
     /** GameTests: the attack from a given spot (the unseen-spot search depends on terrain outside the room). */
     public static boolean attackFromForTest(ServerPlayer target, BlockPos spot) {
+        // Creatures act on survival and adventure players only.
+        if (!com.eotv.echoofthevoid.entity.UncannyEntityUtil.isHuntablePlayer(target)) {
+            return false;
+        }
         UncannyWorldState state = UncannyWorldState.get(target.getServer());
         OldFriendRecord record = state.getOldFriend();
         return record != null && spawnAttackAt(target.serverLevel(), target, record, state, spot);

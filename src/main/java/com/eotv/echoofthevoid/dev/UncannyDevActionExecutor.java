@@ -1,12 +1,16 @@
 package com.eotv.echoofthevoid.dev;
 
 import com.eotv.echoofthevoid.EchoOfTheVoid;
+import com.eotv.echoofthevoid.campaign.CampaignDirectorRules;
+import com.eotv.echoofthevoid.campaign.UncannyCampaignDirector;
+import com.eotv.echoofthevoid.command.UncannyCommandRegistry;
 import com.eotv.echoofthevoid.diagnostics.UncannyDiagnostics;
 import com.eotv.echoofthevoid.entity.UncannyEntityRegistry;
 import com.eotv.echoofthevoid.entity.custom.UncannyDoubleDormantEntity;
 import com.eotv.echoofthevoid.entity.variant.ReplacementVariantExpansionCatalog;
 import com.eotv.echoofthevoid.entity.variant.ReplacementVariantExpansionSystem;
 import com.eotv.echoofthevoid.event.UncannyDoubleDormantSystem;
+import com.eotv.echoofthevoid.event.UncannyJournalPlaceSystem;
 import com.eotv.echoofthevoid.event.UncannyDebugBoundsEventSystem;
 import com.eotv.echoofthevoid.event.UncannyParanoiaEventSystem;
 import com.eotv.echoofthevoid.event.paranoia.nativeevent.WanderingTreeSystem;
@@ -23,6 +27,7 @@ import com.eotv.echoofthevoid.event.UncannyWeatherSystem;
 import com.eotv.echoofthevoid.item.UncannyItemRegistry;
 import com.eotv.echoofthevoid.phase.UncannyPhaseManager;
 import com.eotv.echoofthevoid.sound.UncannySoundDelivery;
+import com.eotv.echoofthevoid.state.UncannyWorldState;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.nbt.CompoundTag;
@@ -110,6 +115,8 @@ public final class UncannyDevActionExecutor {
             case CLEAN_TEST_ENTITIES -> cleanupTestEntities(target);
             case RESET_TEST_ENVIRONMENT -> resetTransientTestState(target);
             case SET_PHASE -> setPhase(target, entry.actionArg());
+            case ADVANCE_CAMPAIGN -> advanceCampaign(target, entry.actionArg());
+            case JOURNAL_PLACE -> journalPlace(target, entry.actionArg());
         };
     }
 
@@ -181,6 +188,43 @@ public final class UncannyDevActionExecutor {
         }
         UncannyPhaseManager.setPhase(target.getServer(), phase);
         return ExecutionResult.success("World phase set to " + phase + "; natural progression remains unlocked.");
+    }
+
+    private static ExecutionResult advanceCampaign(ServerPlayer target, String rawDays) {
+        int days;
+        try {
+            days = Integer.parseInt(rawDays);
+        } catch (NumberFormatException exception) {
+            return ExecutionResult.failure("Invalid campaign day count: " + rawDays);
+        }
+        if (days < 1 || days > 100) {
+            return ExecutionResult.failure("Campaign advance must be between 1 and 100 days.");
+        }
+        UncannyWorldState state = UncannyWorldState.get(target.getServer());
+        if (!UncannyCampaignDirector.advanceForDebug(state, days * CampaignDirectorRules.TICKS_PER_DAY)) {
+            return ExecutionResult.failure("Campaign director is not initialized yet.");
+        }
+        return ExecutionResult.success("Campaign advanced by " + days + " day(s). "
+                + UncannyCommandRegistry.campaignSummary(state));
+    }
+
+    private static ExecutionResult journalPlace(ServerPlayer target, String actionArg) {
+        if ("reserve".equals(actionArg)) {
+            return result(UncannyJournalPlaceSystem.forceSearchNow(target.getServer()),
+                    "Searching a site for the next journal place now.",
+                    "A journal place is already pending, or every journal has been found.");
+        }
+        if (actionArg != null && actionArg.startsWith("build|")) {
+            int volume;
+            try {
+                volume = Integer.parseInt(actionArg.substring("build|".length()));
+            } catch (NumberFormatException exception) {
+                return ExecutionResult.failure("Invalid journal place: " + actionArg);
+            }
+            String message = UncannyJournalPlaceSystem.buildInFrontForDebug(target, volume);
+            return message.startsWith("Built") ? ExecutionResult.success(message) : ExecutionResult.failure(message);
+        }
+        return ExecutionResult.failure("Unknown journal place action: " + actionArg);
     }
 
     private static boolean triggerStructure(ServerPlayer target, String actionArg) {
@@ -294,7 +338,7 @@ public final class UncannyDevActionExecutor {
         return result(
                 spawnSpecial(target, specialId),
                 "Special spawn routine completed.",
-                "Special spawn conditions or placement failed; check the selected dimension and terrain.");
+                "Special spawn conditions or placement failed; creatures only act on survival or adventure players, then check the dimension and terrain.");
     }
 
     private static boolean giveItem(ServerPlayer target, String itemId) {

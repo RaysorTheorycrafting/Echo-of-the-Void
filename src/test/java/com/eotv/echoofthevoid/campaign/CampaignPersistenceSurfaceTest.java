@@ -33,6 +33,30 @@ class CampaignPersistenceSurfaceTest {
     }
 
     @Test
+    void journalProgressIsAnAdditiveBlockMigratedFromPerPlayerMasks() throws IOException {
+        String state = read(JAVA_ROOT.resolve(Path.of("state", "UncannyWorldState.java")));
+        String record = read(JAVA_ROOT.resolve(Path.of("state", "JournalProgressRecord.java")));
+        assertTrue(record.contains("TAG = \"journalProgress\""));
+        for (String key : new String[] {
+                "foundMask", "lastDiscoveryElapsedTicks", "lastDiscoveryAnchor", "starterMapDelivered", "pending", "places", "maps",
+                "volume", "dimension", "pos", "status", "reservedElapsedTicks", "mapId",
+                "lostMask", "rerolledMask", "holder", "taken"
+        }) {
+            assertTrue(record.contains("\"" + key + "\""), key);
+        }
+        assertTrue(state.contains("tag.getLongArray(\"playerPlacedContainers\")")
+                        && state.contains("tag.putLongArray(\"playerPlacedContainers\", playerPlacedContainers)"),
+                "Player-placed containers are an additive index");
+        assertTrue(state.contains("readIntMap(tag, \"historyTomeMask\", data.historyTomeMask);"),
+                "Per-player masks stay readable");
+        assertTrue(state.contains("JournalProgressRecord.migrated(data.historyTomeMask.values())"),
+                "Worlds without the block migrate from per-player masks");
+        assertTrue(state.indexOf("readIntMap(tag, \"historyTomeMask\"")
+                        < state.indexOf("JournalProgressRecord.migrated("),
+                "Migration must run after the per-player masks are loaded");
+    }
+
+    @Test
     void runtimeUsesTheExistingTensionBuilderAndKeepsQaOutOfCampaignProgress() throws IOException {
         String runtime = read(JAVA_ROOT.resolve(Path.of("event", "UncannyParanoiaEventSystem.java")));
         String controller = read(JAVA_ROOT.resolve(Path.of("event", "UncannyEventController.java")));

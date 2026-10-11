@@ -27,7 +27,7 @@ public final class UncannyDoubleDormantSystem {
             return;
         }
 
-        if (player.tickCount % 20 != 0) {
+        if (player.tickCount % 20 != 0 || !com.eotv.echoofthevoid.entity.UncannyEntityUtil.isHuntablePlayer(player)) {
             return;
         }
 
@@ -124,6 +124,10 @@ public final class UncannyDoubleDormantSystem {
     }
 
     public static boolean forceMimicChecked(ServerPlayer player) {
+        // Creatures act on survival and adventure players only.
+        if (!com.eotv.echoofthevoid.entity.UncannyEntityUtil.isHuntablePlayer(player)) {
+            return false;
+        }
         if (player.getServer() == null) {
             return false;
         }

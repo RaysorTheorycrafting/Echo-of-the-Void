@@ -317,7 +317,7 @@ public class UncannyKeeperEntity extends Monster implements UncannyEntityMarker 
     private ServerPlayer resolveOwner(ServerLevel level) {
         Optional<UUID> ownerUuid = this.entityData.get(OWNER_PLAYER);
         if (ownerUuid.isPresent()) {
-            ServerPlayer bound = level.getServer().getPlayerList().getPlayer(ownerUuid.get());
+            ServerPlayer bound = com.eotv.echoofthevoid.entity.UncannyEntityUtil.huntableOrNull(level.getServer().getPlayerList().getPlayer(ownerUuid.get()));
             return bound != null
                             && bound.isAlive()
                             && !bound.isSpectator()
@@ -325,7 +325,7 @@ public class UncannyKeeperEntity extends Monster implements UncannyEntityMarker 
                     ? bound
                     : null;
         }
-        Player nearest = level.getNearestPlayer(this, 24.0D);
+        Player nearest = com.eotv.echoofthevoid.entity.UncannyEntityUtil.nearestHuntablePlayer(this, 24.0D);
         if (nearest instanceof ServerPlayer owner && owner.isAlive() && !owner.isSpectator()) {
             this.entityData.set(OWNER_PLAYER, Optional.of(owner.getUUID()));
             return owner;

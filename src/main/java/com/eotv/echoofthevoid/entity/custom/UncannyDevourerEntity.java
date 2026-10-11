@@ -309,7 +309,7 @@ public final class UncannyDevourerEntity extends Monster implements UncannyEntit
     }
 
     private void tickSeize(ServerLevel level) {
-        ServerPlayer target = level.getServer().getPlayerList().getPlayer(seizedPlayerId);
+        ServerPlayer target = com.eotv.echoofthevoid.entity.UncannyEntityUtil.huntableOrNull(level.getServer().getPlayerList().getPlayer(seizedPlayerId));
         if (target == null || !isEligible(target)) {
             seizedPlayerId = null;
             seizeTicks = 0;
@@ -377,7 +377,7 @@ public final class UncannyDevourerEntity extends Monster implements UncannyEntit
             if (cachedReachableTargetId == null) {
                 return null;
             }
-            ServerPlayer cached = level.getServer().getPlayerList().getPlayer(cachedReachableTargetId);
+            ServerPlayer cached = com.eotv.echoofthevoid.entity.UncannyEntityUtil.huntableOrNull(level.getServer().getPlayerList().getPlayer(cachedReachableTargetId));
             if (isEligible(cached)) {
                 return cached;
             }
@@ -386,7 +386,7 @@ public final class UncannyDevourerEntity extends Monster implements UncannyEntit
         cachedReachableTargetId = null;
         UUID preferred = this.entityData.get(PRIMARY_TARGET).orElse(null);
         if (preferred != null) {
-            ServerPlayer player = level.getServer().getPlayerList().getPlayer(preferred);
+            ServerPlayer player = com.eotv.echoofthevoid.entity.UncannyEntityUtil.huntableOrNull(level.getServer().getPlayerList().getPlayer(preferred));
             if (isReachable(player)) {
                 cachedReachableTargetId = player.getUUID();
                 return player;
@@ -394,7 +394,7 @@ public final class UncannyDevourerEntity extends Monster implements UncannyEntit
         }
         ServerPlayer nearest = null;
         double bestDistance = 32.0D * 32.0D;
-        for (ServerPlayer player : level.players()) {
+        for (ServerPlayer player : com.eotv.echoofthevoid.entity.UncannyEntityUtil.huntablePlayers(level)) {
             double distance = distanceToSqr(player);
             if (distance < bestDistance && isReachable(player)) {
                 nearest = player;
@@ -486,7 +486,7 @@ public final class UncannyDevourerEntity extends Monster implements UncannyEntit
         Vec3 target = this.getEyePosition();
         double rangeSqr = DevourerArenaRules.ORIGIN_OBSERVER_RANGE
                 * DevourerArenaRules.ORIGIN_OBSERVER_RANGE;
-        for (ServerPlayer player : level.players()) {
+        for (ServerPlayer player : com.eotv.echoofthevoid.entity.UncannyEntityUtil.huntablePlayers(level)) {
             if (!player.isAlive() || player.isSpectator()) {
                 continue;
             }

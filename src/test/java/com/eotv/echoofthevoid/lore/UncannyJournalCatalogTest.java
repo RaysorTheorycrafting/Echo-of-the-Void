@@ -55,22 +55,6 @@ class UncannyJournalCatalogTest {
     }
 
     @Test
-    void temporalWeightsOverlapWithoutCreatingHardGates() {
-        UncannyJournalCatalog.Journal first = UncannyJournalCatalog.journal(1);
-        assertEquals(1, UncannyJournalCatalog.discoveryWeight(first, 1.99D));
-        assertEquals(6, UncannyJournalCatalog.discoveryWeight(first, 2.0D));
-        assertEquals(6, UncannyJournalCatalog.discoveryWeight(first, 14.0D));
-        assertEquals(3, UncannyJournalCatalog.discoveryWeight(first, 14.01D));
-
-        assertEquals(2, UncannyJournalCatalog.selectMissing(0, 6, 1.0D, 0.20D));
-        assertEquals(3, UncannyJournalCatalog.selectMissing(0, 6, 10.0D, 0.50D));
-        assertEquals(6, UncannyJournalCatalog.selectMissing(0b01_1111, 6, 0.0D, 0.0D));
-        assertEquals(-1, UncannyJournalCatalog.selectMissing(0b11_1111, 6, 25.0D, 0.5D));
-        assertThrows(IllegalArgumentException.class,
-                () -> UncannyJournalCatalog.selectMissing(0, 6, 5.0D, 1.0D));
-    }
-
-    @Test
     void extraLongCampaignUsesTheSameNormalizedStoryWindows() {
         long standardMidpoint = 25L * CampaignDirectorRules.TICKS_PER_DAY;
         long extraLongMidpoint = 50L * CampaignDirectorRules.TICKS_PER_DAY;
@@ -80,14 +64,16 @@ class UncannyJournalCatalogTest {
     }
 
     @Test
-    void runtimeUsesExactChanceAndMarksOnlyAfterSuccessfulInsertion() throws IOException {
+    void ordinaryStructureChestsNeverGiveJournalsAndDecideTheirContentOnce() throws IOException {
         String source = Files.readString(Path.of("src", "main", "java", "com", "eotv", "echoofthevoid",
                 "event", "UncannyStructureFeatureSystem.java"), StandardCharsets.UTF_8);
-        assertTrue(source.contains("HISTORY_BOOK_CHANCE = 0.50D"));
-        assertTrue(source.contains("if (roll >= HISTORY_BOOK_CHANCE)"));
-        assertTrue(source.contains("findWeightedMissingHistoryTome"));
-        int insert = source.indexOf("insertIntoChestOrDrop(level, pos, chest, historyPiece)");
-        int mark = source.indexOf("state.markHistoryTomeFound(player.getUUID(), nextTome)");
-        assertTrue(insert >= 0 && mark > insert, "Discovery must be persisted only after insertion succeeds");
+        assertFalse(source.contains("UNCANNY_LORE_PIECE"), "D-100: ordinary structures hold no journal");
+        assertFalse(source.contains("HISTORY_BOOK_CHANCE"));
+        assertTrue(source.contains("STRUCTURE_CHEST_MAP_CHANCE = 0.40D"));
+        assertTrue(source.contains("STRUCTURE_CHEST_MIN_FRAGMENTS = 1"));
+        assertTrue(source.contains("STRUCTURE_CHEST_MAX_FRAGMENTS = 3"));
+        int resolved = source.indexOf("data.putBoolean(STRUCTURE_CHEST_RESOLVED, true);");
+        int map = source.indexOf("UncannyJournalMaps.mapTowardsPendingPlace(level)");
+        assertTrue(resolved >= 0 && map > resolved, "The chest is marked resolved before anything is rolled into it");
     }
 }

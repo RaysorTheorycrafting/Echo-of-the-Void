@@ -192,7 +192,7 @@ public abstract class AbstractUncannyHuntingSpecialEntity extends Monster implem
 
     protected final boolean isDirectlyObservedByAnyPlayer(ServerLevel level, double radius) {
         double radiusSqr = radius * radius;
-        for (ServerPlayer player : level.players()) {
+        for (ServerPlayer player : com.eotv.echoofthevoid.entity.UncannyEntityUtil.huntablePlayers(level)) {
             if (player.isAlive()
                     && !player.isSpectator()
                     && player.distanceToSqr(this) <= radiusSqr

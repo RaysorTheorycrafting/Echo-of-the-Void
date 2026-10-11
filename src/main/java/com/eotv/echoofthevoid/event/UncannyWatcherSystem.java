@@ -108,6 +108,10 @@ public final class UncannyWatcherSystem {
     }
 
     public static boolean forceSpawnWatcher(ServerPlayer player) {
+        // Creatures act on survival and adventure players only.
+        if (!com.eotv.echoofthevoid.entity.UncannyEntityUtil.isHuntablePlayer(player)) {
+            return false;
+        }
         MinecraftServer server = player.getServer();
         if (server == null) {
             return false;
@@ -132,6 +136,10 @@ public final class UncannyWatcherSystem {
     }
 
     public static boolean spawnWatcherFromEvents(ServerPlayer player) {
+        // Creatures act on survival and adventure players only.
+        if (!com.eotv.echoofthevoid.entity.UncannyEntityUtil.isHuntablePlayer(player)) {
+            return false;
+        }
         MinecraftServer server = player.getServer();
         if (server == null) {
             debugLog("WATCHER spawn failed: server null");

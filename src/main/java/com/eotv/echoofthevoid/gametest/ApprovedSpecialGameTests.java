@@ -64,6 +64,8 @@ public final class ApprovedSpecialGameTests {
     public static void playerKilledGrandWardenDropsImportantShardStack(GameTestHelper helper) {
         fillFloor(helper);
         ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        // Mock players carry creative abilities; creatures only act on survival players.
+        player.getAbilities().invulnerable = false;
         NetworkRegistry.configureMockConnection(player.connection.getConnection());
         Warden warden = helper.spawn(EntityType.WARDEN, new Vec3(8.5D, 1.0D, 8.5D));
         warden.addTag(GrandWardenRules.ENTITY_TAG);
@@ -88,6 +90,8 @@ public final class ApprovedSpecialGameTests {
     public static void watcherEncounterIsBlockedWhileThePlayerSleeps(GameTestHelper helper) {
         fillFloor(helper);
         ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        // Mock players carry creative abilities; creatures only act on survival players.
+        player.getAbilities().invulnerable = false;
         NetworkRegistry.configureMockConnection(player.connection.getConnection());
         BlockPos sleepingPos = helper.absolutePos(new BlockPos(8, 1, 8));
         player.startSleeping(sleepingPos);
@@ -107,6 +111,8 @@ public final class ApprovedSpecialGameTests {
     public static void followerEncounterIsProtectedFromVanillaDistanceDespawn(GameTestHelper helper) {
         fillFloor(helper);
         ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        // Mock players carry creative abilities; creatures only act on survival players.
+        player.getAbilities().invulnerable = false;
         NetworkRegistry.configureMockConnection(player.connection.getConnection());
         Vec3 playerPosition = helper.absoluteVec(new Vec3(8.5D, 1.0D, 8.5D));
         player.moveTo(playerPosition.x, playerPosition.y, playerPosition.z, 0.0F, 0.0F);
@@ -127,10 +133,16 @@ public final class ApprovedSpecialGameTests {
         });
     }
 
-    @GameTest(template = TEMPLATE, timeoutTicks = 70)
+    /**
+     * Runs alone: after the melee hit Follower? repositions out of sight some 15 blocks away, which in a shared batch
+     * landed it in a neighbouring test whose cleanup discarded it (diagnosed 2026-10-11).
+     */
+    @GameTest(template = TEMPLATE, timeoutTicks = 70, batch = "follower_evasion_alone")
     public static void followerRejectsProjectilesAndEvadesInsteadOfDyingToOneMeleeHit(GameTestHelper helper) {
         fillFloor(helper);
         ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        // Mock players carry creative abilities; creatures only act on survival players.
+        player.getAbilities().invulnerable = false;
         NetworkRegistry.configureMockConnection(player.connection.getConnection());
         Vec3 playerPosition = helper.absoluteVec(new Vec3(8.5D, 1.0D, 8.5D));
         player.moveTo(playerPosition.x, playerPosition.y, playerPosition.z, 0.0F, 0.0F);
@@ -174,7 +186,9 @@ public final class ApprovedSpecialGameTests {
                 "An interrupted reposition cloak must never survive a reload");
         helper.runAtTickTime(45, () -> {
             helper.assertTrue(follower.isAlive() && !follower.isRemoved(),
-                    "Follower? must remain in the encounter after its former 38-tick sink window");
+                    "Follower? must remain in the encounter after its former 38-tick sink window (removal "
+                            + follower.getRemovalReason() + ", health " + follower.getHealth() + ", at "
+                            + follower.blockPosition() + ", test origin " + helper.absolutePos(BlockPos.ZERO) + ")");
             follower.discard();
             helper.succeed();
         });
@@ -189,6 +203,8 @@ public final class ApprovedSpecialGameTests {
             }
         }
         ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        // Mock players carry creative abilities; creatures only act on survival players.
+        player.getAbilities().invulnerable = false;
         NetworkRegistry.configureMockConnection(player.connection.getConnection());
         Vec3 playerPosition = helper.absoluteVec(new Vec3(1.5D, 1.0D, 8.5D));
         player.moveTo(playerPosition.x, playerPosition.y, playerPosition.z, -90.0F, 0.0F);
@@ -222,11 +238,16 @@ public final class ApprovedSpecialGameTests {
         }
 
         ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        // Mock players carry creative abilities; creatures only act on survival players.
+        player.getAbilities().invulnerable = false;
         NetworkRegistry.configureMockConnection(player.connection.getConnection());
         Vec3 boatPosition = helper.absoluteVec(new Vec3(5.5D, 5.0D, 8.5D));
         player.moveTo(boatPosition.x, boatPosition.y, boatPosition.z, 0.0F, 0.0F);
         Boat boat = helper.spawn(EntityType.BOAT, new Vec3(5.5D, 5.0D, 8.5D));
         helper.assertTrue(player.startRiding(boat, true), "The mock player must occupy the Ferryman test boat");
+        // The other seat is taken: a survival player may otherwise see it board (50 %), which has its own test.
+        net.minecraft.world.entity.animal.Chicken passenger = helper.spawn(EntityType.CHICKEN, new Vec3(5.5D, 5.0D, 8.5D));
+        helper.assertTrue(passenger.startRiding(boat, true), "The second seat must be taken for the reveal scenario");
         helper.assertTrue(ApprovedSpecialSystem.spawnForDebug(player, "ferryman"),
                 "Ferryman? must accept a real occupied boat over deep water");
 
@@ -280,6 +301,8 @@ public final class ApprovedSpecialGameTests {
         }
 
         ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        // Mock players carry creative abilities; creatures only act on survival players.
+        player.getAbilities().invulnerable = false;
         NetworkRegistry.configureMockConnection(player.connection.getConnection());
         Vec3 boatPosition = helper.absoluteVec(new Vec3(3.5D, 5.0D, 8.5D));
         player.moveTo(boatPosition.x, boatPosition.y, boatPosition.z, 0.0F, 0.0F);
@@ -337,6 +360,8 @@ public final class ApprovedSpecialGameTests {
     public static void ambusherHasARealDebugRouteAndRemainsKillable(GameTestHelper helper) {
         fillFloor(helper);
         ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        // Mock players carry creative abilities; creatures only act on survival players.
+        player.getAbilities().invulnerable = false;
         NetworkRegistry.configureMockConnection(player.connection.getConnection());
         Vec3 playerPosition = helper.absoluteVec(new Vec3(8.5D, 2.0D, 8.5D));
         player.moveTo(playerPosition.x, playerPosition.y, playerPosition.z, 0.0F, 0.0F);
@@ -361,6 +386,8 @@ public final class ApprovedSpecialGameTests {
     public static void ambusherTelegraphsOneAttackThenSinks(GameTestHelper helper) {
         fillFloor(helper);
         ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        // Mock players carry creative abilities; creatures only act on survival players.
+        player.getAbilities().invulnerable = false;
         NetworkRegistry.configureMockConnection(player.connection.getConnection());
         Vec3 playerPosition = helper.absoluteVec(new Vec3(8.5D, 2.0D, 8.5D));
         player.moveTo(playerPosition.x, playerPosition.y, playerPosition.z, 0.0F, 0.0F);
@@ -395,6 +422,8 @@ public final class ApprovedSpecialGameTests {
     public static void mournerPlaysACueAfterThePlayerEntersAudibleRange(GameTestHelper helper) {
         fillFloor(helper);
         ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        // Mock players carry creative abilities; creatures only act on survival players.
+        player.getAbilities().invulnerable = false;
         NetworkRegistry.configureMockConnection(player.connection.getConnection());
         Vec3 playerPosition = helper.absoluteVec(new Vec3(8.5D, 1.0D, 8.5D));
         player.moveTo(playerPosition.x, playerPosition.y, playerPosition.z, 90.0F, 0.0F);
@@ -420,6 +449,8 @@ public final class ApprovedSpecialGameTests {
     public static void attackerAnimationStudiesUseDistinctSyncedStyles(GameTestHelper helper) {
         fillFloor(helper);
         ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        // Mock players carry creative abilities; creatures only act on survival players.
+        player.getAbilities().invulnerable = false;
         NetworkRegistry.configureMockConnection(player.connection.getConnection());
         Vec3 playerPosition = helper.absoluteVec(new Vec3(8.5D, 1.0D, 8.5D));
         player.moveTo(playerPosition.x, playerPosition.y, playerPosition.z, 90.0F, 0.0F);
@@ -488,6 +519,8 @@ public final class ApprovedSpecialGameTests {
         }
 
         ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        // Mock players carry creative abilities; creatures only act on survival players.
+        player.getAbilities().invulnerable = false;
         NetworkRegistry.configureMockConnection(player.connection.getConnection());
         Vec3 playerPosition = helper.absoluteVec(new Vec3(2.5D, 1.0D, 8.5D));
         player.moveTo(playerPosition.x, playerPosition.y, playerPosition.z, 90.0F, 0.0F);
@@ -509,6 +542,8 @@ public final class ApprovedSpecialGameTests {
         helper.setBlock(8, 2, 8, Blocks.GLASS);
 
         ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        // Mock players carry creative abilities; creatures only act on survival players.
+        player.getAbilities().invulnerable = false;
         NetworkRegistry.configureMockConnection(player.connection.getConnection());
         Vec3 inside = helper.absoluteVec(new Vec3(4.5D, 1.0D, 8.5D));
         player.moveTo(inside.x, inside.y, inside.z, -90.0F, 0.0F);
@@ -550,6 +585,8 @@ public final class ApprovedSpecialGameTests {
         helper.setBlock(8, 2, 8, Blocks.GLASS);
 
         ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        // Mock players carry creative abilities; creatures only act on survival players.
+        player.getAbilities().invulnerable = false;
         NetworkRegistry.configureMockConnection(player.connection.getConnection());
         Vec3 playerStart = helper.absoluteVec(new Vec3(3.5D, 1.0D, 8.5D));
         player.moveTo(playerStart.x, playerStart.y, playerStart.z, -90.0F, 0.0F);
@@ -589,6 +626,8 @@ public final class ApprovedSpecialGameTests {
         fillFloor(helper);
         helper.setBlock(8, 1, 8, Blocks.OAK_FENCE);
         ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        // Mock players carry creative abilities; creatures only act on survival players.
+        player.getAbilities().invulnerable = false;
         NetworkRegistry.configureMockConnection(player.connection.getConnection());
         Vec3 playerPosition = helper.absoluteVec(new Vec3(4.5D, 1.0D, 8.5D));
         player.moveTo(playerPosition.x, playerPosition.y, playerPosition.z, -90.0F, 0.0F);
@@ -629,6 +668,8 @@ public final class ApprovedSpecialGameTests {
             }
         }
         ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        // Mock players carry creative abilities; creatures only act on survival players.
+        player.getAbilities().invulnerable = false;
         NetworkRegistry.configureMockConnection(player.connection.getConnection());
         Vec3 playerPosition = helper.absoluteVec(new Vec3(1.5D, 2.0D, 1.5D));
         player.moveTo(playerPosition.x, playerPosition.y, playerPosition.z, 0.0F, 0.0F);
@@ -700,6 +741,8 @@ public final class ApprovedSpecialGameTests {
                         .setValue(BlockStateProperties.OPEN, false));
 
         ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        // Mock players carry creative abilities; creatures only act on survival players.
+        player.getAbilities().invulnerable = false;
         NetworkRegistry.configureMockConnection(player.connection.getConnection());
         Vec3 playerPosition = helper.absoluteVec(new Vec3(3.5D, 1.0D, 8.5D));
         player.moveTo(playerPosition.x, playerPosition.y, playerPosition.z, 90.0F, 0.0F);
@@ -782,6 +825,8 @@ public final class ApprovedSpecialGameTests {
     public static void adaptiveSpecialsUseTheStrongestCarriedLoadout(GameTestHelper helper) {
         fillFloor(helper);
         ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        // Mock players carry creative abilities; creatures only act on survival players.
+        player.getAbilities().invulnerable = false;
         NetworkRegistry.configureMockConnection(player.connection.getConnection());
         player.getInventory().clearContent();
         player.getInventory().items.set(0, new ItemStack(Items.WOODEN_SWORD));
@@ -853,6 +898,8 @@ public final class ApprovedSpecialGameTests {
     public static void scenicSpecialsCanBeStruckAndSinkInsteadOfDying(GameTestHelper helper) {
         fillFloor(helper);
         ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        // Mock players carry creative abilities; creatures only act on survival players.
+        player.getAbilities().invulnerable = false;
         NetworkRegistry.configureMockConnection(player.connection.getConnection());
         UncannyApprovedSpecialEntity surveyor = UncannyEntityRegistry.UNCANNY_SURVEYOR.get().create(helper.getLevel());
         helper.assertTrue(surveyor != null, "Surveyor? must be creatable");
@@ -878,6 +925,8 @@ public final class ApprovedSpecialGameTests {
     @GameTest(template = TEMPLATE, timeoutTicks = 30)
     public static void aSinkingSceneDissolvesInsteadOfPokingThroughACeiling(GameTestHelper helper) {
         ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        // Mock players carry creative abilities; creatures only act on survival players.
+        player.getAbilities().invulnerable = false;
         NetworkRegistry.configureMockConnection(player.connection.getConnection());
         // A one-block floor with an open room right under it: someone below would see the body.
         for (int x = 6; x <= 10; x++) {
@@ -957,6 +1006,8 @@ public final class ApprovedSpecialGameTests {
             }
         }
         ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        // Mock players carry creative abilities; creatures only act on survival players.
+        player.getAbilities().invulnerable = false;
         NetworkRegistry.configureMockConnection(player.connection.getConnection());
         Vec3 ownerPosition = helper.absoluteVec(new Vec3(14.5D, 1.0D, 8.5D));
         player.moveTo(ownerPosition.x, ownerPosition.y, ownerPosition.z, -90.0F, 0.0F);

@@ -1,6 +1,8 @@
 package com.eotv.echoofthevoid.command;
 
 import com.eotv.echoofthevoid.EchoOfTheVoid;
+import com.eotv.echoofthevoid.campaign.CampaignDirectorRules;
+import com.eotv.echoofthevoid.campaign.UncannyCampaignDirector;
 import com.eotv.echoofthevoid.config.UncannyConfig;
 import com.eotv.echoofthevoid.diagnostics.DiagnosticSessionStore;
 import com.eotv.echoofthevoid.diagnostics.UncannyDiagnostics;
@@ -9,6 +11,7 @@ import com.eotv.echoofthevoid.entity.UncannyEntityRegistry;
 import com.eotv.echoofthevoid.entity.custom.UncannyDoubleDormantEntity;
 import com.eotv.echoofthevoid.entity.custom.UncannyEndermanEntity;
 import com.eotv.echoofthevoid.event.UncannyDoubleDormantSystem;
+import com.eotv.echoofthevoid.event.UncannyJournalPlaceSystem;
 import com.eotv.echoofthevoid.event.UncannyPassiveVariantSystem;
 import com.eotv.echoofthevoid.event.UncannyParanoiaEventSystem;
 import com.eotv.echoofthevoid.event.UncannyStructureFeatureSystem;
@@ -20,7 +23,10 @@ import com.eotv.echoofthevoid.event.special.UncannyDevourerSystem;
 import com.eotv.echoofthevoid.event.special.UncannyHuntingSpecialSystem;
 import com.eotv.echoofthevoid.event.special.UncannyMinerSystem;
 import com.eotv.echoofthevoid.item.UncannyItemRegistry;
+import com.eotv.echoofthevoid.lore.UncannyJournalCatalog;
+import com.eotv.echoofthevoid.lore.UncannyJournalProgressRules;
 import com.eotv.echoofthevoid.lore.UncannyLoreBookLibrary;
+import com.eotv.echoofthevoid.state.JournalProgressRecord;
 import com.eotv.echoofthevoid.phase.UncannyPhaseManager;
 import com.eotv.echoofthevoid.state.UncannyWorldState;
 import net.minecraft.advancements.AdvancementHolder;
@@ -136,6 +142,26 @@ public final class UncannyCommandRegistry {
                 .then(Commands.literal("addPhaseProgress")
                         .then(Commands.argument("amount", DoubleArgumentType.doubleArg(0.0D, 1.0D))
                                 .executes(UncannyCommandRegistry::addPhaseProgress)))
+                .then(Commands.literal("campaign")
+                        .then(Commands.literal("status")
+                                .executes(UncannyCommandRegistry::campaignStatus))
+                        .then(Commands.literal("advance")
+                                .then(Commands.argument("days", IntegerArgumentType.integer(1, 100))
+                                        .executes(UncannyCommandRegistry::advanceCampaign))))
+                .then(Commands.literal("journal")
+                        .then(Commands.literal("status")
+                                .executes(UncannyCommandRegistry::journalStatus))
+                        .then(Commands.literal("reserve")
+                                .executes(UncannyCommandRegistry::journalReserve))
+                        .then(Commands.literal("locate")
+                                .executes(UncannyCommandRegistry::journalLocate))
+                        .then(Commands.literal("reset")
+                                .executes(UncannyCommandRegistry::journalReset))
+                        .then(Commands.literal("map")
+                                .executes(UncannyCommandRegistry::journalMap))
+                        .then(Commands.literal("build")
+                                .then(Commands.argument("volume", IntegerArgumentType.integer(1, 6))
+                                        .executes(UncannyCommandRegistry::journalBuildHere))))
                 .then(Commands.literal("setEventProfile")
                         .then(Commands.argument("profile", IntegerArgumentType.integer(1, 5))
                                 .executes(UncannyCommandRegistry::setEventProfile)))
@@ -549,6 +575,139 @@ public final class UncannyCommandRegistry {
 
         // Vanilla /locate structure is intentionally left untouched.
         // Use /uncanny locate structure <id> for custom sub-variant queries.
+    }
+
+    private static int campaignStatus(CommandContext<CommandSourceStack> context) {
+        UncannyWorldState state = UncannyWorldState.get(context.getSource().getServer());
+        String summary = campaignSummary(state);
+        context.getSource().sendSuccess(() -> Component.literal(summary), false);
+        return 1;
+    }
+
+    private static int advanceCampaign(CommandContext<CommandSourceStack> context) {
+        int days = IntegerArgumentType.getInteger(context, "days");
+        UncannyWorldState state = UncannyWorldState.get(context.getSource().getServer());
+        if (!UncannyCampaignDirector.advanceForDebug(state, days * CampaignDirectorRules.TICKS_PER_DAY)) {
+            context.getSource().sendFailure(Component.literal("Campaign director is not initialized yet."));
+            return 0;
+        }
+        String summary = campaignSummary(state);
+        context.getSource().sendSuccess(() -> Component.literal("Campaign advanced by " + days + " day(s). " + summary), true);
+        return days;
+    }
+
+    private static int journalStatus(CommandContext<CommandSourceStack> context) {
+        UncannyWorldState state = UncannyWorldState.get(context.getSource().getServer());
+        String summary = journalSummary(state);
+        context.getSource().sendSuccess(() -> Component.literal(summary), false);
+        return 1;
+    }
+
+    private static int journalReserve(CommandContext<CommandSourceStack> context) {
+        if (!UncannyJournalPlaceSystem.forceSearchNow(context.getSource().getServer())) {
+            context.getSource().sendFailure(Component.literal(
+                    "A journal place is already pending, or every journal has been found."));
+            return 0;
+        }
+        context.getSource().sendSuccess(() -> Component.literal(
+                "Searching a site for the next journal place now (minimum day and delay ignored)."), true);
+        return 1;
+    }
+
+    private static int journalLocate(CommandContext<CommandSourceStack> context) {
+        JournalProgressRecord.PendingPlace pending =
+                UncannyWorldState.get(context.getSource().getServer()).getJournalProgress().pending();
+        if (pending == null) {
+            context.getSource().sendFailure(Component.literal("No journal place is pending."));
+            return 0;
+        }
+        BlockPos pos = BlockPos.of(pending.posLong());
+        context.getSource().sendSuccess(() -> Component.literal("Journal place " + pending.volume() + " ("
+                + pending.status().name().toLowerCase(Locale.ROOT) + ") at " + pos.toShortString()), false);
+        return 1;
+    }
+
+    private static int journalMap(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        ServerPlayer player = context.getSource().getPlayerOrException();
+        ItemStack map = UncannyJournalPlaceSystem.requestMap(player);
+        if (map.isEmpty()) {
+            if (UncannyJournalPlaceSystem.isMapRequested(player)) {
+                context.getSource().sendSuccess(() -> Component.literal(
+                        "Searching a site for the next journal place now: the map will be given as soon as it is built."),
+                        true);
+                return 1;
+            }
+            context.getSource().sendFailure(Component.literal("Every journal has been found."));
+            return 0;
+        }
+        if (!player.getInventory().add(map)) {
+            player.drop(map, false);
+        }
+        context.getSource().sendSuccess(() -> Component.literal("Gave a map towards the pending journal place."), true);
+        return 1;
+    }
+
+    private static int journalReset(CommandContext<CommandSourceStack> context) {
+        UncannyJournalPlaceSystem.resetProgress(context.getSource().getServer());
+        context.getSource().sendSuccess(() -> Component.literal(
+                "Journal progression reset for this world (built places stay in the world)."), true);
+        return 1;
+    }
+
+    private static int journalBuildHere(CommandContext<CommandSourceStack> context) throws CommandSyntaxException {
+        ServerPlayer player = context.getSource().getPlayerOrException();
+        int volume = IntegerArgumentType.getInteger(context, "volume");
+        String result = UncannyJournalPlaceSystem.buildInFrontForDebug(player, volume);
+        if (result.startsWith("Built")) {
+            context.getSource().sendSuccess(() -> Component.literal(result), true);
+            return 1;
+        }
+        context.getSource().sendFailure(Component.literal(result));
+        return 0;
+    }
+
+    public static String journalSummary(UncannyWorldState state) {
+        JournalProgressRecord progress = state.getJournalProgress();
+        StringBuilder found = new StringBuilder();
+        for (int volume : UncannyJournalProgressRules.DISCOVERY_ORDER) {
+            found.append(progress.isFound(volume) ? String.valueOf(volume) : progress.isLost(volume) ? "x" : "-");
+        }
+        int next = progress.nextVolume();
+        String nextText = next < 0
+                ? "none (complete)"
+                : next + " \"" + UncannyJournalCatalog.journal(next).title() + "\" eligible="
+                        + UncannyJournalProgressRules.isEligible(next, state.getCampaignElapsedTicks(),
+                                progress.lastDiscoveryElapsedTicks(), UncannyCampaignDirector.campaignLengthDays());
+        JournalProgressRecord.PendingPlace pending = progress.pending();
+        String pendingText = pending == null
+                ? "none"
+                : pending.volume() + " " + pending.status().name().toLowerCase(Locale.ROOT) + " at "
+                        + BlockPos.of(pending.posLong()).toShortString() + " in " + pending.dimension();
+        return "Journals found (story order) [" + found + "], next " + nextText
+                + ", lastDiscoveryTick=" + progress.lastDiscoveryElapsedTicks()
+                + ", pending " + pendingText
+                + ", starterMap=" + progress.starterMapDelivered()
+                + (state.getJournalProgress().pending() != null && !progress.starterMapDelivered()
+                        ? " (tier " + starterTierName(state) + ")" : "")
+                + ", places=" + progress.places().size() + ", maps=" + progress.maps().size()
+                + ", playerContainers=" + state.getPlayerPlacedContainers().size();
+    }
+
+    private static String starterTierName(UncannyWorldState state) {
+        JournalProgressRecord.PendingPlace pending = state.getJournalProgress().pending();
+        return UncannyJournalProgressRules.starterMapTier(pending.reservedElapsedTicks(), state.getCampaignElapsedTicks(),
+                UncannyCampaignDirector.campaignLengthDays()).name().toLowerCase(Locale.ROOT);
+    }
+
+    public static String campaignSummary(UncannyWorldState state) {
+        long elapsed = state.getCampaignElapsedTicks();
+        int lengthDays = UncannyCampaignDirector.campaignLengthDays();
+        return String.format(Locale.ROOT, "Campaign day %.2f/%d, story day %.2f/%d (%s)",
+                CampaignDirectorRules.campaignDay(elapsed),
+                lengthDays,
+                CampaignDirectorRules.logicalStoryDay(elapsed, lengthDays),
+                CampaignDirectorRules.STANDARD_LENGTH_DAYS,
+                UncannyCampaignDirector.debugSummary(state));
     }
 
     private static int setPhase(CommandContext<CommandSourceStack> context) {

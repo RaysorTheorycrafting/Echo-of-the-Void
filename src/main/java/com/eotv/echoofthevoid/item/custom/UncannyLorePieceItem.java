@@ -2,6 +2,7 @@ package com.eotv.echoofthevoid.item.custom;
 
 import com.eotv.echoofthevoid.EchoOfTheVoid;
 import com.eotv.echoofthevoid.config.UncannyConfig;
+import com.eotv.echoofthevoid.event.UncannyJournalPlaceSystem;
 import com.eotv.echoofthevoid.lore.UncannyLoreBookLibrary;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.protocol.game.ClientboundOpenBookPacket;
@@ -35,6 +36,7 @@ public final class UncannyLorePieceItem extends WrittenBookItem {
                 serverPlayer.containerMenu.broadcastChanges();
             }
             serverPlayer.connection.send(new ClientboundOpenBookPacket(hand));
+            UncannyJournalPlaceSystem.onJournalOpened(serverPlayer, stack);
             if (UncannyConfig.DEBUG_LOGS.get()) {
                 EchoOfTheVoid.LOGGER.info("[UncannyDebug/Item] LORE_BOOK open packet sent player={} hand={} hasContent={}",
                         serverPlayer.getGameProfile().getName(),

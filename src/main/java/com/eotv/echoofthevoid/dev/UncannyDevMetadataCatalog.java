@@ -793,9 +793,17 @@ public final class UncannyDevMetadataCatalog {
             case CLEAN_TEST_ENTITIES -> "Removes only entities tagged as created by this development menu.";
             case RESET_TEST_ENVIRONMENT -> "Stops transient horror weather, Tension/Grand debug states and removes tagged test entities.";
             case SET_PHASE -> "Sets the persistent world phase to " + entry.actionArg() + " for explicit QA.";
+            case ADVANCE_CAMPAIGN -> "Advances campaign time by " + entry.actionArg()
+                    + " day(s) through the director accounting (beats and culmination follow).";
+            case JOURNAL_PLACE -> "reserve".equals(entry.actionArg())
+                    ? "Searches a site for the next journal place now, ignoring its minimum day and delay."
+                    : "Builds journal place " + entry.actionArg().substring(entry.actionArg().indexOf('|') + 1)
+                            + " ten blocks ahead with the real terrain checks; progression is untouched.";
             default -> "Development-only control.";
         };
         String restriction = entry.actionKind() == UncannyDevCatalog.ActionKind.SET_PHASE
+                || entry.actionKind() == UncannyDevCatalog.ActionKind.ADVANCE_CAMPAIGN
+                || entry.actionKind() == UncannyDevCatalog.ActionKind.JOURNAL_PLACE
                 ? "This deliberately mutates world progression and is not automatically reverted. Use a QA copy."
                 : "It never removes ordinary entities or structures and does not undo permanent block changes.";
         return new Info(ContentType.TOOL, 1, "Debug only", Rarity.DEBUG, Danger.NONE, Authority.SHARED,

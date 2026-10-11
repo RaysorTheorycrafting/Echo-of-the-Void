@@ -6,7 +6,8 @@
   "mixins": [
     "PlayerInfoUpdatePacketAccessor",
     "SleeperPinnedPlayerMixin",
-    "SleeperPinnedServerPlayerMixin"
+    "SleeperPinnedServerPlayerMixin",
+    "LecternJournalMixin"
   ],
   "client": [
     "client.MinecraftMultiplayerInvoker",

@@ -141,7 +141,7 @@ public class UncannyBlurEntity extends Monster implements UncannyEntityMarker {
             beginSink();
             return;
         }
-        ServerPlayer target = targetId().map(id -> level.getServer().getPlayerList().getPlayer(id)).orElse(null);
+        ServerPlayer target = targetId().map(id -> com.eotv.echoofthevoid.entity.UncannyEntityUtil.huntableOrNull(level.getServer().getPlayerList().getPlayer(id))).orElse(null);
         if (target == null || !target.isAlive() || target.level() != level || target.isSpectator()
                 || --this.lifetimeTicks <= 0 || this.distanceToSqr(target) > 72.0D * 72.0D) {
             beginSink();

@@ -204,7 +204,7 @@ public class UncannyPercherEntity extends Monster implements UncannyEntityMarker
 
     private ServerPlayer resolveWatchedPlayer(ServerLevel level) {
         ServerPlayer watched = getWatchedPlayerUuid()
-                .map(uuid -> level.getServer().getPlayerList().getPlayer(uuid))
+                .map(uuid -> com.eotv.echoofthevoid.entity.UncannyEntityUtil.huntableOrNull(level.getServer().getPlayerList().getPlayer(uuid)))
                 .orElse(null);
         if (watched != null && watched.isAlive() && !watched.isSpectator() && watched.level() == level) {
             return watched;

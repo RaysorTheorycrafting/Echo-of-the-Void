@@ -165,7 +165,7 @@ public class UncannyDoubleDormantEntity extends Zombie implements UncannyEntityM
     private ServerPlayer resolveCopiedPlayer(ServerLevel level) {
         Optional<UUID> targetUuid = this.getCopiedTargetUuid();
         ServerPlayer copied = targetUuid
-                .map(uuid -> level.getServer().getPlayerList().getPlayer(uuid))
+                .map(uuid -> com.eotv.echoofthevoid.entity.UncannyEntityUtil.huntableOrNull(level.getServer().getPlayerList().getPlayer(uuid)))
                 .orElse(null);
         return copied != null
                         && copied.isAlive()

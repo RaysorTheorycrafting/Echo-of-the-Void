@@ -25,6 +25,10 @@ public final class SleeperSystem {
     }
 
     public static boolean spawnNatural(ServerPlayer player) {
+        // Creatures act on survival and adventure players only.
+        if (!com.eotv.echoofthevoid.entity.UncannyEntityUtil.isHuntablePlayer(player)) {
+            return false;
+        }
         ServerLevel level = player.serverLevel();
         BlockPos bed = homeBed(player);
         if (level.dimension() != Level.OVERWORLD || PercherSystem.isDaylight(level) || bed == null

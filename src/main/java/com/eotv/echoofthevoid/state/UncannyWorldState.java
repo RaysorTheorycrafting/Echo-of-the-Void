@@ -22,6 +22,7 @@ import net.minecraft.world.level.saveddata.SavedData;
 
 public class UncannyWorldState extends SavedData {
     private static final String DATA_NAME = "echoofthevoid_uncanny_world";
+    public static final int MAX_PLAYER_PLACED_CONTAINERS = 1024;
 
     private UncannyPhase phase = UncannyPhase.PHASE_1;
     private double progressToNextPhase;
@@ -95,9 +96,12 @@ public class UncannyWorldState extends SavedData {
     private long devourerGlobalCooldownUntilCampaignTick;
     private final List<StructureMarker> structureMarkers = new ArrayList<>();
     private final List<Long> playerPlacedLights = new ArrayList<>();
+    // Overworld chests and barrels placed by a player, oldest first (D-100 starter map).
+    private final List<Long> playerPlacedContainers = new ArrayList<>();
     private final List<String> campaignRecentFamilies = new ArrayList<>();
     private final List<WanderingTreeRecord> wanderingTrees = new ArrayList<>();
     private OldFriendRecord oldFriend;
+    private JournalProgressRecord journalProgress = JournalProgressRecord.empty();
     private transient boolean sessionRelativeTimersPrepared;
 
     public static UncannyWorldState create() {
@@ -182,6 +186,9 @@ public class UncannyWorldState extends SavedData {
         readIntMap(tag, "firstNightWatcherTriggered", data.firstNightWatcherTriggered);
         readLongMap(tag, "restartConfirmUntilTick", data.restartConfirmUntilTick);
         readIntMap(tag, "historyTomeMask", data.historyTomeMask);
+        data.journalProgress = tag.contains(JournalProgressRecord.TAG, Tag.TAG_COMPOUND)
+                ? JournalProgressRecord.load(tag.getCompound(JournalProgressRecord.TAG))
+                : JournalProgressRecord.migrated(data.historyTomeMask.values());
         readPendingFerrymanEncounters(tag, data.pendingFerrymanEncounters);
         readDeathSites(tag, data.deathSites);
         readDevourerArenaSessions(tag, data.devourerArenaSessions);
@@ -193,6 +200,12 @@ public class UncannyWorldState extends SavedData {
         readStringList(tag, "campaignRecentFamilies", data.campaignRecentFamilies, 6);
         readWanderingTrees(tag, data.wanderingTrees);
         data.oldFriend = tag.contains("oldFriend") ? OldFriendRecord.load(tag.getCompound("oldFriend")) : null;
+        for (long packedPos : tag.getLongArray("playerPlacedContainers")) {
+            if (!data.playerPlacedContainers.contains(packedPos)
+                    && data.playerPlacedContainers.size() < MAX_PLAYER_PLACED_CONTAINERS) {
+                data.playerPlacedContainers.add(packedPos);
+            }
+        }
         for (long packedPos : tag.getLongArray("playerPlacedLights")) {
             if (!data.playerPlacedLights.contains(packedPos) && data.playerPlacedLights.size() < 256) {
                 data.playerPlacedLights.add(packedPos);
@@ -329,6 +342,7 @@ public class UncannyWorldState extends SavedData {
         writeIntMap(tag, "firstNightWatcherTriggered", firstNightWatcherTriggered);
         writeLongMap(tag, "restartConfirmUntilTick", restartConfirmUntilTick);
         writeIntMap(tag, "historyTomeMask", historyTomeMask);
+        tag.put(JournalProgressRecord.TAG, journalProgress.save());
         writePendingFerrymanEncounters(tag, pendingFerrymanEncounters);
         writeDeathSites(tag, deathSites);
         writeDevourerArenaSessions(tag, devourerArenaSessions);
@@ -342,6 +356,7 @@ public class UncannyWorldState extends SavedData {
             tag.put("oldFriend", oldFriend.save());
         }
         tag.putLongArray("playerPlacedLights", playerPlacedLights);
+        tag.putLongArray("playerPlacedContainers", playerPlacedContainers);
         return tag;
     }
 
@@ -739,6 +754,26 @@ public class UncannyWorldState extends SavedData {
         return playerPlacedLights.stream().map(BlockPos::of).toList();
     }
 
+    public void rememberPlayerPlacedContainer(BlockPos pos) {
+        Long packed = pos.asLong();
+        playerPlacedContainers.remove(packed);
+        playerPlacedContainers.add(packed);
+        while (playerPlacedContainers.size() > MAX_PLAYER_PLACED_CONTAINERS) {
+            playerPlacedContainers.remove(0);
+        }
+        this.setDirty();
+    }
+
+    public void forgetPlayerPlacedContainer(BlockPos pos) {
+        if (playerPlacedContainers.remove(Long.valueOf(pos.asLong()))) {
+            this.setDirty();
+        }
+    }
+
+    public List<BlockPos> getPlayerPlacedContainers() {
+        return playerPlacedContainers.stream().map(BlockPos::of).toList();
+    }
+
     public boolean isDebugLogsEnabled() {
         return debugLogsEnabled;
     }
@@ -1003,6 +1038,18 @@ public class UncannyWorldState extends SavedData {
         this.setDirty();
     }
 
+    public JournalProgressRecord getJournalProgress() {
+        return journalProgress;
+    }
+
+    public void setJournalProgress(JournalProgressRecord record) {
+        JournalProgressRecord next = record == null ? JournalProgressRecord.empty() : record;
+        if (!next.equals(journalProgress)) {
+            this.journalProgress = next;
+            this.setDirty();
+        }
+    }
+
     public List<WanderingTreeRecord> getWanderingTrees() {
         return List.copyOf(wanderingTrees);
     }
@@ -1111,15 +1158,6 @@ public class UncannyWorldState extends SavedData {
             }
         }
         return -1;
-    }
-
-    public int findWeightedMissingHistoryTome(
-            UUID playerId, int maxTomes, double logicalStoryDay, double roll) {
-        if (playerId == null || maxTomes <= 0) {
-            return -1;
-        }
-        return UncannyJournalCatalog.selectMissing(
-                historyTomeMask.getOrDefault(playerId, 0), maxTomes, logicalStoryDay, roll);
     }
 
     public void markHistoryTomeFound(UUID playerId, int tomeIndex) {

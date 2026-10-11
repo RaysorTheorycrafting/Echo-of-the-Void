@@ -505,7 +505,7 @@ public class UncannyUsherEntity extends Monster implements UncannyEntityMarker {
     private ServerPlayer resolveTargetPlayer(ServerLevel level) {
         Optional<UUID> target = this.entityData.get(TARGET_PLAYER);
         if (target.isPresent()) {
-            ServerPlayer player = level.getServer().getPlayerList().getPlayer(target.get());
+            ServerPlayer player = com.eotv.echoofthevoid.entity.UncannyEntityUtil.huntableOrNull(level.getServer().getPlayerList().getPlayer(target.get()));
             if (player != null) {
                 return player;
             }

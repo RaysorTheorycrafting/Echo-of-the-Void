@@ -176,6 +176,8 @@ public final class PercherGameTests {
 
     private static ServerPlayer mockPlayer(GameTestHelper helper) {
         ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        // Mock players carry creative abilities; creatures only act on survival players.
+        player.getAbilities().invulnerable = false;
         NetworkRegistry.configureMockConnection(player.connection.getConnection());
         Vec3 feet = Vec3.atBottomCenterOf(helper.absolutePos(new BlockPos(3, 1, 3)));
         player.moveTo(feet.x, feet.y, feet.z, 180.0F, 0.0F);

@@ -84,6 +84,8 @@ public final class MinerDevourerGameTests {
         BlockPos lower = new BlockPos(8, 1, 8);
         BlockPos upper = lower.above();
         ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        // Mock players carry creative abilities; creatures only act on survival players.
+        player.getAbilities().invulnerable = false;
         NetworkRegistry.configureMockConnection(player.connection.getConnection());
         Vec3 occupied = Vec3.atBottomCenterOf(helper.absolutePos(lower));
         player.moveTo(occupied.x, occupied.y, occupied.z, 0.0F, 0.0F);
@@ -123,6 +125,8 @@ public final class MinerDevourerGameTests {
             helper.setBlock(x, 2, 8, Blocks.STONE);
         }
         ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        // Mock players carry creative abilities; creatures only act on survival players.
+        player.getAbilities().invulnerable = false;
         NetworkRegistry.configureMockConnection(player.connection.getConnection());
         Vec3 wallHeight = helper.absoluteVec(new Vec3(1.5D, 1.0D, 8.5D));
         player.moveTo(wallHeight.x, wallHeight.y, wallHeight.z, 0.0F, 0.0F);
@@ -182,6 +186,8 @@ public final class MinerDevourerGameTests {
     public static void minerPlannerNeverUsesItsRestorationTunnelAsAnExit(GameTestHelper helper) {
         fillFloor(helper);
         ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        // Mock players carry creative abilities; creatures only act on survival players.
+        player.getAbilities().invulnerable = false;
         NetworkRegistry.configureMockConnection(player.connection.getConnection());
         Vec3 targetPosition = helper.absoluteVec(new Vec3(4.5D, 1.0D, 8.5D));
         player.moveTo(targetPosition.x, targetPosition.y, targetPosition.z, 0.0F, 0.0F);
@@ -235,6 +241,8 @@ public final class MinerDevourerGameTests {
             }
         }
         ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        // Mock players carry creative abilities; creatures only act on survival players.
+        player.getAbilities().invulnerable = false;
         NetworkRegistry.configureMockConnection(player.connection.getConnection());
         Vec3 position = helper.absoluteVec(new Vec3(1.5D, 3.0D, 8.5D));
         player.moveTo(position.x, position.y, position.z, 0.0F, 0.0F);
@@ -333,6 +341,8 @@ public final class MinerDevourerGameTests {
             helper.setBlock(x, 2, 8, Blocks.STONE);
         }
         ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        // Mock players carry creative abilities; creatures only act on survival players.
+        player.getAbilities().invulnerable = false;
         NetworkRegistry.configureMockConnection(player.connection.getConnection());
         Vec3 position = helper.absoluteVec(new Vec3(1.5D, 1.0D, 8.5D));
         player.moveTo(position.x, position.y, position.z, 0.0F, 0.0F);
@@ -458,6 +468,8 @@ public final class MinerDevourerGameTests {
             helper.setBlock(x, 2, 8, Blocks.STONE);
         }
         ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        // Mock players carry creative abilities; creatures only act on survival players.
+        player.getAbilities().invulnerable = false;
         NetworkRegistry.configureMockConnection(player.connection.getConnection());
         Vec3 position = helper.absoluteVec(new Vec3(1.5D, 1.0D, 8.5D));
         player.moveTo(position.x, position.y, position.z, 0.0F, 0.0F);
@@ -497,6 +509,8 @@ public final class MinerDevourerGameTests {
     public static void minerRefusesToStartWhenMobGriefingIsDisabled(GameTestHelper helper) {
         fillFloor(helper);
         ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        // Mock players carry creative abilities; creatures only act on survival players.
+        player.getAbilities().invulnerable = false;
         NetworkRegistry.configureMockConnection(player.connection.getConnection());
         boolean previous = helper.getLevel().getGameRules().getBoolean(GameRules.RULE_MOBGRIEFING);
         helper.getLevel().getGameRules().getRule(GameRules.RULE_MOBGRIEFING)
@@ -512,6 +526,8 @@ public final class MinerDevourerGameTests {
     public static void devourerKeepsItsFixedStatsAndRemainsProjectileVulnerable(GameTestHelper helper) {
         fillFloor(helper);
         ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        // Mock players carry creative abilities; creatures only act on survival players.
+        player.getAbilities().invulnerable = false;
         NetworkRegistry.configureMockConnection(player.connection.getConnection());
         Vec3 playerPos = helper.absoluteVec(new Vec3(8.5D, 1.0D, 8.5D));
         player.moveTo(playerPos.x, playerPos.y, playerPos.z, 0.0F, 0.0F);
@@ -558,10 +574,14 @@ public final class MinerDevourerGameTests {
     public static void devourerRetreatWaitsForUnreachabilityAndCompleteLossOfSight(GameTestHelper helper) {
         fillFloor(helper);
         ServerPlayer first = helper.makeMockServerPlayerInLevel();
+        // Mock players carry creative abilities; creatures only act on survival players.
+        first.getAbilities().invulnerable = false;
         NetworkRegistry.configureMockConnection(first.connection.getConnection());
         Vec3 firstPos = helper.absoluteVec(new Vec3(8.5D, 1.0D, 8.5D));
         first.moveTo(firstPos.x, firstPos.y, firstPos.z, 0.0F, 0.0F);
         ServerPlayer second = helper.makeMockServerPlayerInLevel();
+        // Mock players carry creative abilities; creatures only act on survival players.
+        second.getAbilities().invulnerable = false;
         NetworkRegistry.configureMockConnection(second.connection.getConnection());
         Vec3 secondPos = helper.absoluteVec(new Vec3(9.5D, 1.0D, 8.5D));
         second.moveTo(secondPos.x, secondPos.y, secondPos.z, 0.0F, 0.0F);
@@ -622,6 +642,8 @@ public final class MinerDevourerGameTests {
     public static void devourerSeizesAndHoldsItsVictimBeforeTheTrialBegins(GameTestHelper helper) {
         fillFloor(helper);
         ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        // Mock players carry creative abilities; creatures only act on survival players.
+        player.getAbilities().invulnerable = false;
         NetworkRegistry.configureMockConnection(player.connection.getConnection());
         Vec3 start = helper.absoluteVec(new Vec3(8.5D, 1.0D, 8.5D));
         player.moveTo(start.x + 1.8D, start.y, start.z, 90.0F, 0.0F);
@@ -655,6 +677,8 @@ public final class MinerDevourerGameTests {
     public static void devourerStaysHarmlessWhileItsBodyEmergesFromThePortal(GameTestHelper helper) {
         fillFloor(helper);
         ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        // Mock players carry creative abilities; creatures only act on survival players.
+        player.getAbilities().invulnerable = false;
         NetworkRegistry.configureMockConnection(player.connection.getConnection());
         Vec3 playerPos = helper.absoluteVec(new Vec3(8.5D, 1.0D, 4.5D));
         player.moveTo(playerPos.x, playerPos.y, playerPos.z, 0.0F, 0.0F);
@@ -689,6 +713,8 @@ public final class MinerDevourerGameTests {
     public static void aDevourerKilledMidSeizeReleasesItsVictim(GameTestHelper helper) {
         fillFloor(helper);
         ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        // Mock players carry creative abilities; creatures only act on survival players.
+        player.getAbilities().invulnerable = false;
         NetworkRegistry.configureMockConnection(player.connection.getConnection());
         Vec3 start = helper.absoluteVec(new Vec3(8.5D, 1.0D, 8.5D));
         player.moveTo(start.x + 1.8D, start.y, start.z, 90.0F, 0.0F);
@@ -720,6 +746,8 @@ public final class MinerDevourerGameTests {
     public static void devourerIgnoresACreativePlayer(GameTestHelper helper) {
         fillFloor(helper);
         ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        // Mock players carry creative abilities; creatures only act on survival players.
+        player.getAbilities().invulnerable = false;
         NetworkRegistry.configureMockConnection(player.connection.getConnection());
         Vec3 start = helper.absoluteVec(new Vec3(8.5D, 1.0D, 8.5D));
         player.moveTo(start.x + 1.8D, start.y, start.z, 90.0F, 0.0F);
@@ -753,6 +781,8 @@ public final class MinerDevourerGameTests {
             GameTestHelper helper) {
         fillFloor(helper);
         ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        // Mock players carry creative abilities; creatures only act on survival players.
+        player.getAbilities().invulnerable = false;
         NetworkRegistry.configureMockConnection(player.connection.getConnection());
         Vec3 playerPos = helper.absoluteVec(new Vec3(8.5D, 1.0D, 4.5D));
         player.moveTo(playerPos.x, playerPos.y, playerPos.z, 0.0F, 0.0F);
@@ -870,6 +900,8 @@ public final class MinerDevourerGameTests {
                 "The elsewhere dimension must load on a normal dedicated server");
         fillFloor(helper);
         ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        // Mock players carry creative abilities; creatures only act on survival players.
+        player.getAbilities().invulnerable = false;
         NetworkRegistry.configureMockConnection(player.connection.getConnection());
         Vec3 origin = helper.absoluteVec(new Vec3(8.5D, 1.0D, 8.5D));
         player.moveTo(origin.x, origin.y, origin.z, 0.0F, 0.0F);
@@ -958,6 +990,7 @@ public final class MinerDevourerGameTests {
         helper.getLevel().getGameRules().getRule(GameRules.RULE_KEEPINVENTORY)
                 .set(false, helper.getLevel().getServer());
         ServerPlayer[] current = {helper.makeMockServerPlayerInLevel()};
+        current[0].getAbilities().invulnerable = false;
         NetworkRegistry.configureMockConnection(current[0].connection.getConnection());
         Vec3 origin = helper.absoluteVec(new Vec3(8.5D, 1.0D, 8.5D));
         current[0].moveTo(origin.x, origin.y, origin.z, 0.0F, 0.0F);
@@ -1029,6 +1062,8 @@ public final class MinerDevourerGameTests {
         }
         fillFloor(helper);
         ServerPlayer player = helper.makeMockServerPlayerInLevel();
+        // Mock players carry creative abilities; creatures only act on survival players.
+        player.getAbilities().invulnerable = false;
         NetworkRegistry.configureMockConnection(player.connection.getConnection());
         player.setInvulnerable(true);
         Vec3 origin = helper.absoluteVec(new Vec3(8.5D, 1.0D, 8.5D));
@@ -1107,7 +1142,11 @@ public final class MinerDevourerGameTests {
                 "The elsewhere dimension must load on a normal dedicated server");
         fillFloor(helper);
         ServerPlayer first = helper.makeMockServerPlayerInLevel();
+        // Mock players carry creative abilities; creatures only act on survival players.
+        first.getAbilities().invulnerable = false;
         ServerPlayer second = helper.makeMockServerPlayerInLevel();
+        // Mock players carry creative abilities; creatures only act on survival players.
+        second.getAbilities().invulnerable = false;
         NetworkRegistry.configureMockConnection(first.connection.getConnection());
         NetworkRegistry.configureMockConnection(second.connection.getConnection());
         Vec3 firstOrigin = helper.absoluteVec(new Vec3(5.5D, 1.0D, 8.5D));
